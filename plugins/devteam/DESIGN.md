@@ -364,8 +364,8 @@ being careful.
 |---|---|---|
 | `check_trace.py` | charter ↔ requirements ↔ tasks ↔ acceptance checks | `orphan-scope`, `uncovered-requirement`, `unmotivated-task`, `unverified-requirement` |
 | `check_refs.py` | citations ↔ declarations, and links ↔ files | `broken-link`, `cited-undefined`, `defined-uncited`, `duplicate-id`, `dangling-question`, `leak` |
-| `check_report.py` | a committed REPORT block ↔ the tree it claims | `no-report`, `missing-field`, `bad-status`, `status-mismatch`, `unknown-commit`, `dirty-tree`, `scope-violation` |
-| `check_scope.py` | a task's declared scope ↔ every other live claim | `overlapping-scope`, `undeclared-write` |
+| `check_report.py` | a committed REPORT block ↔ the tree it claims | `no-report`, `wrong-task`, `missing-field`, `bad-report-status`, `status-mismatch`, `unknown-commit`, `head-subject`, `dirty-tree`, `no-evidence` |
+| `check_scope.py` | a task's declared scope ↔ every other live claim, and ↔ what it actually wrote | `overlapping-scope`, `undeclared-write`, `empty-scope`, `scope-escapes-tree` |
 
 **`defined-uncited` and `unmotivated-task` are the ones that earn their keep.**
 A decision nothing cites is usually a requirement that states a rule and forgot
@@ -375,6 +375,24 @@ diff.
 
 **`leak` runs before anything is pushed.** Absolute home paths, tokens, keys.
 These projects may be public and the check costs milliseconds.
+
+**Scope checking lives in one script.** An earlier draft of this table put
+`scope-violation` in `check_report.py` and `undeclared-write` in
+`check_scope.py` — two names for one question, in two places, which is exactly
+what P-34 forbids. `check_scope.py` owns everything about scopes: whether two
+live tasks overlap, and whether a task's commits stayed inside what it
+declared. `check_report.py` owns the block's own consistency with the tree.
+
+**A task is live when its own title line says `RUNNING`** — the same source
+stale-claim recovery reads (P-14), rather than a second parse of the board's
+table, which could disagree with it.
+
+**One fault produces one finding.** Both `check_report` and `check_scope`
+suppress the consequences of a fault they have already reported: an invalid
+status is not also compared against the title, and a scope emptied by
+rejecting its entries is not also reported as empty. Cascading findings bury
+the cause under its own consequences and make a report harder to triage than
+the defect that caused it.
 
 Every script exits `0` clean, `1` findings, `2` could not run, and reads
 **git-tracked files only**, so scratch work is never a finding.
