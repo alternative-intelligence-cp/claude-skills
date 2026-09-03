@@ -15,6 +15,7 @@ is exactly the finding `defined-uncited` exists to surface.
 
 ---
 
+<!-- example:begin -->
 ### D-1 — <the choice, stated as a claim>
 
 - **Decision.** <what was decided, in one sentence>
@@ -25,3 +26,4 @@ is exactly the finding `defined-uncited` exists to surface.
 - **Date.** <YYYY-MM-DD>
 - **Supersedes.** none
 - **Reviewed.** client
+<!-- example:end -->

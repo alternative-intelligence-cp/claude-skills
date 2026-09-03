@@ -58,9 +58,9 @@ LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 # citations is the false positive that gets a check disabled (P-35).
 ARTIFACTS = re.compile(
     r"^(CHARTER|REQUIREMENTS|DECISIONS|QUESTIONS|BOARD|RECORD|PERMISSIONS)\.md$"
-    r"|^tasks/[^/]+\.md$"
-    r"|^checkpoints/[^/]+\.md$"
-    r"|^research/[^/]+\.md$"
+    r"|^tasks/T-\d+\.md$"
+    r"|^checkpoints/C-\d+[^/]*\.md$"
+    r"|^research/(?!README\.md$)[^/]+\.md$"
 )
 
 # Each entry is scoped to the file it governs. `Status.` means different

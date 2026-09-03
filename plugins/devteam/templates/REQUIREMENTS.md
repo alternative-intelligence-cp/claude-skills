@@ -14,6 +14,7 @@ requests" is one, because there is no argument about whether it happened.
 
 ---
 
+<!-- example:begin -->
 ### R-1 — <short title>
 
 - **Statement.** <what must be true of the finished thing, normatively>
@@ -31,3 +32,4 @@ requests" is one, because there is no argument about whether it happened.
 - **Acceptance.** `<...>` → <...>
 - **Priority.** must
 - **Status.** open
+<!-- example:end -->

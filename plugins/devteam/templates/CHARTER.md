@@ -23,8 +23,10 @@ interview is not finished.>
 one of these, and a goal no requirement covers is an `orphan-scope` finding
 (P-4).>
 
+<!-- example:begin -->
 - **G-1** — <one sentence>
 - **G-2** — <one sentence>
+<!-- example:end -->
 
 ## Done means
 
@@ -32,8 +34,10 @@ one of these, and a goal no requirement covers is an `orphan-scope` finding
 — the specific things that will be true. These become the final checkpoint's
 checklist.>
 
+<!-- example:begin -->
 - **DM-1** — <observable condition>
 - **DM-2** — <observable condition>
+<!-- example:end -->
 
 ## Out of scope
 
@@ -41,7 +45,9 @@ checklist.>
 refuse work without asking. Something here is not built, and a request for it is
 a `CHARTER` class question (P-26), which always stops for the client.>
 
+<!-- example:begin -->
 - <thing we are deliberately not building, and why>
+<!-- example:end -->
 
 ## Constraints
 
@@ -65,7 +71,9 @@ a `CHARTER` class question (P-26), which always stops for the client.>
 <Things known to be true and chosen anyway, so that meeting one later is not
 treated as a discovery. Each with the reason it was accepted.>
 
+<!-- example:begin -->
 - <risk> — accepted because <reason>
+<!-- example:end -->
 
 ## Amendments
 

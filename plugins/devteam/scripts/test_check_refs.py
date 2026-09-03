@@ -150,6 +150,11 @@ CASES = [
     ("links-and-leaks-are-checked-outside-artifacts-too",
      [("tracked", "NOTES.md", "See [gone](nope.md) at /home/someone/x/\n")],
      {"broken-link", "leak"}),
+    ("fp-directory-readme-is-not-an-artifact",
+     [("tracked", "tasks/README.md",
+       "One file per task, named `T-1.md`. See `C-1-<date>.md` for checkpoints.\n"),
+      ("tracked", "research/README.md", "Digests live here; see D-9 for the policy.\n")],
+     set()),
     ("fp-untracked-file-is-not-scanned",
      [("untracked", "SCRATCH.md", "Broken [link](nope.md) and R-99 and /home/x/y/\n")], set()),
 ]

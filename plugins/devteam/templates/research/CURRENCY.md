@@ -11,4 +11,6 @@ claim**, because the model's knowledge has a cutoff and the world does not.
 
 | Depends on | Pinned | Checked | Source | Digest | Decision |
 |---|---|---|---|---|---|
+<!-- example:begin -->
 | <e.g. tzdata> | <2026c> | <YYYY-MM-DD> | <primary URL> | `<topic>.md` | D-3 |
+<!-- example:end -->

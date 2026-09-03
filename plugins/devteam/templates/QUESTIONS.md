@@ -15,6 +15,7 @@ was reached.
 
 ---
 
+<!-- example:begin -->
 ### Q-1 — <the question, in one sentence, answerable>
 
 - **Class.** REVERSIBLE
@@ -24,3 +25,4 @@ was reached.
 - **Would change if.** <what would make the recommendation wrong>
 - **Raised.** <YYYY-MM-DD> by <T-n>
 - **Status.** open
+<!-- example:end -->

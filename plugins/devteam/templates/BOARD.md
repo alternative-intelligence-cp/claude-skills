@@ -39,7 +39,9 @@ a session that is not you, do not write in `devteam/`. This file is exempt: it
 
 | Task | Title | Discharges | Depends on | Scope | State |
 |---|---|---|---|---|---|
+<!-- example:begin -->
 | `T-1` | <title> | R-1 | none | `src/…` | — |
+<!-- example:end -->
 
 ## Questions for the client
 
