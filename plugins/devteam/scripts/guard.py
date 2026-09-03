@@ -1,0 +1,345 @@
+#!/usr/bin/env python3
+"""PreToolUse guard for a devteam project: three rules, one script.
+
+1. PROTECTED PATHS ARE READ-ONLY. The charter declares them -- vendored
+   dependencies, generated trees, sibling repositories, production config.
+   Reading, grepping and listing them is always fine.
+2. WHILE THE LOOP IS RUNNING, A WRITE MUST LAND INSIDE THE DECLARED SCOPE OF
+   A LIVE TASK (P-10, P-12). This is what makes width greater than one safe
+   inside one repository. Enforced only when at least one task is RUNNING,
+   because outside the loop the project is the author's to edit.
+3. `devteam/` IS WRITTEN ONLY BY THE SESSION THE BOARD NAMES (P-13), with
+   BOARD.md itself exempt -- it IS the lock. Taking it is always possible and
+   always in the history, and the session refused afterwards is the one that
+   lost it. Without the exemption nobody could ever hand the lock over.
+
+Covers Bash, Write, Edit and NotebookEdit in one place, because a guard that
+covers the file tools and not the shell (or the reverse) has a hole exactly
+where somebody will walk.
+
+THE RULE THAT MATTERS: a write is judged by its TARGET, never by whether the
+command text mentions a protected path. A guard that refuses `cat > NOTES.md`
+because the document being written happens to describe a protected tree is a
+guard that gets switched off -- which is strictly worse than no guard (P-35).
+More than a third of its control's cases are false-positive controls for
+exactly this reason.
+
+Self-scoping is on the SESSION'S PROJECT DIRECTORY (`CLAUDE_PROJECT_DIR`), not
+the hook's per-call `cwd`, because `cwd` follows the shell's `cd` -- and a `cd`
+into a protected tree, which is a read and allowed, would otherwise disarm the
+guard for the next call. The per-call `cwd` is still what relative targets
+resolve against, because it is what the shell will use.
+
+KNOWN LIMITS, STATED: an interpreter heredoc that writes (`python3 - <<PY`)
+cannot be classified from the command text, and a target containing an
+unexpanded variable (`"$REPO"`) cannot be resolved and is not judged. The
+airtight mechanism for the first is the sandbox's own write-deny list; this is
+a second layer, not the only one.
+
+Set DEVTEAM_GUARD=off to disable. Reads PreToolUse JSON on stdin; prints a
+deny decision, or nothing.  Control: test_guard.py.
+"""
+import json
+import os
+import re
+import shlex
+import sys
+
+# Commands whose non-flag arguments are ALL written to.
+WRITE_CMDS = {
+    "rm": "a removal", "rmdir": "a removal", "unlink": "a removal",
+    "shred": "a removal", "tee": "tee", "truncate": "a truncate",
+    "mkdir": "a create", "touch": "a create", "chmod": "a permission change",
+    "chown": "an ownership change", "chgrp": "an ownership change",
+    "patch": "patch",
+}
+# Only the LAST argument is written; the rest are SOURCES, and reading a source
+# out of a protected tree is exactly what this guard must allow.
+DEST_LAST_CMDS = {"cp": "a copy", "install": "an install",
+                  "rsync": "an rsync", "ln": "a link"}
+BOTH_ENDS_CMDS = {"mv": "a move"}
+GIT_WRITE = {
+    "add", "commit", "checkout", "switch", "restore", "reset", "revert",
+    "merge", "rebase", "cherry-pick", "push", "pull", "fetch", "stash",
+    "clean", "rm", "mv", "apply", "am", "init", "gc", "prune", "worktree",
+    "tag", "remote", "config",
+}
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1.*?^\s*\2\s*$", re.S | re.M)
+SEPARATORS = {"&&", "||", ";", ";;", "|", "|&", "&"}
+REDIRECTS = {">", ">>", "&>", "&>>"}
+
+DASH = r"[—–-]"
+TITLE = re.compile(r"^#\s+(T-\d+)\s*" + DASH + r"\s*(.*?)\s*" + DASH + r"\s*(\S.*)$")
+SCOPE_FIELD = re.compile(r"^-\s+\*\*Scope\.\*\*\s*(.*)$")
+SCOPE_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
+ANY_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]")
+WRITER = re.compile(r"^\*\*Writer\.\*\*\s*(.*)$")
+PROTECTED_ROW = re.compile(r"^\|\s*Protected paths\s*\|(.*)\|", re.I)
+PLACEHOLDER = re.compile(r"[<>]")
+
+
+def strip_heredocs(cmd):
+    """A heredoc body is DATA, not command."""
+    prev = None
+    while prev != cmd:
+        prev, cmd = cmd, HEREDOC.sub("<<STRIPPED", cmd)
+    return cmd
+
+
+def inside(path, root):
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def resolve(target, cwd):
+    """Absolute real path of a target, or None if it cannot be judged."""
+    if not target or target.startswith("-") or "$" in target or "*" in target:
+        return None
+    t = os.path.expanduser(target)
+    return os.path.realpath(t if os.path.isabs(t) else os.path.join(cwd, t))
+
+
+def tokens(cmd):
+    try:
+        lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        return list(lex)
+    except ValueError:
+        return cmd.split()
+
+
+def targets(cmd, cwd):
+    """(absolute target, description) for every write, following `cd` anywhere."""
+    for m in re.finditer(r"\bof=([^\s;|&()]+)", cmd):
+        yield resolve(m.group(1), cwd), "dd"
+    toks = tokens(cmd)
+    eff, stack, seg = cwd, [], []
+
+    def flush(seg, eff):
+        if not seg:
+            return eff
+        base = os.path.basename(seg[0])
+        args = [a for a in seg[1:] if not a.startswith("-")]
+        if base in ("cd", "pushd"):
+            dest = os.path.expanduser(args[0]) if args else os.path.expanduser("~")
+            if "$" not in dest:
+                return os.path.realpath(dest if os.path.isabs(dest) else os.path.join(eff, dest))
+        return eff
+
+    i, n = 0, len(toks)
+    while i < n:
+        t = toks[i]
+        if t == "(":
+            stack.append(eff); seg = []; i += 1; continue
+        if t == ")":
+            eff = flush(seg, eff); seg = []
+            eff = stack.pop() if stack else eff
+            i += 1; continue
+        if t in SEPARATORS:
+            eff = flush(seg, eff); seg = []; i += 1; continue
+        if t in REDIRECTS:
+            if i + 1 < n and not toks[i + 1].startswith("&"):
+                yield resolve(toks[i + 1], eff), "a redirection"
+                i += 2; continue
+            i += 1; continue
+        if t.startswith(">") or t.startswith("<"):
+            i += 1; continue
+        seg.append(t)
+        i += 1
+        if i == n or toks[i] in SEPARATORS or toks[i] in ("(", ")") or toks[i] in REDIRECTS:
+            base = os.path.basename(seg[0])
+            args = [a for a in seg[1:] if not a.startswith("-")]
+            if base in WRITE_CMDS:
+                for a in args:
+                    yield resolve(a, eff), WRITE_CMDS[base]
+            elif base in BOTH_ENDS_CMDS:
+                for a in args:
+                    yield resolve(a, eff), BOTH_ENDS_CMDS[base]
+            elif base in DEST_LAST_CMDS and args:
+                yield resolve(args[-1], eff), DEST_LAST_CMDS[base]
+            elif base in ("sed", "perl") and any(a.startswith("-") and "i" in a for a in seg[1:4]):
+                for a in args:
+                    r = resolve(a, eff)
+                    if r and os.path.exists(r):
+                        yield r, f"{base} -i"
+            elif base == "git":
+                rest = seg[1:]
+                gdir = None
+                if len(rest) >= 2 and rest[0] == "-C":
+                    gdir, rest = rest[1], rest[2:]
+                sub = next((r for r in rest if not r.startswith("-")), None)
+                if sub in GIT_WRITE:
+                    yield resolve(gdir if gdir is not None else ".", eff), "a mutating git subcommand"
+
+
+def find_project(start):
+    """Nearest ancestor containing a devteam/ directory, or None."""
+    cur = os.path.realpath(start)
+    while True:
+        if os.path.isdir(os.path.join(cur, "devteam")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return None
+        cur = parent
+
+
+def read(path):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return fh.read().split("\n")
+    except OSError:
+        return []
+
+
+def load_state(project):
+    """(protected paths, live scopes, writer line) for this project."""
+    devteam = os.path.join(project, "devteam")
+
+    protected = []
+    for line in read(os.path.join(devteam, "CHARTER.md")):
+        m = PROTECTED_ROW.match(line)
+        if m:
+            for raw in re.split(r"[,;]", m.group(1)):
+                raw = raw.strip().strip("`").strip()
+                if not raw or PLACEHOLDER.search(raw) or raw.lower() in ("none", "n/a"):
+                    continue
+                p = os.path.expanduser(raw)
+                protected.append(os.path.realpath(
+                    p if os.path.isabs(p) else os.path.join(project, p)))
+
+    live = {}
+    tasks_dir = os.path.join(devteam, "tasks")
+    for name in sorted(os.listdir(tasks_dir)) if os.path.isdir(tasks_dir) else []:
+        if not name.endswith(".md"):
+            continue
+        ident = status = None
+        scope, collecting = [], False
+        for line in read(os.path.join(tasks_dir, name)):
+            m = TITLE.match(line)
+            if m and ident is None:
+                ident, status = m.group(1), m.group(3).strip()
+                continue
+            if SCOPE_FIELD.match(line):
+                collecting = True
+                continue
+            if collecting:
+                item = SCOPE_ITEM.match(line)
+                if item:
+                    scope.append(item.group(1))
+                    continue
+                if line.strip() and (ANY_FIELD.match(line) or line.startswith("#")):
+                    collecting = False
+        if ident and status and status.startswith("RUNNING"):
+            paths = []
+            for raw in scope:
+                raw = raw.strip().strip("`")
+                if not raw or PLACEHOLDER.search(raw) or raw.startswith("~") or os.path.isabs(raw):
+                    continue
+                if ".." in raw.split("/"):
+                    continue
+                paths.append(os.path.realpath(os.path.join(project, raw)))
+            live[ident] = paths
+
+    writer = None
+    for line in read(os.path.join(devteam, "BOARD.md")):
+        m = WRITER.match(line)
+        if m:
+            writer = m.group(1)
+            break
+    return protected, live, writer
+
+
+def judge(target, what, project, session, state):
+    """None, or a refusal reason for a target this session may not write."""
+    if target is None:
+        return None
+    protected, live, writer = state
+    devteam = os.path.join(project, "devteam")
+    board = os.path.join(devteam, "BOARD.md")
+
+    for p in protected:
+        if inside(target, p):
+            return (f"Refused: {what} targeting {p}, which the charter declares a "
+                    "protected path. It is read-only from this project — reading, "
+                    "grepping and listing it are fine. If it genuinely needs a "
+                    "change, that is a question for the client, not an edit "
+                    "(P-39): a permission the pipeline does not have is a stop, "
+                    "never a workaround.")
+
+    if inside(target, devteam):
+        if target == board:
+            return None                       # the board IS the lock
+        if writer is None or re.search(r"\bnone\b", writer):
+            return None
+        if session and session in writer:
+            return None
+        return (f"Refused: {what} into devteam/, and BOARD.md names another session "
+                f"as its writer (this session is {session or 'unknown'}). One "
+                "writer here (P-13). If that session is gone, take the lock: set "
+                "the `**Writer.**` line to this session's id — BOARD.md itself is "
+                "always writable — and record the takeover in RECORD.md.")
+
+    if not live or not inside(target, project):
+        return None                           # loop not running, or outside the project
+
+    for paths in live.values():
+        for p in paths:
+            if inside(target, p):
+                return None
+
+    running = ", ".join(sorted(live))
+    return (f"Refused: {what} to a path no live task has claimed, while {running} "
+            f"is running. A task declares the paths it writes and a worker stays "
+            "inside them (P-10, P-12) — that is what keeps two agents out of one "
+            "file. If this task genuinely needs this path, that is an escalation "
+            "to widen its scope, not a write outside it.")
+
+
+def main():
+    if (os.environ.get("DEVTEAM_GUARD") or "").lower() in ("off", "0", "false"):
+        return 0
+    try:
+        data = json.load(sys.stdin)
+    except Exception:
+        return 0
+    if data.get("tool_name") not in ("Bash", "Write", "Edit", "NotebookEdit"):
+        return 0
+
+    cwd = os.path.realpath(data.get("cwd") or os.getcwd())
+    project_dir = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or cwd)
+    project = find_project(project_dir)
+    if project is None:
+        return 0                              # not a devteam project: inert
+
+    try:
+        state = load_state(project)
+    except OSError:
+        return 0
+    session = str(data.get("session_id") or "")
+    ti = data.get("tool_input") or {}
+
+    reason = None
+    if data["tool_name"] == "Bash":
+        # A newline separates commands as surely as `;`. Without this the line
+        # after a heredoc is swallowed into the interpreter's segment.
+        cmd = strip_heredocs(ti.get("command") or "").replace("\n", " ; ")
+        for target, what in targets(cmd, cwd):
+            reason = judge(target, what, project, session, state)
+            if reason:
+                break
+    else:
+        path = ti.get("file_path") or ti.get("notebook_path") or ""
+        reason = judge(resolve(path, cwd), "a direct write", project, session, state)
+
+    if reason is None:
+        return 0
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason": reason,
+    }}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
