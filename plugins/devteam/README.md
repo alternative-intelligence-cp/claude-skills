@@ -10,10 +10,12 @@ It runs unattended for hours. It stops for exactly three things: a decision
 that cannot be undone, a change to what is being built, and a checkpoint that
 finds the work has drifted from the charter.
 
-> **Status: in development.** Phase 0 (design) is complete —
-> [`DESIGN.md`](DESIGN.md) and [`PROTOCOL.md`](PROTOCOL.md). The skills, agents
-> and checks are being built against them; [`DESIGN.md` §14](DESIGN.md) is the
-> build order and what "done" means for each phase.
+> **Status: in development.** The design, the checks, the guard and all ten
+> skills and five agents are written and internally consistent — 127 control
+> cases green. What has *not* happened yet is a real project running end to
+> end through it, which is what [`DESIGN.md` §14](DESIGN.md) phase 3 actually
+> requires. Writing a procedure is not the same as running it, so treat this
+> as buildable-but-unproven until the rehearsal in phase 4.
 
 ## Read these
 

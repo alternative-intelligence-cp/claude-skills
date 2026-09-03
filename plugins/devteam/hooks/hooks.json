@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/reinject.py",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

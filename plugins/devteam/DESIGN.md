@@ -580,12 +580,20 @@ riskiest unknown goes earliest and a probe that fails changes the design.
 
 | Phase | What | Done when |
 |---|---|---|
-| **0** | this document and `PROTOCOL.md` | ✅ complete |
-| **1** | marketplace, plugin manifest, repository housekeeping | the plugin loads and `/devteam:` commands are listed |
-| **2** | `setup`, the four checks with their controls, the guard with its control | every control passes, including the false-positive cases |
-| **3** | one path end to end: `onboard` → `plan` → one task → `supervise` → `implementer` → `verify` → `checkpoint` | a trivial project goes from idea to verified commit with no manual intervention between gates |
+| **0** | this document and `PROTOCOL.md` | ✅ **done** |
+| **1** | marketplace, plugin manifest, repository housekeeping | ✅ **done** — the plugin loads and its manifests resolve |
+| **2** | `setup`, the checks with their controls, the guard with its control | ✅ **done** — 127 control cases green, 57% of them false-positive controls; a freshly scaffolded project checks clean |
+| **3** | one path end to end: `onboard` → `plan` → one task → `supervise` → `implementer` → `verify` → `checkpoint` | ◐ **written, not yet walked.** Ten skills, five agents and both hooks exist and are internally consistent. The phase is not done until a trivial project goes from idea to verified commit with no manual intervention between gates — writing the procedure is not the same as running it |
 | **4** | rehearse on a throwaway project; fix what the rehearsal breaks | the loop survives a compaction, a killed agent, and a deliberately failing check |
-| **5** | remaining roles: three auditors, tester, documenter, reviewer, researcher, planner | each dispatched and verified at least once in the rehearsal project |
+| **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | each dispatched and verified at least once in the rehearsal project |
 
 Phase 3 is the one that matters. Everything before it is scaffolding, and
 everything after it is filling in a loop already known to work.
+
+**The plugin checks itself.** `scripts/check_plugin.py` diffs what the plugin
+references against what it contains — an agent preloading a skill that does
+not exist, a rule cited that `PROTOCOL.md` does not declare, a script named in
+a hook that is not there, a check with no negative control beside it. It is
+the same discipline this pipeline imposes on the projects it runs, pointed at
+itself, and it caught its own self-exemption: it had excluded itself from its
+own `uncontrolled-check` scan.
