@@ -1,0 +1,10 @@
+{
+  "name": "devteam",
+  "version": "0.1.0",
+  "description": "A three-layer development pipeline — project manager, task supervisors, specialist workers — that takes a project from a client's idea to a working product under a written charter, with traceable requirements, independent verification of every report, and escalations classified by reversibility.",
+  "author": {
+    "name": "Randy"
+  },
+  "homepage": "https://github.com/alternative-intelligence-cp/claude-skills",
+  "license": "Apache-2.0"
+}

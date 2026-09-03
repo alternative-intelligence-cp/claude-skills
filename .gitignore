@@ -1,1 +1,31 @@
-.internal
+# Runtime and scratch
+.internal/
+**/.run/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Claude Code local overrides — machine-specific, never shared
+.claude/settings.local.json
+
+# Editor and OS residue
+*.swp
+*~
+.DS_Store
+.idea/
+.vscode/
+
+# ---------------------------------------------------------------------------
+# NOT ignored, deliberately
+# ---------------------------------------------------------------------------
+# plugins/*/templates/     the artifact templates a target project receives.
+#                          They look like generated output and are not — they
+#                          are the source of truth for what setup installs.
+# plugins/*/scripts/       the checks and the guard, including their negative
+#                          controls. A control that is not shipped cannot be
+#                          run by whoever doubts the check.
+# .claude-plugin/          the marketplace and plugin manifests.

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-skills",
+  "description": "Agentic workflows for software projects — multi-agent pipelines with written charters, traceable requirements, independent verification and auditable records.",
+  "owner": {
+    "name": "Randy",
+    "url": "https://github.com/alternative-intelligence-cp"
+  },
+  "plugins": [
+    {
+      "name": "devteam",
+      "displayName": "Development Team",
+      "description": "A three-layer development pipeline that carries a project from a client's idea to a working product: an interview that produces a signed charter, numbered requirements traced to tasks and tests, supervisors that dispatch and verify specialist workers, independent verification of every report, scheduled checkpoints that diff the built thing against the charter, and escalations classified by reversibility so the loop keeps running without guessing on anything that matters.",
+      "author": {
+        "name": "Randy"
+      },
+      "category": "workflow",
+      "version": "0.1.0",
+      "source": "./plugins/devteam",
+      "keywords": [
+        "multi-agent",
+        "orchestration",
+        "requirements-traceability",
+        "code-review",
+        "project-management"
+      ]
+    }
+  ]
+}
