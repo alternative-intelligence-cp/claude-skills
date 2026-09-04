@@ -77,9 +77,20 @@ thin.** It is a dispatch-and-verify loop, not a designer. Anything it might be
 tempted to implement itself is a step, and a step gets a worker. A supervisor
 that implements is a second, unverified writer inside a task.
 
-**P-9 — Only the project manager speaks to the client.** A supervisor escalates
-to the manager; a worker escalates to its supervisor. This keeps one voice, one
-batching policy (P-27), and one record of what was asked and answered.
+**P-9 — Only the project manager speaks to the client, and the channel is
+recorded rather than assumed.** A supervisor escalates to the manager; a worker
+escalates to its supervisor. This keeps one voice, one batching policy (P-27),
+and one record of what was asked and answered.
+
+**The client is not necessarily a person at this terminal.** It may be another
+session, an agent, a script, or nobody at all — so the charter names the
+channel (`terminal`, `session <name>`, `both`, `none`) and every path that
+reaches the client consults it. An interactive-only escalation is a defect, not
+a simplification: it silently converts "the client did not answer" into "the
+loop hung", and the two need different responses. Where the channel is `none`,
+`REVERSIBLE` questions proceed on their recommendations and `IRREVERSIBLE` and
+`CHARTER` questions stop the task and wait, which is the honest behaviour when
+there is nobody to ask.
 
 **P-10 — A worker writes only inside its task's declared scope.** Every task
 names the paths it may write (P-12). Writing outside them is refused by the

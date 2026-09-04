@@ -95,7 +95,7 @@ saying too.
 | Verdict | Means | Then |
 |---|---|---|
 | `ON-COURSE` | every goal traceable to evidence; divergence all recorded | file it, keep going, **do not interrupt the client** |
-| `DRIFTED` | a goal unsatisfied, or divergence nobody decided | **goes to the client**, with what drifted and a recommendation |
+| `DRIFTED` | a goal unsatisfied, or divergence nobody decided | **goes to the client** on the charter's `Client channel` (P-9), with what drifted and a recommendation |
 | `BLOCKED` | the loop cannot proceed | to the client, with exactly what is needed |
 
 Be willing to write `DRIFTED`. A checkpoint that has never returned anything

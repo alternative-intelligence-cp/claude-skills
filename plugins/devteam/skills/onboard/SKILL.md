@@ -66,9 +66,25 @@ goals: it is what lets the loop refuse work later without asking. A client who
 cannot name anything out of scope has not finished thinking about it, and that
 is a finding worth saying out loud.
 
-**Batch your questions.** Four at a time with `AskUserQuestion`, each with a
-recommendation where you have one. Twenty separate prompts will get you
-twenty-word answers.
+**Batch your questions, over whichever channel the client is on.** Four at a
+time, each with a recommendation where you have one. Twenty separate prompts
+get you twenty-word answers.
+
+**Do not assume the client is a person at this terminal.** They may be another
+session, an agent, or a script, and the channel is the charter's `Client
+channel` row (P-9) — established at setup, before the interview, because you
+cannot ask the client how to reach them.
+
+| Channel | How you ask |
+|---|---|
+| `terminal` | `AskUserQuestion`, four options where they fit |
+| `session <name>` | `SendMessage` to that name — same batching, same recommendation per question, and say plainly that you are waiting on an answer |
+| `both` | `AskUserQuestion` for anything that fits four options; a message for the rest, and for anything long |
+| `none` | there is no interview. Say so, write the charter from research and inference with **every** inferred value marked as an assumption, and get it signed at the first checkpoint instead |
+
+Over a message channel you lose the four-option affordance, so **write the
+options into the question and number them** — and keep the recommendation
+first, because a reader scanning a wall of text reads the first line.
 
 ## 3. What you must come away with
 

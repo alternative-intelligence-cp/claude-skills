@@ -201,8 +201,16 @@ making the unreviewed set visible, not by pretending it is empty.*
 
 **Send the batch** when every running task is stopped, when the table holds
 three, or when the oldest unanswered item hits the window — whichever first.
-Use `AskUserQuestion` when it fits four options, otherwise a message. While
-waiting, other tasks keep running; when nothing runs, end the turn.
+**Send it on the channel the charter's `Client channel` row names** (P-9):
+`AskUserQuestion` for a terminal client when it fits four options, `SendMessage`
+for a session client, a message either way for anything longer. While waiting,
+other tasks keep running; when nothing runs, end the turn.
+
+**A channel that does not answer is not the same as a client who declined.** If
+the channel is `none`, or a session client is gone, say so in `RECORD.md` and
+apply P-26 as written — reversible questions proceed, irreversible and charter
+questions wait indefinitely and the task stays stopped. Do not reclassify a
+question because nobody is answering it.
 
 An answer becomes `question Q-n answered:` in `RECORD.md`, the question is
 struck through with its decision number (P-24), and the task restarts with the

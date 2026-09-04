@@ -57,10 +57,17 @@ Three rules for what goes in it:
 - **Nothing destructive.** No `rm`, no `sudo`. If the loop believes it needs
   one, that is a stop and an escalation (P-39), never a workaround.
 
-Then ask the client for the two dials the charter needs and nothing else can
+Then ask the client for the three dials the charter needs and nothing else can
 supply — **the escalation window** (how long a reversible question waits
-before the loop proceeds on its recommendation; four hours is the default)
-and **the model band** (a floor and a ceiling, P-40).
+before the loop proceeds on its recommendation; four hours is the default),
+**the model band** (a floor and a ceiling, P-40), and **the client channel**.
+
+**The channel has to be settled here, at setup**, because every later stage
+needs it and you cannot ask the client how to reach the client. It is
+`terminal`, `session <name>`, `both`, or `none` (P-9). If you are reading this
+because another session dispatched you, the channel is that session and you
+should say so rather than reaching for `AskUserQuestion` and waiting on a
+terminal nobody is watching.
 
 ## 3. Register the guard, then prove it actually fires
 
