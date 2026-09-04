@@ -148,10 +148,21 @@ Hooks are read at session start, so **this needs a restart.**
 
 **Skills and agents load differently, which will catch you out.** A skill added
 to an installed plugin appears in the *current* session almost immediately. A
-new **agent type** does not — agents are read at session start, so a dispatch
-to one added since startup fails with *"agent type not found"* while its skill
-sits there working. Add agents and hooks, then restart; add a skill and carry
-on.
+new **agent type** does not: a dispatch to one added minutes earlier fails with
+*"agent type not found"* while its skill sits there working.
+
+**What is actually known, since the obvious conclusion is wrong.** A new agent
+was measured as still undispatchable two minutes after its file was written,
+under both its bare and its namespaced name. But a separate long-running
+session, never restarted, watched this plugin's agents appear in batches over
+several hours. So agents **do** reach running sessions — with a lag of
+unmeasured length, not never.
+
+The practical rule is unchanged and the reason for it is not: **restart after
+adding an agent**, because that makes it available now rather than eventually,
+and "eventually" is not a thing you can plan a dispatch around. But do not tell
+somebody their session must restart to *receive* an agent you added — theirs
+may well pick it up on its own.
 
 **Then prove it, end to end.** After the restart, attempt one write the guard
 must refuse — a path outside every declared scope while a task is `RUNNING` —
