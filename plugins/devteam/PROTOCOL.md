@@ -115,9 +115,12 @@ new dispatch. After a session restart *every* claim is stale, because agent
 liveness is only visible within the session that spawned them.
 
 **P-15 — Width is an argument, and the default is one.** The number of
-concurrent tasks is a dial the client sets, never a constant. Helper agents —
-verifier, researcher — do not count against it, and two of a kind never run at
-once.
+concurrent tasks is a dial the client sets, never a constant. Helper agents
+that **write nothing** — verifier, researcher, auditor, reviewer — do not
+count against it, and several may run at once provided their dispatches
+differ: three auditors on three dimensions collide over nothing, because none
+of them can write. Two agents that *do* write never run against overlapping
+scope, which is P-12 and is checked before dispatch rather than trusted.
 
 ---
 
