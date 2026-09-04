@@ -8,6 +8,11 @@ between these three lists is mechanical and is where holes are actually found
 > **The manager owns this file** (P-13). A worker that finds a requirement wrong
 > reports it; it does not edit here.
 
+**`Status.` is one of:** `open` · `in-progress (T-n)` · `discharged (T-n)` ·
+`struck (D-n)`. A requirement whose task is closed is `discharged`, not `open`
+— nothing reconciles the two automatically, and a record that says `open` for
+work that is finished makes every later reading of this file wrong.
+
 **Acceptance is a command or an observation, never an adjective.** "Fast" is not
 a requirement. "`bench/latency.py` reports p99 under 200 ms at 100 concurrent
 requests" is one, because there is no argument about whether it happened.

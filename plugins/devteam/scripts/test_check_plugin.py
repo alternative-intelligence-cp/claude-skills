@@ -27,6 +27,20 @@ description: A fixture skill that does a thing, cited as (P-1).
 Run `python3 ${{CLAUDE_PLUGIN_ROOT}}/scripts/check_thing.py` and read
 [the protocol](../../PROTOCOL.md).
 """
+FORMATS = """# The formats
+
+| Prefix | Numbers | Declared in |
+|---|---|---|
+| `R-` | a requirement | REQUIREMENTS.md |
+| `T-` | a task | tasks/ |
+| `P-` | a protocol rule | external |
+"""
+
+REFS = '''# a scanner
+KNOWN = {"R", "T"}
+EXTERNAL = {"P"}
+'''
+
 AGENT = """---
 name: {name}
 description: A fixture agent.
@@ -41,7 +55,7 @@ You are a fixture (P-2).
 def build(mutate=None):
     root = os.path.realpath(tempfile.mkdtemp(prefix="devteam-plugincheck-"))
     plugin = os.path.join(root, "plugins", "devteam")
-    for d in ("skills/alpha", "agents", "scripts", ".claude-plugin"):
+    for d in ("skills/alpha", "agents", "scripts", "templates", ".claude-plugin"):
         os.makedirs(os.path.join(plugin, d), exist_ok=True)
     w = lambda p, b: open(os.path.join(plugin, p), "w", encoding="utf-8").write(b)
     w("PROTOCOL.md", PROTOCOL)
@@ -49,6 +63,9 @@ def build(mutate=None):
     w("agents/runner.md", AGENT.format(name="runner", skills="alpha"))
     w("scripts/check_thing.py", "# a check\n")
     w("scripts/test_check_thing.py", "# its control\n")
+    w("templates/FORMATS.md", FORMATS)
+    w("scripts/check_refs.py", REFS)
+    w("scripts/test_check_refs.py", "# its control\n")
     w(".claude-plugin/plugin.json", json.dumps({"name": "devteam", "version": "0.1.0"}))
     shutil.copy2(REAL, os.path.join(plugin, "scripts", "check_plugin.py"))
     if mutate:
@@ -109,6 +126,19 @@ CASES = [
      set()),
     ("fp-several-agents-share-one-skill",
      lambda p: w(p, "agents/second.md", AGENT.format(name="second", skills="alpha")),
+     set()),
+    # The reserved-prefix table and the scanner's sets are two lists of the
+    # same thing. Three collisions in one project came from a prefix nobody
+    # had reserved, so the two are diffed rather than trusted to agree.
+    ("namespace-drift-table-ahead-of-scanner",
+     lambda p: w(p, "templates/FORMATS.md", FORMATS + "| `XY-` | a new thing | somewhere |\n"),
+     {"namespace-drift"}),
+    ("namespace-drift-scanner-ahead-of-table",
+     lambda p: w(p, "scripts/check_refs.py", REFS.replace('{"R", "T"}', '{"R", "T", "ZZ"}')),
+     {"namespace-drift"}),
+    ("fp-three-letter-prefixes-do-not-need-reserving",
+     lambda p: w(p, "templates/FORMATS.md",
+                 FORMATS + "\nAudit findings use `COR-n`, `SEC-n`, `HYG-n`.\n"),
      set()),
     ("fp-rule-cited-in-prose-and-parens",
      lambda p: w(p, "PROTOCOL.md", PROTOCOL + "\nP-1 and P-2 are both cited here.\n"),

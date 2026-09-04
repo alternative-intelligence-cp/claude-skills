@@ -42,6 +42,54 @@ directions (P-22).
 
 ---
 
+## The namespace, and how not to collide with it
+
+**Every short prefix is reserved. This table is the whole of it.**
+
+| Prefix | Numbers | Declared in |
+|---|---|---|
+| `G-` | a charter goal | `CHARTER.md` |
+| `DM-` | a "done means" condition | `CHARTER.md` |
+| `R-` | a requirement | `REQUIREMENTS.md` |
+| `T-` | a task | `tasks/T-n.md` |
+| `S-` | a step within a task | that task's §Steps |
+| `D-` | a decision | `DECISIONS.md` |
+| `Q-` | an open question | `QUESTIONS.md` |
+| `C-` | a checkpoint | `checkpoints/` |
+| `P-` | a protocol rule | the plugin's `PROTOCOL.md` — **external**, cited here, never declared here |
+
+**The rule: anything else that numbers something uses a prefix of three or
+more letters.** `COR-1`, `SEC-5`, `HYG-3` for audit findings by dimension;
+`REV-2` for a review finding. Never a new one- or two-letter prefix.
+
+**Why, mechanically.** The citation scanner matches `[A-Z]{1,2}-<digits>`
+anywhere in an artifact. A two-letter identifier is therefore *indistinguishable
+from a citation* — there is no syntax that says "this is my own numbering, not
+a reference to yours". A three-letter prefix cannot match, so it is safe
+without any further agreement.
+
+**Why it matters, from experience.** This has now bitten three times, in three
+different disguises, and each time it cost a real finding:
+
+- a supervisor recommending a new requirement wrote `R-3` inside the
+  recommendation. It read as a citation to a requirement nobody had declared,
+  reported `cited-undefined`, and the proposal had to be reworded.
+- a security audit numbered its findings `S-1 … S-12`. Citing one from a task
+  file reported `cited-undefined` against a *step* that does not exist, so the
+  finding ended up referred to in prose and nearly lost.
+- both times the instinct was to obfuscate the identifier to get past the
+  check. **Do not.** A worker once wrote a plausible path that did not exist
+  for the same reason. If you need to name something the grammar does not
+  cover, give it a three-letter prefix and add it here.
+
+**Proposing something by number is not the same as citing it.** When you
+recommend a requirement that should exist, describe it — *"a requirement for
+undecodable input, same one-line form as R-2"*. The manager allocates the
+number on accepting it, because numbering is how a project records that it
+agreed to something.
+
+---
+
 ## Status vocabularies
 
 Closed sets. A value outside its set is `bad-status`, never a guess.

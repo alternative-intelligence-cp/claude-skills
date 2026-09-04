@@ -115,6 +115,30 @@ def main():
                     f"no test_{name} beside it — a check that has never failed "
                     "has not been shown to work")
 
+    # The reserved-prefix table and the scanner's own sets are two lists of the
+    # same thing, so they are diffed rather than trusted to agree. A prefix
+    # documented and not recognised is a citation nobody validates; one
+    # recognised and not documented is a collision waiting for whoever numbers
+    # something next.
+    formats = os.path.join(PLUGIN, "templates", "FORMATS.md")
+    refs = os.path.join(HERE, "check_refs.py")
+    if os.path.isfile(formats) and os.path.isfile(refs):
+        body = open(formats, encoding="utf-8").read()
+        documented = set(re.findall(r"^\|\s*`([A-Z]{1,2})-`\s*\|", body, re.M))
+        src = open(refs, encoding="utf-8").read()
+        recognised = set()
+        for name in ("KNOWN", "EXTERNAL"):
+            m = re.search(rf"^{name}\s*=\s*\{{([^}}]*)\}}", src, re.M)
+            if m:
+                recognised |= set(re.findall(r'"([A-Z]{1,2})"', m.group(1)))
+        if documented and recognised:
+            for p_ in sorted(documented - recognised):
+                add("namespace-drift", "templates/FORMATS.md",
+                    f"`{p_}-` is reserved in the table and not recognised by check_refs.py")
+            for p_ in sorted(recognised - documented):
+                add("namespace-drift", "scripts/check_refs.py",
+                    f"`{p_}-` is recognised by the scanner and not reserved in FORMATS.md")
+
     hooks = os.path.join(PLUGIN, "hooks", "hooks.json")
     if os.path.isfile(hooks):
         try:
