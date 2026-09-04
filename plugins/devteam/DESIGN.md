@@ -1132,6 +1132,34 @@ set at setup, with the honest asymmetry stated: **you can move up but not
 down.** Light work that turns out to matter can be re-planned; heavy ceremony
 spent on a throwaway is simply gone.
 
+### The model band is the same dial, seen twice
+
+A floor and a ceiling look like one setting and answer two different questions.
+**A ceiling controls cost. A floor prevents a class of error** — and which
+class depends entirely on the axis above.
+
+Where a wrong turn is cheap and immediately visible, there is no floor worth
+paying for: a weak model produces something mediocre, you see it, you fix it.
+Where a wrong turn is expensive and surfaces late, the floor is not buying
+quality, it is buying *not being subtly wrong in a way nobody notices for
+hours*. Those are different purchases and only the second justifies a floor
+above the cheapest thing that runs.
+
+So a project should be able to say "cheapest possible throughout" and mean it,
+and another should be able to say "nothing below X touches design" and have
+that enforced — and the charter's `Model band` row is where both already live
+(P-40). What is missing is the reasoning, per class, rather than one band for
+everything.
+
+**One measurement from this project, against the obvious assumption.** The
+verifier runs on a smaller model than the supervisor it checks, and it returned
+a correct FAIL on work that supervisor had reported DONE in good faith. That is
+evidence that *mechanical comparison* — re-run the exact command, diff the
+output, check the block — is genuinely a cheap-model task, and that the floor
+belongs where judgement is: design, planning, audit, and the interview. It is
+one data point and it argues against the reflex of spending the expensive model
+everywhere because verification sounds important.
+
 ### Why it is not built yet
 
 Because the only person qualified to say which parts are ceremony is somebody
