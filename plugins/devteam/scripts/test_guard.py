@@ -204,6 +204,23 @@ SPECIAL = [
      bash("git reset --hard HEAD~1"), WRITER_SESSION, True, None, None),
     ("deny-git-clean-with-no-pathspec",
      bash("git clean -fd"), WRITER_SESSION, True, None, None),
+
+    # --- the verifier's mutation recipe, which is now documented ----------
+    # A verifier holds no task claim, so every in-tree write it makes is "a
+    # path no live task has claimed" BY CONSTRUCTION. One concluded from that
+    # refusal that mutation was unavailable and fell back to reading the code
+    # -- downgrading P-18's independent re-measurement to an independent
+    # reading. The recipe below is the way out and must stay allowed.
+    ("fp-verifier-builds-a-mutation-outside-the-tree",
+     bash('git archive HEAD | tar -x -C /tmp/vfy-scratch'), WRITER_SESSION, False, None, None),
+    ("fp-verifier-writes-into-its-own-scratch",
+     write("/tmp/vfy-scratch/mutant.py"), WRITER_SESSION, False, None, None),
+    ("fp-verifier-cleans-up-its-own-scratch",
+     bash("rm -rf /tmp/vfy-scratch"), WRITER_SESSION, False, None, None),
+    # ...and an IN-tree scratch is still refused, which is the whole reason
+    # the recipe has to be written down.
+    ("deny-in-tree-scratch-from-a-party-holding-no-claim",
+     write(".run/scratch/mutant.py"), WRITER_SESSION, True, None, None),
     # `session in writer` was a substring test: a short id matched inside an
     # ordinary word in the writer line and was handed the lock.
     ("deny-session-id-that-is-only-a-substring-of-the-writer-line",

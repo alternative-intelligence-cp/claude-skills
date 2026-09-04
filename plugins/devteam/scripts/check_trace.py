@@ -22,6 +22,14 @@ Findings:
                          that does not exist
   dependency-cycle       tasks that can never start, because they wait on
                          each other
+  gate-omits-decision    a decision a requirement's Statement or Acceptance
+                         rests on, named in no discharging task's `Gate.`. A
+                         gate narrower than its requirement can only fail in
+                         the direction of shipping LESS, because the verifier
+                         reads the gate and P-18 puts it last. Existential
+                         over the discharging tasks, so partial discharge
+                         cannot defeat it -- and inert on a project whose
+                         requirements cite no decisions, which is a real limit
   one-sided-link         a requirement and a task that name each other only in
                          one direction. `Status.` names the task; `Discharges.`
                          names the requirements; nothing compared them, so a
@@ -104,6 +112,7 @@ DASH = r"[—–-]"
 SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 GOAL = re.compile(r"^-\s+\*\*(G-\d+)\*\*\s*" + DASH)
 TASK_REF = re.compile(r"\bT-\d+\b")
+DECISION_REF = re.compile(r"\bD-\d+\b")
 REQ = re.compile(r"^###\s+(R-\d+)\s*" + DASH + r"\s*(.*)$")
 TASK = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 # The hyphen is required: `Requires-write.` parsed as no field at all under
@@ -456,6 +465,41 @@ def check(devteam):
         # four closed tasks and every clean run. One of them was the only
         # requirement of a signed goal, so dispatching as briefed would have
         # left that goal half built with this whole pipeline reporting clean.
+        # A GATE NARROWER THAN ITS REQUIREMENT SHIPS LESS, SILENTLY.
+        #
+        # The verifier reads the GATE, and P-18 puts the verifier last, so the
+        # asymmetry is one-directional: a gate that asks for less than its
+        # requirement passes everything and delivers less, and nothing in the
+        # chain has a reason to notice. A real task's gate listed four things
+        # its requirement wanted and neither of the two caveats the same
+        # requirement had gone to a charter amendment to establish. A worker
+        # satisfying that gate exactly would have shipped a document omitting
+        # the remedy a signed requirement points its reader at, reinstating an
+        # alternative the project had explicitly declined, and passed.
+        #
+        # EXISTENTIAL over the discharging tasks, which is what makes it
+        # survive partial discharge: a requirement legitimately worked across
+        # three tasks only needs ONE of them to carry the obligation. The
+        # per-task form was measured first and produces 14 findings to 1 real
+        # on the same corpus, because a gate states what must be true and is
+        # not obliged to cite anything.
+        #
+        # The limit, stated because it is invisible: this is only as good as
+        # the requirement's decision citations. A project whose requirements
+        # cite no decisions gets no coverage here and no warning that it does
+        # not.
+        owners = [tid for tid, (_, tf, _) in tasks.items()
+                  if ident in [x.strip() for x in tf.get("Discharges", "").split(",")]]
+        if owners:
+            for d in sorted(set(DECISION_REF.findall(
+                    fields.get("Statement", "") + " " + fields.get("Acceptance", "")))):
+                if not any(d in tasks[o][1].get("Gate", "") for o in owners):
+                    add("gate-omits-decision", where,
+                        f"{ident} rests on {d} and no gate among "
+                        f"{', '.join(sorted(owners))} names it. Either a gate "
+                        f"should require what {d} decided, or {ident} should not "
+                        "be citing it")
+
         for tid in TASK_REF.findall(fields.get("Status", "")):
             if tid not in tasks:
                 continue

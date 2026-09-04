@@ -1318,6 +1318,39 @@ The measurement: one project produced **1,865 lines of design documents for a
 tool that will be about 200 lines of code**, across five gates, before any
 product code existed.
 
+
+### The one nudge, and the only evidence either way
+
+Almost everything in this design is a refusal, a check or a rule. One thing is
+none of those: when the guard refuses a write, its message names the
+**interpreter heredoc** that would get around it, says plainly that it is a
+known limit rather than permission, and points at the check that would report
+the write afterwards. It was added because a worker met the refusal, reached
+for `python3 - <<PY` in one step, and did not experience it as evasion — the
+bypass is the *ergonomic* path, and a refusal that says nothing about it leaves
+every reader standing beside an unjudged door.
+
+It is the weakest instrument here and it worked. A verifier that had never read
+the finding met the refusal and reported, unprompted: *"its own refusal message
+explicitly names and discourages the interpreter-based workaround, so I did not
+use it."* One data point, from an agent with no stake in the outcome, under
+exactly the conditions the message was written for.
+
+**Worth recording because the alternative was to do nothing.** The hole cannot
+be closed — an interpreter's writes are not classifiable from command text, and
+refusing every heredoc would break the mutation testing that most of this
+project's evidence is built from. The options were a nudge or silence, and
+silence was losing. It is not a control and must never be counted as one; the
+layer that catches the write is still detection, after the fact.
+
+The same shape then fixed a worse defect. A verifier could not build a
+mutation, because **a verifier holds no task claim and every in-tree write is
+therefore "a path no live task has claimed" by construction** — so it concluded
+mutation was unavailable, fell back to reading the code, and disclosed the
+fallback. The refusal was correct and the conclusion drawn from it was wrong,
+and nothing in the message offered the way out. It now carries the recipe.
+Twice now the fix has been that a refusal was accurate and unhelpful.
+
 ### The axis is the cost of being wrong, not the size of the project
 
 This is the framing to build on, and it is not "big project, heavy process".

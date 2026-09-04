@@ -239,6 +239,37 @@ CASES = [
       "tasks/T-2.md": None},
      set()),
 
+    # --- gate-omits-decision: a gate narrower than its requirement --------
+    # The verifier reads the GATE and P-18 puts it last, so the asymmetry only
+    # fails toward shipping less. Existential over the discharging tasks: the
+    # per-task form was measured first at 14 findings to 1 real, because a
+    # gate states what must be true and is not obliged to cite anything.
+    ("gate-omits-decision",
+     {"REQUIREMENTS.md": REQS.replace("- **Statement.** the thing works when run.",
+                                      "- **Statement.** the thing works when run, per D-1.", 1)},
+     {"gate-omits-decision"}),
+    ("fp-gate-that-names-the-decision",
+     {"REQUIREMENTS.md": REQS.replace("- **Statement.** the thing works when run.",
+                                      "- **Statement.** the thing works when run, per D-1.", 1),
+      "tasks/T-1.md": T1.replace("- **Gate.** the test command exits zero.",
+                                 "- **Gate.** the test command exits zero, including D-1's Makefile.")},
+     set()),
+    # PARTIAL DISCHARGE MUST NOT DEFEAT IT. Two tasks share the requirement and
+    # only the second carries the obligation; that is the pattern a real
+    # project uses most, and the per-task form fired on all of it.
+    ("fp-one-of-several-discharging-tasks-carries-the-obligation",
+     {"REQUIREMENTS.md": REQS.replace("- **Statement.** the thing works when run.",
+                                      "- **Statement.** the thing works when run, per D-1.", 1),
+      "tasks/T-2.md": T2.replace("- **Discharges.** R-2", "- **Discharges.** R-1, R-2")
+                        .replace("  - `README.md`", "  - `README.md`\n  - `src/`")
+                        .replace("- **Gate.** the README exists and is non-empty.",
+                                 "- **Gate.** the README exists, and D-1's Makefile is used.")},
+     set()),
+    # A requirement citing no decision gets no coverage and no warning. Stated
+    # as a control so the limit is visible rather than discovered.
+    ("fp-requirement-citing-no-decision-is-simply-not-covered",
+     {}, set()),
+
     # --- one-sided-link: both ends of the link, not just its existence -----
     # A scheduling decision reached the decision log and neither artifact:
     # three of thirteen requirements named a task that did not list them, and
