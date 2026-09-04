@@ -120,7 +120,8 @@ declared scopes; the manager refuses to claim a task whose scope intersects a
 live claim. This is what makes parallel work safe inside a single repository,
 and it is checked before dispatch rather than discovered afterwards.
 
-**P-12b — History is shared, and no scope covers it.** Declared scopes divide
+**P-12b — History is shared, and no scope covers it.** *(Enforced: the guard
+refuses these at the moment they are typed, not at the moment they are read.)* Declared scopes divide
 the *working tree*. They do not divide the branch, the index or `HEAD`, which
 every task in flight shares, and so **any git operation that rewrites or
 discards existing history is forbidden while width is greater than one** —

@@ -203,7 +203,24 @@ def targets(cmd, cwd):
                 if len(rest) >= 2 and rest[0] == "-C":
                     gdir, rest = rest[1], rest[2:]
                 sub = next((r for r in rest if not r.startswith("-")), None)
-                if sub in GIT_OUTWARD:
+                flags = [r for r in rest if r.startswith("-")]
+                # HISTORY, WHICH NO SCOPE COVERS (P-12b). Judged first, because
+                # `commit` and `add` are otherwise index operations and pass:
+                # `git commit --amend` and `git add -A` are the two forms that
+                # have actually corrupted work here, and both went unjudged
+                # while `stash` and `rebase` -- which nobody reached for --
+                # were refused. The rule lived in a protocol file read at
+                # dispatch and was violated hours later at a commit prompt,
+                # which is where this guard already stands.
+                bare = [r for r in rest[1:] if not r.startswith("-")] if sub else []
+                if ((sub == "commit" and "--amend" in flags)
+                        or (sub == "add" and (set(flags) & {"-A", "--all"} or "." in bare))
+                        or (sub == "reset" and "--hard" in flags)
+                        or sub in ("rebase", "stash", "cherry-pick", "am", "filter-branch")):
+                    yield (resolve(gdir if gdir is not None else ".", eff),
+                           f"git {sub}" + (" --amend" if "--amend" in flags else ""),
+                           "history")
+                elif sub in GIT_OUTWARD:
                     yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "outward"
                 elif sub in GIT_INDEX:
                     yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "index"
@@ -431,6 +448,26 @@ def judge(target, what, session, session_project, cache, category="write"):
         return None                           # the author's own project, loop idle
     if not live:
         return None                           # no claim is in flight; nothing to police
+
+    if category == "history":
+        return (f"Refused: `{what}` while {', '.join(sorted(live))} "
+                f"{'is' if len(live) == 1 else 'are'} claimed. Declared scopes "
+                "divide the working tree; they do not divide the branch, the "
+                "index or HEAD, which every task in flight shares — and the "
+                "manager is committing to the same tree as every worker, so "
+                "HEAD is not yours even at width 1 (P-12b).\n\n"
+                "A worker ran `git commit --amend` on what it believed was its "
+                "own commit, landed on a concurrent task's, merged its report "
+                "into that task's subject and rewrote its hash. Another agent's "
+                "`git add -A` swept a worker's in-flight files into the "
+                "manager's commit. Neither violated any scope.\n\n"
+                "To correct a commit, ADD ANOTHER ONE — a step may take two, "
+                "and post-commit evidence is why. To stage, name the paths: "
+                "`git commit -F \"$msgfile\" -- <paths>`. If a rewrite has "
+                "already happened, recover with `git reset --soft` to the "
+                "original from `git reflog`, never `--hard`: soft leaves the "
+                "index and working tree untouched, and the tree holds other "
+                "tasks' uncommitted work.")
 
     if category == "index":
         # Staging and committing touch the index and refs. They cannot write a

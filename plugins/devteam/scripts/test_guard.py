@@ -122,7 +122,25 @@ CASES = [
     ("deny-out-of-scope-rm-survives-a-redirect",
      bash("rm -rf docs 2>&1"), WRITER_SESSION, True),
     ("fp-git-commit-at-the-project-root", bash("git commit -m x"), WRITER_SESSION, False),
-    ("fp-git-add-at-the-project-root", bash("git add -A"), WRITER_SESSION, False),
+    # `git add -A` USED to be a false-positive control here, from the fix that
+    # split git by destructiveness and made `add` an index operation so workers
+    # could commit at all. F-66 disproved the premise: another agent's staging
+    # is in the same index, so `git add -A` sweeps a worker's in-flight files
+    # into somebody else's commit. It is never correct while a claim is live.
+    ("deny-git-add-all-while-a-claim-is-live", bash("git add -A"), WRITER_SESSION, True, "P-12b"),
+    ("deny-git-add-dot-while-a-claim-is-live", bash("git add ."), WRITER_SESSION, True, "P-12b"),
+    ("fp-git-add-of-an-explicit-in-scope-path",
+     bash("git add src/loader/a.py"), WRITER_SESSION, False),
+    # HISTORY, WHICH NO SCOPE COVERS. `--amend` and `add -A` are the two forms
+    # that actually corrupted work on this project, and both passed unjudged
+    # while `stash` and `rebase` -- which nobody reached for -- were refused.
+    ("deny-git-commit-amend-while-a-claim-is-live",
+     bash('git commit --amend --no-edit'), WRITER_SESSION, True, "P-12b"),
+    ("deny-git-reset-hard-is-history-not-scope",
+     bash("git reset --hard HEAD~1"), WRITER_SESSION, True, "P-12b"),
+    # ...and an ordinary path-scoped commit is the form the skills mandate.
+    ("fp-git-commit-with-an-explicit-pathspec",
+     bash('git commit -F msg.txt -- src/loader/a.py'), WRITER_SESSION, False),
     ("fp-git-tag-touches-refs-only", bash("git tag v1"), WRITER_SESSION, False),
     ("fp-git-status-is-still-a-read", bash("git status"), WRITER_SESSION, False),
     ("fp-write-inside-scope", write("src/loader/a.py"), WRITER_SESSION, False),
@@ -304,14 +322,29 @@ def run(root, tool, session, project_dir=None):
 
 def main():
     passed = failed = 0
-    all_cases = [(n, t, s, d, None, None) for n, t, s, d in CASES] + [
-        (c + (None,) * (6 - len(c))) for c in SPECIAL]
-    for name, tool, session, expect_deny, mutate, project_dir in all_cases:
+    # CASES carry an optional 5th field (the expected reason fragment); SPECIAL
+    # carries mutate and project_dir before it. Both normalise to seven.
+    all_cases = [(c[0], c[1], c[2], c[3], None, None) + tuple(c[4:5])
+                 for c in CASES] + [
+        (c + (None,) * (6 - len(c))) if len(c) < 6 else c for c in SPECIAL]
+    for name, tool, session, expect_deny, mutate, project_dir, *rest in all_cases:
+        # A 7th field asserts WHY, not just whether. Several cases are refused
+        # by two different rules at once -- a history rewrite is also a write to
+        # an unclaimed path -- so a verdict-only control cannot tell which rule
+        # fired, and a mutation that disables one of them fails nothing. That
+        # is an instrument answering a question it was not wired to ask
+        # (P-35b), caught here by its own mutation test.
+        want_reason = rest[0] if rest else None
         root = build(mutate)
         try:
             denied, reason = run(root, tool, session, project_dir)
-            if denied == expect_deny:
+            if denied == expect_deny and (
+                    want_reason is None or (reason and want_reason in reason)):
                 passed += 1
+            elif denied == expect_deny and want_reason:
+                failed += 1
+                print(f"FAIL  {name}: refused, but not for {want_reason!r}")
+                print(f"        | {(reason or '')[:200]}")
             else:
                 failed += 1
                 verb = "REFUSED" if denied else "ALLOWED"
