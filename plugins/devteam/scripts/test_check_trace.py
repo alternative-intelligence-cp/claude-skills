@@ -125,6 +125,55 @@ CASES = [
     ("pre-plan-still-reports-an-orphan-goal",
      {"CHARTER.md": CHARTER + "- **G-3** — the thing is fast\n"},
      {"orphan-scope"}, ["--pre-plan"]),
+    # F-14: the plan skill demands the riskiest unknown as "task one, and it is
+    # small", and a probe discharges nothing by definition — so the check made
+    # the thing the skill demands unexpressible.
+    ("fp-a-probe-discharges-nothing-and-is-fine",
+     {"tasks/T-3.md": """# T-3 — is R-1 even achievable? — PLANNED
+
+- **Kind.** probe
+- **Informs.** R-1
+- **Discharges.** none
+- **Depends on.** none
+- **Scope.**
+  - `probe/`
+- **Gate.** the question is answered either way.
+- **Verify.** `test -s probe/FINDING.md`
+"""}, set()),
+    ("unjustified-probe-informs-nothing",
+     {"tasks/T-3.md": """# T-3 — a probe about nothing — PLANNED
+
+- **Kind.** probe
+- **Discharges.** none
+- **Depends on.** none
+- **Scope.**
+  - `probe/`
+- **Gate.** g
+- **Verify.** `true`
+"""}, {"unjustified-task"}),
+    ("unjustified-chore-gives-no-reason",
+     {"tasks/T-3.md": """# T-3 — a chore — PLANNED
+
+- **Kind.** chore
+- **Because.** <why>
+- **Discharges.** none
+- **Depends on.** none
+- **Scope.**
+  - `tools/`
+- **Gate.** g
+- **Verify.** `true`
+"""}, {"unjustified-task"}),
+    ("bad-kind",
+     {"tasks/T-3.md": """# T-3 — a task — PLANNED
+
+- **Kind.** whatever
+- **Discharges.** R-1
+- **Depends on.** none
+- **Scope.**
+  - `x/`
+- **Gate.** g
+- **Verify.** `true`
+"""}, {"bad-kind"}),
     ("fp-struck-requirement-needs-no-task",
      {"REQUIREMENTS.md": REQS + """
 ### R-3 — withdrawn idea

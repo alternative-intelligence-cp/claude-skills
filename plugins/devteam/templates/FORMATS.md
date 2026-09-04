@@ -98,6 +98,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 |---|---|
 | requirement `Status.` | `open` · `in-progress (T-n)` · `discharged (T-n)` · `struck (D-n)` |
 | task title | `PLANNED` · `RUNNING (since <date>, <label>)` · `READY-TO-AUDIT` · `BLOCKED (<why>)` · `DONE (<date>)` |
+| task `Kind.` | `implementation` (default when absent) · `probe` · `spike` · `chore` |
 | step checkbox | `[ ]` pending · `[x]` done · `[~]` struck, with a reason on the line |
 | question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn` |
 | question `Class.` | `REVERSIBLE` · `IRREVERSIBLE` · `CHARTER` |

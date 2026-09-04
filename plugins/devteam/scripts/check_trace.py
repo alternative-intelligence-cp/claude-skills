@@ -134,9 +134,37 @@ def check(devteam):
     discharged = set()
     for ident, (where, fields, _) in tasks.items():
         names = [r for r in IDS.findall(fields.get("Discharges", "")) if r.startswith("R-")]
-        if not names:
-            add("unmotivated-task", where,
-                f"{ident} discharges no requirement — scope creep, or a requirement nobody wrote down")
+        # A probe discharges nothing BY DEFINITION -- it asks whether something
+        # is possible, and its answer changes the design. The plan skill demands
+        # one as task one; `unmotivated-task` made it unexpressible, so a plan
+        # had to choose between an untrue Discharges field and a permanent
+        # finding. A task now declares its KIND, and only an implementation
+        # task owes a requirement.
+        kind = (fields.get("Kind", "implementation") or "implementation").strip().lower()
+        if kind not in ("implementation", "probe", "spike", "chore"):
+            add("bad-kind", where,
+                f"{ident} has Kind {kind!r}; expected implementation, probe, spike or chore")
+            kind = "implementation"
+        if kind == "implementation":
+            if not names:
+                add("unmotivated-task", where,
+                    f"{ident} discharges no requirement — scope creep, or a requirement nobody wrote down")
+        elif kind in ("probe", "spike"):
+            informs = [r for r in IDS.findall(fields.get("Informs", "")) if r[0] in "RG"]
+            if not informs:
+                add("unjustified-task", where,
+                    f"{ident} is a {kind} and names no **Informs.** — a probe that "
+                    "de-risks nothing identifiable is work nobody can judge")
+            for r in informs:
+                if r.startswith("R-") and r not in reqs:
+                    add("unknown-reference", where, f"{ident} informs {r}, which no requirement declares")
+                if r.startswith("G-") and r not in goals:
+                    add("unknown-reference", where, f"{ident} informs {r}, which no charter goal declares")
+        elif kind == "chore":
+            if PLACEHOLDER.match(fields.get("Because", "")):
+                add("unjustified-task", where,
+                    f"{ident} is a chore and gives no **Because.** — a task with "
+                    "neither a requirement nor a reason is one nobody agreed to")
         for r in names:
             discharged.add(r)
             if r not in reqs:

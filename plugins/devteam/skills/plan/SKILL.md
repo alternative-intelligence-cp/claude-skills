@@ -100,6 +100,15 @@ own dispatch and checking around all of that. A task that writes forty lines
 of code is not a forty-line task. Estimate the whole loop or do not bother
 (P-41).
 
+**Write a probe as `Kind. probe`, not as an implementation task.** A probe
+discharges no requirement — that is what makes it a probe — so an
+implementation task with an invented `Discharges` field is the wrong shape and
+a permanent `unmotivated-task` finding is the wrong answer. It names
+**Informs.** instead: the requirement or goal whose achievability it is
+testing. A `chore` names **Because.** The check enforces the distinction, so
+the riskiest unknown really can be task one and small, which is what this
+section asks for.
+
 **A probe and a spike are different things.** A probe asks *"is this even
 possible?"* and its answer changes the design. A spike asks *"how big is
 this?"* and **its thresholds are decided in advance**, so a bad number

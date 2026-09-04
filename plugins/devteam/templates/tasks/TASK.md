@@ -4,6 +4,7 @@
 to, and the place its execution record lands. One file per task; the title line
 carries the status and is the first thing recovery reads (P-14).>
 
+- **Kind.** implementation
 - **Discharges.** R-1, R-4
 - **Depends on.** none
 - **Scope.**
@@ -14,6 +15,12 @@ carries the status and is the first thing recovery reads (P-14).>
 - **Verify.** `<the exact command that proves the gate, and its expected summary
   line>`
 - **Estimate.** tokens=<n> minutes=<n>
+
+> **`Kind.` decides what this task owes.** `implementation` (the default) owes
+> at least one requirement. A `probe` or a `spike` owes an **Informs.** naming
+> the requirement or goal it de-risks, and discharges nothing — that is what a
+> probe *is*. A `chore` owes a **Because.** A task with neither a requirement
+> nor a reason is one nobody agreed to.
 
 > **Scope is a promise about what this task writes** (P-10, P-12). The manager
 > refuses to claim a task whose scope intersects a live claim, and the guard
