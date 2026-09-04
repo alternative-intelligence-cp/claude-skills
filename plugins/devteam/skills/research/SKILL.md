@@ -72,6 +72,19 @@ gap gets checked and the guess does not.
 <high | medium | low, and why; anything unresolved at the budget>
 ```
 
+## Writing about bytes without writing the byte
+
+**Name a control character; never embed one.** Write `U+0000`, or `\x00`, or
+"the NUL byte" — not the byte itself. A document containing one is committed as
+**binary**: git stops producing a diff for it, and the entire audit discipline
+is diffing a document against the thing it describes. Decoding succeeds, so
+nothing else notices; only git's own stat line does, and nobody reads it.
+
+This is likeliest in exactly the digests where it hurts most — encodings,
+protocols, terminal handling, anything with a byte-level answer — because the
+natural way to write about a byte is to write the byte. `check_refs` reports
+`control-character` for it, and it applies to commit messages too.
+
 ## Filing and citing
 
 **The researcher never writes into the project.** Its final message is the

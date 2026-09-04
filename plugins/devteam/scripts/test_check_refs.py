@@ -173,6 +173,21 @@ CASES = [
      [append("CHARTER.md", "\nScratch output goes to /tmp/wordfreq-build/out.txt\n")], set()),
     ("fp-hyphenated-words-are-not-encoded-home-paths",
      [append("CHARTER.md", "\nA well-home-grown approach; see at-home-testing notes.\n")], set()),
+    # F-13: a document that CONTAINS a control byte rather than naming it is
+    # committed as binary, so git produces no diff for it and the audit
+    # discipline of diffing a document against what it describes has nothing
+    # to work with. Decoding succeeds, so nothing else noticed.
+    ("control-character-nul",
+     [("tracked", "research/limits.md", "The NUL byte \x00 terminates a C string.\n")],
+     {"control-character"}),
+    ("control-character-escape",
+     [("tracked", "research/term.md", "ESC \x1b[2J clears the screen.\n")],
+     {"control-character"}),
+    ("fp-tabs-and-carriage-returns-are-ordinary-text",
+     [("tracked", "research/table.md", "a\tb\tc\r\nd\te\tf\n")], set()),
+    ("fp-naming-a-byte-is-not-embedding-it",
+     [("tracked", "research/limits.md",
+       "The NUL byte U+0000 (written `\\x00`) terminates a C string.\n")], set()),
     ("fp-directory-readme-is-not-an-artifact",
      [("tracked", "tasks/README.md",
        "One file per task, named `T-1.md`. See `C-1-<date>.md` for checkpoints.\n"),

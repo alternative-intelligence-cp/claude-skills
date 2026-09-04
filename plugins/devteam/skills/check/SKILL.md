@@ -53,6 +53,8 @@ is what a checkpoint is for.
 | `broken-link` | a relative link whose target does not exist |
 | `bad-status` | a status outside its closed vocabulary |
 | `leak` | an absolute home path or a credential in a tracked file |
+| `control-character` | a document containing a control byte rather than naming it. Git commits it as **binary** and stops diffing it, which silently removes the file from every document-against-reality comparison an audit makes |
+| `not-utf8` | a tracked document that is not valid UTF-8 |
 
 ### `check_report` — a committed REPORT block against the tree
 

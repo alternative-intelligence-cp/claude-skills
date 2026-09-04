@@ -142,11 +142,33 @@ def scan(files, base):
     for path in files:
         rel = os.path.relpath(path, base)
         try:
-            with open(path, encoding="utf-8", errors="replace") as fh:
-                lines = fh.read().split("\n")
+            raw = open(path, "rb").read()
         except OSError as exc:
             findings.append(("unreadable", rel, 0, str(exc)))
             continue
+
+        # A document that CONTAINS a control byte rather than naming it is
+        # treated as binary by git, which then produces no diff for it -- and
+        # the whole audit discipline is diffing a document against the thing it
+        # describes. Decoding succeeds, so nothing else notices; only git's own
+        # stat line does, and nobody reads that. A digest about encodings or
+        # protocols is more likely to do this than an ordinary document,
+        # because the natural way to write about a byte is to write the byte.
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            findings.append(("not-utf8", rel, 0,
+                             f"byte {exc.object[exc.start]:#04x} at offset {exc.start}"))
+            text = raw.decode("utf-8", errors="replace")
+        for n_, line in enumerate(text.split("\n"), 1):
+            bad = {c for c in line if ord(c) < 0x20 and c not in "\t\r"}
+            if bad:
+                names = ", ".join(f"U+{ord(c):04X}" for c in sorted(bad))
+                findings.append(("control-character", rel, n_,
+                                 f"{names} embedded in the text — name the byte, "
+                                 "do not write it; git treats the file as binary "
+                                 "and stops diffing it"))
+        lines = text.split("\n")
 
         is_artifact = bool(ARTIFACTS.match(rel.replace(os.sep, "/")))
         in_fence = False
