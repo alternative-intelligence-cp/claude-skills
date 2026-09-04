@@ -1338,6 +1338,54 @@ message says the heredoc is a limit rather than permission.
 The corollary is a question worth asking of every rule here: **where will
 somebody be standing when this matters, and is the rule there?**
 
+### Why a check works: name the rule whose two sides it compares
+
+This design's own account of itself was wrong for most of a day, and the
+correction is the most useful thing in it.
+
+**The wrong version, stated confidently here and elsewhere:** every check that
+works compares two declared lists; every check that failed tried to read prose.
+It fits a lot of the evidence. It is refuted by one case in this project's own
+data: a candidate check compared a task's `Discharges.` against the identifiers
+appearing in its `Gate.` — **two identifier lists, no prose read anywhere** —
+and produced fourteen findings on seven tasks, one of them real.
+
+**What actually separated the good candidate from the bad one was whether a
+rule already required the two sides to agree.** Nothing in the protocol, the
+planning skill or the task template required a gate to name the requirements it
+discharges. The check invented the agreement it was checking, and its thirteen
+false findings were **the rule's absence showing up**. Parsing harder would have
+made that worse, not better.
+
+So there are two failure modes and they want opposite fixes:
+
+| Mode | Looks like | The fix |
+|---|---|---|
+| **inventing an agreement no rule requires** | noise, at 1:14 or 1:3 | write the rule, or withdraw the check — never parse harder |
+| **being unable to extract the thing to compare** | silence, not noise | a backstop after the fact, and a refusal that names the limit |
+
+The second is the interpreter heredoc. A rule genuinely does require a write's
+target to lie in a declared scope (P-12, P-13); the hole is that the target
+cannot be determined from the command text at all. That is not fixable by
+parsing and never will be, which is why its answer is `check_scope` afterwards
+plus a refusal message that names the limit rather than pretending it is closed.
+
+**The usable form: before building a check, name the rule whose two sides it
+compares. If you cannot name one, you are proposing a rule rather than
+enforcing one** — and that is a decision for whoever owns the rules, not
+something a script gets to make by firing.
+
+**Applied to this project's own recent checks, it found three that were
+proposing rules.** `gate-omits-decision` enforced an agreement nothing
+required, so its residual findings on a real project were the missing rule
+rather than defects; `one-sided-link` rested on an entailment of two field
+definitions that had never been written down; `template-drift` enforced
+conformance to a current template with nothing stating that artifacts stay
+conformant as templates change. All three rules are now stated, which is what
+makes the checks legitimate. The alternative was to withdraw them, and stating
+the rule was the right call in each case only because each rule survived being
+looked at on its own.
+
 ### The class of fix that cannot be observed is the class that silently fails
 
 The manager supplied the edge and it is sharper than the incident that produced

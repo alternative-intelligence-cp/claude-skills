@@ -91,6 +91,13 @@ So the criterion is written **before** the work, from the requirement rather
 than from the implementation, and it survives being read by someone who has
 not seen the code.
 
+**A requirement's `Status.` and a task's `Discharges.` are two views of one
+fact, and they must agree.** The status vocabulary names tasks — `in-progress
+(T-n)`, `discharged (T-n)` — so the two fields are already talking about the
+same relationship, and only bookkeeping can make them disagree. Checked by
+`one-sided-link`, in both directions, with PLANNED tasks exempt because a task
+that has not started correctly leaves its requirement `open`.
+
 **A criterion's LEVEL must match some task's scope, and this is the defect that
 has recurred most.** Three times in one project, an acceptance criterion
 written in process language — *"exits non-zero"*, *"fails under the default and
@@ -113,6 +120,23 @@ wiring", then the criterion belongs to the **wiring** task. The module task
 *supports* the requirement; it does not discharge it. Say so in both task
 files, because "supports" and "discharges" are different claims and only one of
 them closes a requirement.
+
+**A gate carries the obligations its requirements rest on.** If a requirement's
+statement or acceptance cites a decision, some task discharging it must require
+what that decision decided — in its `Gate.`, naming the decision. This is a
+rule, stated here **before** the check that enforces it, because it was not one
+until now: `gate-omits-decision` was written first and audited afterwards
+against the question *which rule requires these two sides to agree?*, and the
+answer was none. Its findings on a real project were therefore the missing rule
+showing up rather than defects.
+
+The rule earns its place on the case that prompted it. A task's gate listed
+four things its requirement wanted and neither of the two caveats that same
+requirement had gone to a charter amendment to establish. **The verifier reads
+the gate**, and P-18 puts the verifier last, so a gate narrower than its
+requirement passes everything and ships less. Naming the decision rather than
+restating its substance is deliberate: it is what sends a verifier to the
+reasoning instead of to a paraphrase.
 
 **And it is now checked, because the level is declared rather than inferred.**
 A script cannot reliably tell a process-level sentence from a module-level one,

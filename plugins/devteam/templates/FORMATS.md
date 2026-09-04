@@ -163,3 +163,16 @@ history.
 
 If product code needs numbered cases, give them a prefix that is not a single
 or double capital followed by a dash — `case_1`, `FC1`, `probe-1` all avoid it.
+
+## An artifact conforms to the template it came from, at the current version
+
+The templates are the grammar, and a project's artifacts are instances of them.
+**An artifact stays conformant as the template changes** — a row or field added
+later belongs in artifacts already created, not only in ones scaffolded
+afterwards. Checked by `template-drift`.
+
+Stated because it was not, and a check was enforcing it anyway. The test worth
+applying to any check here: **name the rule whose two sides it compares. If you
+cannot name one, the check is proposing a rule rather than enforcing one** —
+and that is a decision for whoever owns the rules, not something a script gets
+to make by firing.
