@@ -137,6 +137,33 @@ check would go green having measured nothing — a judge trying his own case. If
 the list is wrong, supersede it as a recorded amendment (P-23) and say which
 you changed and why.
 
+**For any set-valued decision, assert one member of its complement.** A suite
+accumulates cases for what a thing *does*. **The cases for what it must not do
+are the ones nobody writes**, and they are exactly the ones a later widening
+slips past — because widening a set breaks no test that only ever tests
+members.
+
+Measured: a project decided that `true` and `false` are the only booleans it
+infers. A verifier widened the accepted set to include `y` and `n` on a scratch
+copy and the suite still reported **101 passed**. The shipped behaviour was
+correct and nothing defended it. Bare `y`, `n` and `f` appeared in no fixture,
+no test named the set, and a change making the decision false would have been
+invisible.
+
+The heuristic is cheaper than it sounds and it generalises past sets: **ask
+what the thing rejects, excludes or refuses, and write one case for that.** Two
+of the sharpest findings on that project came from exactly this move, one level
+apart — one by asking which spellings a value set rejects, the other by asking
+which cases a test classifier *excludes* from its corpus.
+
+**And the rule behind both: a property only counts as decided if something
+fails when it stops being true.** This holds for a decision, a charter
+sentence, a risk entry, a README claim — anywhere a document asserts something
+about behaviour. A property that is true because of how the code happens to be
+written today is an accident, not a decision, however carefully it was argued.
+The test of whether you have finished deciding something is not whether the
+reasoning is written down; it is whether you can name the thing that goes red.
+
 **Do not test an absence by asserting nothing happened.** A contract that
 documents an absence — no exception, no warning, no rewrite — almost always
 also specifies a **positive return**, and that is the thing to assert. "Assert
