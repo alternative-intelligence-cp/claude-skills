@@ -1338,6 +1338,46 @@ message says the heredoc is a limit rather than permission.
 The corollary is a question worth asking of every rule here: **where will
 somebody be standing when this matters, and is the rule there?**
 
+### Between two agents the failure mode is assent, and the escape is being wrong out loud
+
+Named by the manager after it happened three times in one day, and it turns out
+to be a principle several parts of this design already embody without anyone
+having stated it.
+
+Two capable agents reviewing each other's work drift toward agreement. Not
+through deference — through the ordinary mechanics of a hedged claim, which
+offers nothing to check. *"Checks that compare declared things tend to work
+better"* produces a nod. **"Every check that works compares two declared lists;
+every check that failed tried to read prose"** produces somebody going to their
+own data to see whether it fits — and finding, in that case, that it does not.
+
+Three times in one day one party stated something crisply enough for the other
+to refute it **with data already in hand**: an account of why checks work,
+refuted by the other's own measured candidate; a set of findings called
+"benign", refuted by which task was still open; a diagnosis that a refused write
+had been outside the repository, refuted by reproducing it. In every case the
+sharp version was wrong and the correction was worth more than a hedge would
+have been.
+
+**The lesson is not to be confident. It is to make claims falsifiable**, which
+usually means sharper and narrower than feels comfortable, and to state the
+figure rather than the impression. A claim nobody can check is not modest; it is
+inert.
+
+This is already load-bearing in several roles and was not recognised as one
+thing:
+
+- **A verifier answers PASS or FAIL** (P-18), not "looks right". A hedged
+  verdict cannot be refuted and therefore cannot be evidence.
+- **An auditor is briefed to break a claim**, not to review it — and the
+  restart shape (P-17b's neighbourhood) requires failed refutations as the
+  evidence rather than a supervisor's concurrence.
+- **An acceptance criterion is a command with an expected output**, never an
+  adjective, for the same reason at the level of the product.
+
+So it belongs in the dispatches too: a brief that asks for an opinion gets
+assent, and a brief that asks for a refutation gets evidence.
+
 ### Why a check works: name the rule whose two sides it compares
 
 This design's own account of itself was wrong for most of a day, and the

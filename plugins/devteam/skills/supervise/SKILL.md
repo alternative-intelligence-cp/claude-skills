@@ -101,6 +101,21 @@ thing is written before or with the thing, never after it "to save time".
 
 ## 4. Per step
 
+**Ask for a refutation, never an opinion.** A brief that asks a worker whether
+something looks right gets agreement; a brief that asks it to *break* a claim
+gets evidence. Two capable agents drift toward assent by the ordinary mechanics
+of a hedged question — there is nothing in "does this seem correct?" for a
+worker to be wrong about, so the cheapest true answer is yes.
+
+This is why a verifier answers PASS or FAIL rather than "looks right" (P-18),
+why an auditor is briefed to attack a dimension rather than review it, and why
+a step's `Verify.` is a command with an expected output rather than an
+adjective. Write your dispatches the same way: **name the claim, and ask for
+the attempt to falsify it.** A supervisor sent a restart of the weaker shape
+repaired it unprompted — it dispatched an auditor to break the claim and
+reported twelve failed refutations rather than its own reading, which is
+evidence where its concurrence would have been nothing.
+
 1. **Pick the model** for the class, inside `MODEL-BAND`. Never above the
    ceiling; never below the floor.
 2. **Leave a heartbeat, then dispatch.** Write one line to

@@ -202,6 +202,26 @@ mutation. A disclosure of one limitation is a reason to re-read everything
 around it, not a reason to trust the remainder more for having been honest
 about the first part.
 
+**P-17c — A measurement you took is not a conclusion you remember.** P-17b
+covers a claim you are passing on. This covers the harder one: a number **you
+produced yourself**, recorded, and thereafter reasoned about from memory of what
+it meant rather than from the figures.
+
+**When somebody generalises about work you did, re-read the numbers, not your
+summary of them.** A generalisation is a claim about what your data means, so it
+is exactly the input that should send you back to the data — and it is exactly
+the input that instead feels like something to agree or disagree with.
+
+Measured: a manager had run two candidate checks and recorded the figures — one
+real finding in fourteen for the first, two in five for the second. Hours later
+it agreed across two messages with a general account of *why* checks work that
+its own first candidate refutes. Not carelessness: in the same period it
+measured two candidates before proposing either, re-derived an estimate model
+rather than taking a supervisor's, and probed a guard rather than trusting a
+report. What it did not do was re-open a measurement it had already taken. The
+failure does not feel like accepting somebody's word. **It feels like
+remembering.**
+
 **P-18 — Reported green is not green.** Every report is verified by re-running
 its stated check against the **committed** tree, by someone who did not do the
 work:
