@@ -21,6 +21,8 @@ finds the work has drifted from the charter.
 
 | Document | What it is |
 |---|---|
+| [`docs/FOR-NEW-USERS.md`](docs/FOR-NEW-USERS.md) | **start here if you have been asked to run real work through this** — what it does, what it costs, and when to stop using it |
+| [`docs/REPORTING-PROBLEMS.md`](docs/REPORTING-PROBLEMS.md) | the shape a finding should come back in, and the three kinds — including the one we have never received |
 | [`DESIGN.md`](DESIGN.md) | **the architecture** — the three layers and why, the roster of agents and skills, every artifact the pipeline writes, the lifecycle and its five client gates, the two loops, the contracts that cross layer boundaries, the checks, the guard, the escalation policy, and what this deliberately is not |
 | [`PROTOCOL.md`](PROTOCOL.md) | **the rules** — 42 numbered, normative rules that every skill and agent cites by number instead of restating. Each says what to do *and why* |
 | [`docs/BRIEF.md`](docs/BRIEF.md) | the author's original statement of the idea, preserved, with the four deliberate departures noted |
