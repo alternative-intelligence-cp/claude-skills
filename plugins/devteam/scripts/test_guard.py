@@ -103,6 +103,24 @@ CASES = [
     # --- FALSE-POSITIVE CONTROLS: must be ALLOWED --------------------------
     # Splitting git by what it can DESTROY is the point: judged as one set,
     # the rule either refuses every worker's commit or permits reset --hard.
+    # F-8, found by a manager when `rmdir src 2>/dev/null` was refused for a
+    # directory plainly in scope. A file-descriptor number belongs to the
+    # redirect, not the command; none of the 27 existing false-positive cases
+    # carried one, so the control could not see it.
+    ("fp-in-scope-write-with-stderr-redirected",
+     bash("touch src/loader/a.py 2>/dev/null"), WRITER_SESSION, False),
+    ("fp-in-scope-write-with-2-to-1",
+     bash("touch src/loader/a.py 2>&1"), WRITER_SESSION, False),
+    ("fp-in-scope-write-with-both-streams-redirected",
+     bash("touch src/loader/a.py 1>/dev/null 2>&1"), WRITER_SESSION, False),
+    ("fp-in-scope-rmdir-with-redirect",
+     bash("rmdir src/loader 2>/dev/null"), WRITER_SESSION, False),
+    ("fp-numeric-flag-value-is-not-a-path",
+     bash("truncate -s 0 src/loader/a.py"), WRITER_SESSION, False),
+    ("deny-out-of-scope-write-survives-a-redirect",
+     bash("touch src/render/b.py 2>/dev/null"), WRITER_SESSION, True),
+    ("deny-out-of-scope-rm-survives-a-redirect",
+     bash("rm -rf docs 2>&1"), WRITER_SESSION, True),
     ("fp-git-commit-at-the-project-root", bash("git commit -m x"), WRITER_SESSION, False),
     ("fp-git-add-at-the-project-root", bash("git add -A"), WRITER_SESSION, False),
     ("fp-git-tag-touches-refs-only", bash("git tag v1"), WRITER_SESSION, False),

@@ -300,9 +300,14 @@ does not.
 
 ## 8. Permissions, models and budget
 
-**P-38 — Permissions are declared, minimal and justified.** Setup writes
-`devteam/PERMISSIONS.md`, one entry per permission with the reason the pipeline
-needs it, and generates the matching allowlist. The point is to ask the client
+**P-38 — Permissions are declared, minimal and justified, and the client is
+not the operator.** Setup writes `devteam/PERMISSIONS.md`, one entry per
+permission with the reason the pipeline needs it, and prepares the matching
+allowlist. **The declaration is the client's to approve; applying it to the
+session's own settings is the operator's** — the account that will actually
+run the commands. Where they are different people, the manager shows the
+allowlist and asks the operator, and never treats a client's approval as
+authority over a permission set. The point is to ask the client
 once, up front, for exactly what the loop needs — no more, so the grant is
 reviewable, and no less, so the loop does not stall overnight on a prompt
 nobody is there to answer.

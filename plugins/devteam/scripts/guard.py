@@ -114,6 +114,12 @@ def resolve(target, cwd):
     """Absolute real path of a target, or None if it cannot be judged."""
     if not target or target.startswith("-") or "$" in target or "*" in target:
         return None
+    # A bare number is a file descriptor or a flag's value (`truncate -s 0 f`),
+    # never a path worth guarding. Judging it produced refusals against
+    # <project>/0 and <project>/2. A file actually named `2` goes unjudged,
+    # which is the cheaper mistake by a wide margin.
+    if target.isdigit():
+        return None
     t = os.path.expanduser(target)
     return os.path.realpath(t if os.path.isabs(t) else os.path.join(cwd, t))
 
@@ -166,6 +172,16 @@ def targets(cmd, cwd):
         seg.append(t)
         i += 1
         if i == n or toks[i] in SEPARATORS or toks[i] in ("(", ")") or toks[i] in REDIRECTS:
+            # A file-descriptor number belongs to the REDIRECT, not to the
+            # command. `touch src/x 2>/dev/null` tokenises as [touch, src/x, 2]
+            # followed by `>`, so the `2` was read as a positional argument,
+            # resolved to <project>/2, matched no scope, and refused a write
+            # that was plainly in scope. `2>&1` is ubiquitous, so this fired
+            # constantly on correct work -- the false-positive failure this
+            # guard's own docstring calls strictly worse than no guard.
+            if (i < n and seg and seg[-1].isdigit()
+                    and (toks[i] in REDIRECTS or toks[i].startswith(">"))):
+                seg.pop()
             base = os.path.basename(seg[0])
             args = [a for a in seg[1:] if not a.startswith("-")]
             if base in WRITE_CMDS:
