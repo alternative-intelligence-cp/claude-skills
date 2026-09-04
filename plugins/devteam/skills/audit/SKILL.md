@@ -112,6 +112,20 @@ Every finding carries a **location** (path and line, not an impression), the
 **evidence**, and **what would resolve it**. A finding without evidence is an
 opinion.
 
+**Number your findings `COR-n`, `SEC-n` or `HYG-n`** for your dimension. Never
+a bare single or double letter — `S-5` is a *step* citation in this project's
+grammar, `D-3` a decision, `R-1` a requirement. A finding numbered into one of
+those namespaces cannot be cited from a task file or a checkpoint without
+reporting `cited-undefined` against something that does not exist, which is
+how a real finding ends up referred to in prose and then lost.
+
+**Never reproduce a leak in the report about it.** If the finding is a
+credential, a home path or a session identifier in a tracked file, quote it
+with the sensitive segments replaced — `-home-<user>-<segments>` — and give the
+location so it can be found. An audit report is a tracked file too, and the
+leak check will flag it: a report that republishes the disclosure has made the
+problem larger while describing it.
+
 **End with what you checked and found clean.** An audit that reports only
 problems does not say how much ground it covered, and the next auditor cannot
 tell what is already known good. State your threat model, your budget, and

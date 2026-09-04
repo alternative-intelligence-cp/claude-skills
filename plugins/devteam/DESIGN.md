@@ -935,3 +935,42 @@ durable fix is requirements phrased as **rules over a domain**, with the
 enumerated cases as their *tests* rather than as their *scope*. That belongs
 in the `onboard` and `plan` skills, and is the most transferable thing this
 rehearsal has produced.
+
+
+---
+
+## 19. Fixing a leak in a record that cannot be rewritten
+
+The audits found four absolute session paths committed inside worker REPORT
+blocks. Removing them ran straight into the rule that a filed report is
+evidence and is not rewritten — the same rule that kept T-1's broken report in
+the tree as proof the verifier worked.
+
+**The resolution is that a redaction is not a rewrite.** Each path became its
+repo-relative form: the identical claim, naming the identical file, in the form
+the other two tasks' reports already used. No status, check, commit, count or
+conclusion changed, and a reader diffing the file sees only a machine-specific
+prefix disappear. The change is disclosed in the file itself, in `RECORD.md`,
+and in the git history. **The append-only rule protects claims from being
+quietly changed; it does not require a project to keep publishing a path that
+means nothing to anyone else.**
+
+Doing it produced two further findings, both from the act of writing the fix:
+
+**The audit report reproduced the leak it was reporting**, and the leak check
+flagged the report on the same rule that flagged the original. An audit that
+republishes a disclosure has made the problem larger while describing it. The
+audit skill now requires the sensitive segments to be replaced and the location
+given instead.
+
+**Audit findings numbered `S-n` collide with the step-id namespace.** Citing
+one from a task file reports `cited-undefined` against a step that does not
+exist — so a real finding gets referred to in prose and then lost. This is the
+same defect the audits themselves identified for requirements (`R-3` written
+inside a proposal reads as a citation), reappearing in a namespace nobody had
+thought to reserve. Audit findings are now `COR-n`, `SEC-n`, `HYG-n`.
+
+The pattern across all three is one thing: **an identifier grammar is a shared
+namespace, and every document that numbers anything is competing in it.** The
+grammar in `templates/FORMATS.md` reserved seven prefixes and said nothing
+about what else might want to number something.
