@@ -80,6 +80,17 @@ timed out, say so. If it is long, that is a signal the escalation window is
 too short or the client is not reading their batches — and that is worth
 saying too.
 
+## 3b. Was the priority order honoured?
+
+If the charter names one (P-20b), every decision that traded one priority for
+another should cite it and say which was sacrificed. Read them. **A sequence of
+individually reasonable trades in the same direction is how a project ends up
+fast and unsafe with nobody having decided that** — no single decision looks
+wrong, and the drift is only visible in aggregate, which is here.
+
+Anything that sacrificed the *highest* priority should have been a `CHARTER`
+question and stopped for the client. If one did not, that is the finding.
+
 ## 4. Is the plan still right?
 
 - **requirements that turned out wrong** — and whether anyone said so

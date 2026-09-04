@@ -183,6 +183,18 @@ flakiness first.
 
 ## 5. Decisions, questions and escalation
 
+**P-20b — A project states what wins when two goods conflict, and every
+trade-off cites it.** The charter carries a priority order — `safety >
+correctness > performance` is the common one. It exists because these conflicts
+are constant, individually reasonable, and settled differently by different
+people on different days, which is how a system ends up fast and unsafe with
+nobody having decided that. A decision that trades one priority for another
+**names which it sacrificed and cites the order**; a decision that sacrifices
+the highest priority is not a trade-off, it is a `CHARTER` question (P-26).
+
+Where an audit dimension corresponds to a priority, **its findings outrank the
+others in the same ordering.** A safety finding is not one voice among four.
+
 **P-21 — Every decision records the alternatives declined, and why they lost.**
 `devteam/DECISIONS.md` holds `D-n` entries. The alternatives are exactly what a
 later reader — human or agent — will propose, and a decision that does not say

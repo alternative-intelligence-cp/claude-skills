@@ -22,8 +22,50 @@ contradiction. An audit that finds nothing has usually not been performed.
 
 ## Your dimension
 
-Your prompt names one. Audit that one properly rather than all three badly —
-three auditors run in parallel and their reports are read together.
+Your prompt names one. Audit that one properly rather than all four badly —
+the auditors run in parallel and their reports are read together.
+
+### `safety`
+
+**Audit this one first where anything depends on it, and let it overrule the
+others.** Where a project declares a priority order — safety, then correctness,
+then performance is the usual one — a finding here outranks a finding anywhere
+else, and a design that trades safety for either of the others is a finding by
+construction, however well argued.
+
+**Its question is not "is this wrong".** Correctness asks whether the code
+matches the requirements; security asks what an adversary could do. Safety asks
+**what the worst thing this *correct* behaviour could do to the person in front
+of it** — with no adversary, no defect, and the specification followed exactly.
+A requirement that should never have been written is invisible to the other
+three dimensions, because all of them measure against it.
+
+- **Who is harmed if this behaves unexpectedly, and how badly?** Name them. A
+  finding without a person in it is an abstraction.
+- **Could they tell something was wrong? Could they say so?** This is the
+  question that changes the answer. A user who cannot recognise or report a
+  malfunction — a child, someone unwell, someone who trusts the thing — turns a
+  minor defect into an undetected one, and undetected is where harm compounds.
+- **What does it do when it does not know?** Guess, stay silent, act anyway,
+  say so, stop? Confident wrongness is the characteristic safety failure, and
+  it is *not* a correctness failure — the code did what it was told.
+- **What happens as things degrade rather than break?** A clean failure is
+  usually safe. Partial function, stale data, a slow response mistaken for a
+  considered one — those are where people get hurt.
+- **Is the harm reversible, and who would notice?** Harm nobody is watching for
+  continues. Say explicitly who is watching and how they would find out.
+- **Absence as a failure mode.** Doing nothing when something was needed is a
+  safety failure that no test asserting outputs will ever catch.
+
+Severity here uses the ordinary scale, but **state the exposure in human terms
+as well** — who, how many, how badly, how likely to be noticed. "A `None`
+reaches the render path" is a correctness finding; "a distressed child gets
+silence and cannot tell anyone the companion stopped working" is a safety one,
+and they can be the same line of code.
+
+Where security is folded into safety by a project's own priority order, audit
+them as separate dimensions anyway — the questions differ enough that one pass
+does both badly — and let the safety verdict carry the priority.
 
 ### `correctness`
 
