@@ -22,6 +22,10 @@ Findings:
                          that does not exist
   dependency-cycle       tasks that can never start, because they wait on
                          each other
+  unrecorded-amendment   a requirement whose `Requires-write.` changed since it
+                         was first committed, with no `Requires-write amended.`
+                         naming the decision. The one list the checker's own
+                         author could tune to make the check pass
   unreachable-acceptance a requirement whose `Requires-write.` set is not contained
                          in the `Scope.` of any single task that discharges it.
                          The task can make the BEHAVIOUR true and cannot make
@@ -165,6 +169,34 @@ def blocks_of(lines, header):
     return out
 
 
+
+def first_declared(devteam):
+    """{R-n: [its `Requires-write.` entries when first committed]}.
+
+    Walks the file's history oldest-first and records the value each
+    requirement had when it first appeared. This is what makes "supersede,
+    never edit" a control rather than a request: the planner draws the scopes
+    AND could edit the requirement, so either list can be tuned until the
+    check agrees with itself -- a judge trying his own case, and green having
+    measured nothing.
+    """
+    try:
+        log = subprocess.run(["git", "-C", devteam, "log", "--format=%H",
+                              "--reverse", "--", "REQUIREMENTS.md"],
+                             capture_output=True, text=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    seen = {}
+    for sha in (s for s in log.split("\n") if s.strip()):
+        try:
+            blob = subprocess.run(["git", "-C", devteam, "show", f"{sha}:./REQUIREMENTS.md"],
+                                  capture_output=True, text=True, check=True).stdout
+        except (subprocess.CalledProcessError, OSError):
+            continue
+        for ident, lines in blocks_of(blob.split("\n"), REQ).items():
+            seen.setdefault(ident, path_lists(lines).get("Requires-write", []))
+    return seen
+
 def check(devteam):
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
@@ -177,8 +209,10 @@ def check(devteam):
             goals[m.group(1)] = f"CHARTER.md:{n}"
 
     req_lines = read(devteam, "REQUIREMENTS.md")
+    req_blocks = blocks_of(req_lines, REQ)
     must_write = {k: path_lists(v).get("Requires-write", [])
-                 for k, v in blocks_of(req_lines, REQ).items()}
+                  for k, v in req_blocks.items()}
+    original = first_declared(devteam)
     for ident, n, _, fields in parse_blocks(req_lines, REQ, REQ_FIELDS):
         reqs[ident] = (f"REQUIREMENTS.md:{n}", fields)
         for f in REQ_FIELDS:
@@ -298,6 +332,27 @@ def check(devteam):
         # failure is a criterion whose author did not understand what it
         # must write -- and that at least leaves a declaration somebody can
         # read and dispute, rather than a silence.
+        # A DECLARATION THAT CAN BE EDITED IS NOT EVIDENCE. `Requires-write.`
+        # is half of the pair `unreachable-acceptance` compares, and the
+        # planner who draws the other half can reach both -- so seven red
+        # findings and two editable lists is a situation with an obvious exit.
+        # The manager who hit exactly that reported the reason it did not take
+        # it was that the failure had been NAMED in advance, which is a thin
+        # thing to rely on twice. Superseding stays allowed and is the point:
+        # it leaves a record naming a decision, and an edit does not.
+        if original is not None and ident in original:
+            before, now = set(original[ident]), set(must_write.get(ident, []))
+            amended = any(FIELD.match(l) and FIELD.match(l).group(1).strip()
+                          == "Requires-write amended"
+                          for l in req_blocks.get(ident, []))
+            if before != now and not amended:
+                add("unrecorded-amendment", where,
+                    f"{ident} declared {sorted(before) or 'nothing'} when it was "
+                    f"first committed and now declares {sorted(now) or 'nothing'}, "
+                    "with no `**Requires-write amended.**` naming the decision "
+                    "(P-23). Superseding is allowed; editing the list a check "
+                    "reads is not")
+
         want = must_write.get(ident, [])
         owners = [tid for tid, (_, tf, _) in tasks.items()
                   if ident in [x.strip() for x in tf.get("Discharges", "").split(",")]]

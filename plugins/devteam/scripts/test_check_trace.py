@@ -214,6 +214,32 @@ CASES = [
       "tasks/T-2.md": None},
      set()),
 
+    # --- unrecorded-amendment: the list a checker's author could tune -------
+    # `Requires-write.` is half of what `unreachable-acceptance` compares, and
+    # the planner who draws the other half can reach both. Superseding stays
+    # allowed and is the point: it leaves a record naming a decision.
+    # This is the gaming move exactly: narrowing the list until it fits the
+    # scope. `unreachable-acceptance` goes GREEN on it -- `src/narrowed/` is
+    # inside T-1's `src/` -- and only the history catches it. Which is the
+    # argument for the check existing: the finding it is protecting cannot
+    # protect itself.
+    ("unrecorded-amendment",
+     {"REQUIREMENTS.md": REQS.replace("- **Requires-write.**\n  - `src/`",
+                                      "- **Requires-write.**\n  - `src/narrowed/`", 1)},
+     {"unrecorded-amendment"}, [], REQS),
+    ("fp-amendment-that-names-its-decision",
+     {"REQUIREMENTS.md": REQS.replace("- **Requires-write.**\n  - `src/`",
+                                      "- **Requires-write amended.** 2026-09-04 (D-3)\n"
+                                      "- **Requires-write.**\n  - `src/deeper/`", 1)},
+     set(), [], REQS),
+    ("fp-unchanged-list-with-real-history",
+     {}, set(), [], REQS),
+    # A requirement that did not exist in the earlier commit has nothing to
+    # have been amended FROM. Reporting one would make every requirement added
+    # after planning look tampered with.
+    ("fp-requirement-added-later-was-never-amended",
+     {}, set(), [], REQS.split("### R-2")[0]),
+
     # --- unreachable-acceptance: the criterion's level vs the task's scope --
     # Three measured instances, all late-caught by a verifier running the
     # command end to end after the module task had closed.
@@ -287,7 +313,7 @@ CASES = [
 ]
 
 
-def build(root, overrides):
+def build(root, overrides, prior=None):
     dt = os.path.join(root, "devteam")
     files = dict(FIXTURE)
     untracked = {}
@@ -309,6 +335,22 @@ def build(root, overrides):
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
     run = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, env=env)
     run("init", "-q", "-b", "main")
+
+    # `prior` is an EARLIER committed REQUIREMENTS.md, so the fixture's final
+    # state is a modification with real history behind it. Without this the
+    # harness could only build single-commit trees, in which first-declared
+    # always equals current and `unrecorded-amendment` can never fire -- the
+    # same blind spot the scope harness had, where every fixture committed
+    # everything and the working-tree check could not be expressed at all.
+    if prior is not None:
+        with open(os.path.join(dt, "REQUIREMENTS.md"), "w", encoding="utf-8") as fh:
+            fh.write(prior)
+        for name in files:
+            run("add", os.path.join("devteam", name))
+        run("commit", "-qm", "fixture (first)")
+        with open(os.path.join(dt, "REQUIREMENTS.md"), "w", encoding="utf-8") as fh:
+            fh.write(files["REQUIREMENTS.md"])
+
     for name in files:
         run("add", os.path.join("devteam", name))
     run("commit", "-qm", "fixture")
@@ -320,9 +362,10 @@ def main():
     for case in CASES:
         name, overrides, expected = case[:3]
         extra = case[3] if len(case) > 3 else []
+        prior = case[4] if len(case) > 4 else None
         root = tempfile.mkdtemp(prefix="devteam-trace-")
         try:
-            dt = build(root, overrides)
+            dt = build(root, overrides, prior)
             proc = subprocess.run([sys.executable, CHECK, *extra, dt],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}

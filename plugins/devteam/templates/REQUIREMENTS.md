@@ -61,6 +61,15 @@ author quietly editing *both* lists until they agree has turned the check off
 without anyone seeing it happen. If the tree does not exist yet, name the paths
 the plan will create.
 
+**And that is enforced, not requested.** `check_trace` reads this field's value
+from the commit that first declared it and reports `unrecorded-amendment` when
+it has changed since. To supersede, add `- **Requires-write amended.** <date>
+(D-n)` beside it naming the decision. The reason it is a control rather than a
+line of advice: the manager who first hit this had seven red findings and two
+lists it could edit, and reported that what stopped it narrowing one was that
+the failure had been *named in advance* — which is a thin thing to rely on
+twice, and nothing at all for whoever reads this in a hurry.
+
 ---
 
 <!-- example:begin -->
