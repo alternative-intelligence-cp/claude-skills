@@ -78,16 +78,29 @@ NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" "$REPO" T-n
-git -C "$REPO" add <each path you wrote, explicitly>
-git -C "$REPO" commit -F "$msgfile"
+git -C "$REPO" commit -F "$msgfile" -- <each path you wrote, explicitly>
 ```
 
-**Stage explicit paths. Never `git add -A`.** You are not the only writer in
-this tree: the manager owns `devteam/` and may have an uncommitted file of its
-own at any moment. `-A` sweeps it into your commit, where it becomes an
-undeclared write against your task and a change the manager never made
-deliberately. A supervisor had to override this instruction on every dispatch
-before it was fixed here.
+**Commit a pathspec. Staging explicitly is not enough, and `-A` is worse.**
+
+`-A` sweeps whatever else is in the tree into your commit — the manager owns
+`devteam/` and may have an uncommitted file at any moment, and a supervisor had
+to override that instruction on every dispatch before it was fixed here.
+
+But `git add <your files>` followed by a plain `git commit` fails too, and
+fails invisibly: **the index is shared.** At any width above one, another
+agent's `git add` has already put its files there, and your commit takes the
+whole index — carrying somebody else's in-flight work into your task's commit
+under your message. You did nothing wrong and the standing rule did not cover
+it, because *somebody else did the staging*. A manager used the add-then-commit
+form for an entire run and it only never landed because the other task happened
+to commit first.
+
+`git commit -- <paths>` commits exactly those paths whatever the index holds.
+
+**The `-m` trap:** anything after the `--` separator is a pathspec, so
+`git commit -- src/a.py -m "msg"` silently tries to commit files named `-m` and
+`msg`. Put the message flag first, or use `-F`.
 
 Scope clean, or the commit does not happen. The subject is
 `T-n.S-n: <what>`; the body says **why** — the diff already says what. End the
@@ -147,11 +160,24 @@ something.
   passes just as happily before your work as after it, say so in your report
   rather than banking it. That is a finding about the plan, and reporting it
   is worth more than a clean pass.
+- **Prove your check against the defect, not only against the old tree.** A
+  check that fails before your change and passes after it may still be blind to
+  the thing it exists to catch — three checks in this project failed on the old
+  tree, passed on the new one, and passed a deliberately built version of the
+  exact defect they were written for, because all three compared text the
+  defect does not alter. Build the defect on a copy and require the check to
+  fail on it.
 - **A mutation must name what it expects to fail.** Breaking the thing on
   purpose and watching the suite go red proves only that *something* is
   watching. Name the node id, and check that one failed — three tests going red
   when one mutation lands means two of them were not the instrument you were
   testing.
+- **Measure your own baseline; never trust one you were handed.** A figure in
+  your dispatch was true when somebody wrote it and the tree has moved since —
+  a manager corrected a stale "5 passed" to "6 passed" in a dispatch here and
+  the measured figure was "7 passed, 7 xfailed". A baseline in a dispatch ages
+  exactly as fast as one in a report, and the instruction to produce your own
+  is what makes the check survive being wrong about it.
 - **Assert your fixture before you trust what it proves.** A negative test is
   only as good as the bad input it is given. `printf '\xff\xfe'` under `sh`
   does not expand `\x`, so the "invalid" file comes out as valid text, the

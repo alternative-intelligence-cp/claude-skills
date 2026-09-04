@@ -22,8 +22,16 @@ One file, `devteam/tasks/T-n.md`, from
 | **Scope** | the paths it may write. Too wide and it collides with its neighbours; too narrow and it escalates mid-flight. Both are your error, not the worker's |
 | **Depends on** | tasks that must be `DONE` first. A named task, never "after the backend" |
 | **Gate** | what must be **true** afterwards — a condition, not a feeling |
-| **Verify** | the exact command that proves the gate, decided **now**, before anyone is invested in passing it |
+| **Verify** | the exact command that proves the gate, decided **now**, before anyone is invested in passing it — and **scoped to this task's own files**, because at any width above one a whole-suite command measures other tasks' half-finished work and fails for reasons that have nothing to do with this one |
 | **Estimate** | tokens and minutes. Wrong is fine; absent is not, because an estimate never compared to a measurement stays wrong forever (P-41) |
+
+**A gate phrased over the whole project is a gate over everybody else's
+in-flight work.** `pytest -q` expecting an unchanged count is a fine gate at
+width 1 and meaningless at width 3 in one tree: a task watched the suite go
+from 17 passed to 33 failed during its own work, none of it its own. Name the
+files, or the node ids — `pytest -q tests/test_reader.py` — so the gate answers
+a question about *this* task. Where a whole-suite figure is genuinely wanted,
+it belongs to a checkpoint, which runs when nothing is in flight.
 
 ## Scopes are the hard part
 
@@ -89,6 +97,21 @@ deliberate mutation in this project turned three tests red and only one was
 under test — a step whose evidence was "it failed" would have been satisfied
 by either of the other two, and the instrument could have been vacuous the
 whole time behind a genuine failure somewhere else.
+
+**And run it against the DEFECT you are avoiding, not only against the state
+you are leaving.** These are different tests and only the second one matters.
+
+A command that fails on the pre-change tree has been shown not to be
+constant-green — necessary, and not sufficient. A check can fail on the old
+tree, pass on the new one, and still be blind to the specific defect it was
+written for, because it discriminates on the wrong axis. That happened here: a
+step's three checks all failed before the change, all passed after it, and all
+passed a deliberately built version of the exact defect they existed to catch.
+Every one of them was comparing text that the defect does not alter.
+
+So: build the defect on a copy, run the check, and require it to fail. If it
+does not, the check is measuring something adjacent to the thing you care
+about, and a green result from it means nothing at all.
 
 **A verification command must be able to FAIL.** This is the one that is
 easiest to get wrong and hardest to notice. A step's verify is evidence only

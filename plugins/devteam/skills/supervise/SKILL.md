@@ -73,6 +73,21 @@ under test — a step whose evidence was "it failed" would have been satisfied
 by either of the other two, and the instrument could have been vacuous the
 whole time behind a genuine failure somewhere else.
 
+**And run it against the DEFECT you are avoiding, not only against the state
+you are leaving.** These are different tests and only the second one matters.
+
+A command that fails on the pre-change tree has been shown not to be
+constant-green — necessary, and not sufficient. A check can fail on the old
+tree, pass on the new one, and still be blind to the specific defect it was
+written for, because it discriminates on the wrong axis. That happened here: a
+step's three checks all failed before the change, all passed after it, and all
+passed a deliberately built version of the exact defect they existed to catch.
+Every one of them was comparing text that the defect does not alter.
+
+So: build the defect on a copy, run the check, and require it to fail. If it
+does not, the check is measuring something adjacent to the thing you care
+about, and a green result from it means nothing at all.
+
 **And the command must be able to fail.** Before accepting a step on the
 strength of its verify, satisfy yourself the command would have come out
 differently *before* the work — `git archive HEAD~1` to a scratch tree and run

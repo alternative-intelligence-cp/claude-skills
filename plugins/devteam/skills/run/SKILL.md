@@ -134,10 +134,14 @@ While tasks in flight are fewer than `width=`:
 4. **On a report**, §6.
 
 5. **Record** one line per event in `RECORD.md`, committed with the board
-   change — **staging explicit paths, never `git add -A`.**
+   change — **as `git commit -F <msg> -- <paths>`, never `git add -A`, and
+   never `git add` followed by a bare `git commit`.**
 
    You are the one party guaranteed to be writing concurrently with every
-   worker, and `-A` is what anyone types by reflex. It sweeps a worker's
+   worker, and `-A` is what anyone types by reflex. **The index is shared**, so
+   staging your own files and then committing still takes whatever another
+   agent has staged — you commit their in-flight work under your message,
+   having done nothing wrong. A pathspec commit takes exactly what you name. It sweeps a worker's
    in-flight file into your commit under your message, and four things break at
    once: the step loses the commit that is its unit of evidence, scope
    attribution inverts because a write belonging to no task is invisible to
