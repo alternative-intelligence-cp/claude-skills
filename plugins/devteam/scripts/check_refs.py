@@ -98,6 +98,20 @@ VOCAB = (
 
 LEAKS = (
     (re.compile(r"(?<![\w.~])/(?:home|Users)/[A-Za-z0-9._-]+/"), "an absolute home path"),
+    # A session-scoped temp path encodes a machine layout and a session id and
+    # resolves for nobody else. Four were baked into a permanent task record
+    # before this existed, and `check_refs` reported the tree clean -- a check
+    # passing on the exact condition it exists to detect.
+    #
+    # Two shapes, because the first attempt at one pattern missed both. A home
+    # path survives path-encoding as `-home-<user>-...`, which no `/home/` rule
+    # can see; and a UUID under a temp root is a session id wherever it sits in
+    # the path, not only in the segment after the root.
+    (re.compile(r"(?<![\w-])-home-[A-Za-z0-9._]+-[A-Za-z0-9._-]{4,}"),
+     "a path-encoded home directory"),
+    (re.compile(r"(?<![\w.~])/(?:tmp|var/folders|private/var)/\S*?"
+                r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}"),
+     "a session-scoped temporary path"),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{16,}"), "a GitHub token"),
     (re.compile(r"\bsk-[A-Za-z0-9]{20,}"), "an API key"),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "an AWS access key"),

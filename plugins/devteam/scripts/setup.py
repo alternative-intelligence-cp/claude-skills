@@ -38,6 +38,7 @@ EXAMPLE = re.compile(r"^<!-- example:begin -->\n.*?^<!-- example:end -->\n", re.
 NOT_INSTALLED = {"FORMATS.md", "tasks", "checkpoints"}
 
 PLACEHOLDER_DIR_README = {
+    "audits": "# Audits\n\nOne file per audit, named `<scope>-<dimension>-<date>.md`, filed by the\nmanager because the auditor has no tool that writes. An audit reports and\nnever fixes; a worker triages the findings afterwards under the ordinary\ndiscipline.\n",
     "tasks": "# Tasks\n\nOne file per task, named `T-1.md`, `T-2.md`. The planner writes them\nfrom the plugin's `templates/tasks/TASK.md`. A task file is the unit of\nclaim, the contract its supervisor works to, and where its execution\nrecord and REPORT block land.\n",
     "checkpoints": "# Checkpoints\n\nOne file per checkpoint, named `C-1-<date>.md`, written from the plugin's\n`templates/checkpoints/CHECKPOINT.md`. A checkpoint is a verdict with\nevidence and is never edited after it is filed.\n",
 }
@@ -176,7 +177,9 @@ def main(argv):
     installed = 0
     for name in sorted(os.listdir(TEMPLATES)):
         if name in NOT_INSTALLED:
-            continue
+            continue                      # FORMATS.md stays with the plugin,
+                                          # but its vocabularies do not -- see
+                                          # STATUS_NOTE below
         src, dst = os.path.join(TEMPLATES, name), os.path.join(devteam, name)
         if os.path.isdir(src):
             os.makedirs(dst, exist_ok=True)

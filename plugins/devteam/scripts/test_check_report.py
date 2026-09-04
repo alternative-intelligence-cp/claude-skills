@@ -17,7 +17,7 @@ env: pin-2026-09-03
 requirements: R-1
 scope: src/
 commits:
-  - HEAD cycle T-1: the config loader
+  - HEAD T-1: the config loader
 checks:
   - make test -> 12 passed, 0 failed [exit 0]
 questions: none
@@ -68,8 +68,8 @@ CASES = [
      {"bad-report-status"}),
     ("status-mismatch", task_file(title="PLANNED"), {"status-mismatch"}),
     ("unknown-commit", task_file(report=REPORT.replace(
-        "  - HEAD cycle T-1: the config loader",
-        "  - deadbee cycle T-1: the config loader")),
+        "  - HEAD T-1: the config loader",
+        "  - deadbee T-1: the config loader")),
      {"unknown-commit"}),
     ("no-evidence", task_file(report=REPORT.replace(
         "checks:\n  - make test -> 12 passed, 0 failed [exit 0]\n", "checks: none\n")),
@@ -91,8 +91,8 @@ CASES = [
                title="BLOCKED (Q-3)"), set()),
     ("fp-several-checks-and-commits",
      task_file(report=REPORT.replace(
-         "  - HEAD cycle T-1: the config loader",
-         "  - HEAD cycle T-1: the config loader\n  - HEAD~1 cycle T-1: the probe")
+         "  - HEAD T-1: the config loader",
+         "  - HEAD T-1: the config loader\n  - HEAD~1 T-1: the probe")
         .replace("  - make test -> 12 passed, 0 failed [exit 0]",
                  "  - make test -> 12 passed, 0 failed [exit 0]\n  - make lint -> clean [exit 0]")),
      set()),
@@ -105,17 +105,17 @@ CASES = [
     # --- regressions from the first real dispatch -------------------------
     ("fp-HEAD-names-this-commit-by-its-subject",
      task_file(report=REPORT.replace(
-         "  - HEAD cycle T-1: the config loader",
-         "  - HEAD cycle T-1: the config loader")), set()),
+         "  - HEAD T-1: the config loader",
+         "  - HEAD T-1: the config loader")), set()),
     ("commit-subject-that-does-not-exist",
      task_file(report=REPORT.replace(
-         "  - HEAD cycle T-1: the config loader",
+         "  - HEAD T-1: the config loader",
          "  - HEAD T-1: a subject nobody ever committed")),
      {"unknown-commit"}),
     ("fp-commits-continuation-lines-are-not-commits",
      task_file(report=REPORT.replace(
-         "  - HEAD cycle T-1: the config loader",
-         "  - HEAD cycle T-1: the config loader\n    (rewritten after review)")),
+         "  - HEAD T-1: the config loader",
+         "  - HEAD T-1: the config loader\n    (rewritten after review)")),
      set()),
     ("fp-supervisor-block-is-checked-not-its-workers",
      task_file(report=REPORT + "\n--- WORKER REPORTS (verbatim, P-17) ---\n\n"
@@ -130,6 +130,13 @@ CASES = [
     # From the recovery dispatch: a supervisor cannot close cleanly while the
     # MANAGER has an uncommitted file, even though nothing of the task's is
     # dirty. dirty-tree now measures only the task's own scope.
+    # head-subject requires the task's own commit-subject PREFIX, the same rule
+    # check_scope attributes by. A subject that merely mentions the task is not
+    # that task's commit.
+    ("head-subject-when-no-commit-begins-with-the-task",
+     task_file(report=REPORT.replace("  - HEAD T-1: the config loader",
+                                     "  - HEAD chore: touch up T-1 a bit")),
+     {"head-subject"}, "T-1", [], "chore: touch up T-1 a bit"),
     ("fp-dirty-file-outside-the-tasks-scope",
      task_file(), set(), "T-1", [("devteam/RECORD.md", "manager's own edit\n")]),
     ("dirty-file-inside-the-tasks-scope",
@@ -149,7 +156,7 @@ CASES = [
 ]
 
 
-def build(root, body, leftovers=()):
+def build(root, body, leftovers=(), subject="T-1: the config loader"):
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     with open(os.path.join(dt, "T-1.md"), "w", encoding="utf-8") as fh:
@@ -162,8 +169,8 @@ def build(root, body, leftovers=()):
     run = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, env=env)
     run("init", "-q", "-b", "main")
     run("add", "-A")
-    run("commit", "-qm", "cycle T-1: the config loader")
-    run("commit", "-q", "--allow-empty", "-m", "cycle T-1: the config loader")
+    run("commit", "-qm", subject)
+    run("commit", "-q", "--allow-empty", "-m", subject)
     for rel, text in leftovers:                # uncommitted after the commit
         p = os.path.join(root, rel)
         os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -179,9 +186,10 @@ def main():
         name, body, expected = case[:3]
         want = case[3] if len(case) > 3 else "T-1"
         leftovers = case[4] if len(case) > 4 else []
+        subject = case[5] if len(case) > 5 else "T-1: the config loader"
         root = tempfile.mkdtemp(prefix="devteam-report-")
         try:
-            build(root, body, leftovers)
+            build(root, body, leftovers, subject)
             proc = subprocess.run([sys.executable, CHECK, root, want],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}

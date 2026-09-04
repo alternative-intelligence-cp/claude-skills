@@ -266,9 +266,15 @@ def check(project, want_id):
             if mine:
                 add("dirty-tree", f"uncommitted inside {task_id}'s scope on status "
                                   f"{status}: {', '.join(mine[:4])}")
-        rc, subject = git(repo, "log", "-1", "--format=%s")
-        if rc == 0 and subject and task_id.lower() not in subject.lower():
-            add("head-subject", f"HEAD is {subject!r}, which does not name {task_id}")
+        # The task's OWN closing commit, not HEAD. Checking HEAD made every
+        # finished task report `head-subject` the moment any later task
+        # committed -- so an audit run afterwards saw a false positive against
+        # every historical task. What the rule means is "this task committed
+        # something that names it", and that stays true forever.
+        rc, log = git(repo, "log", "--format=%s", "--all")
+        if rc == 0 and not any(l.strip().lower().startswith(task_id.lower())
+                               for l in log.split("\n")):
+            add("head-subject", f"no commit's subject begins with {task_id}")
 
     return findings
 

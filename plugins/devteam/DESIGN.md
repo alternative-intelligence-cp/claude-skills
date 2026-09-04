@@ -872,3 +872,66 @@ T-2's S-0 had a vacuous verify; T-3's S-1 misread a diff hunk header as a
 count of added lines. Both artifacts were right; both reports were wrong; both
 were caught by a verifier and re-run. That ratio — evidence failing more often
 than work — is the clearest sign the gate is pointed at the right thing.
+
+
+---
+
+## 18. What three parallel audits found
+
+Correctness, security and hygiene, dispatched together against the rehearsal
+project — the first exercise of P-15 as corrected, and it held: three agents
+that cannot write cannot collide. **All three wrote nothing**, which the
+harness enforced rather than the prose.
+
+Each obeyed its dimension's discipline. The hygiene auditor was told its
+findings are the highest volume and lowest severity and led with *"the three
+that actually matter"*. The security auditor was told to state its threat
+model and did, then labelled two findings as needing a different model and
+declined to inflate them. That is the difference between an audit and a list.
+
+**The single most valuable finding is a vulnerability the project had already
+documented without noticing.** `python -m` puts the current directory at the
+front of `sys.path`, so the prescribed invocation executes a `wordfreq/`
+package found in the cwd — an unpacked tarball, a cloned repo, a shared
+scratch directory. `tests/test_cli.py` **explains this mechanism in its own
+comments**, defends the test suite against it with `cwd=tmp_path`, treats it
+as test hygiene, and ships the undefended invocation to the user. One file
+stated the mechanism; no file stated the consequence.
+
+That is a class worth naming: **a hazard recorded as an implementation detail
+by the one worker who understood it.** No check finds it, because nothing is
+missing — the knowledge is present, in prose, in the wrong register.
+
+**And an audit found the audit tooling failing at its own job.** `check_refs`
+reported a tree clean while four committed lines carried an absolute session
+path — the home directory survived path-encoding as
+`-home-randy-Workspace-…`, which no `/home/` pattern can see. A check passing
+on the exact condition it exists to detect. Fixed with two patterns and four
+controls; it now reports all four.
+
+**The characteristic defect reached five instances.** C-1 counted three and
+said so; the audits found a fourth in the charter (`make lint` is
+`compileall`, green on code that cannot run) and a fifth in the tests
+(`"Traceback" not in stderr` passes on Python's `BrokenPipeError` spew, which
+does not contain that word). The count in C-1 is wrong, and it is filed and
+never edited (P-30), so the correction belongs in the next checkpoint.
+
+Three fixes landed in the plugin, each from a finding an auditor raised about
+the tooling rather than the project:
+
+1. **`head-subject` checked HEAD**, so every finished task reported it the
+   moment any later task committed. An audit run afterwards saw a false
+   positive against every historical task. It now looks for the task's own
+   commit, which stays true forever.
+2. **The leak pattern missed path-encoded homes and session UUIDs.**
+3. **`setup` never created `devteam/audits/`**, though two skills file into it.
+
+**The deepest finding is about requirements, not code.** All three auditors
+converged on it independently: *the requirements enumerate where their goals
+quantify.* G-2 promises a clear failure for **every** failure; R-2 and R-3
+name two, and each new gap — undecodable input, a broken pipe, memory
+exhaustion — gets closed by adding one more member to the enumeration. The
+durable fix is requirements phrased as **rules over a domain**, with the
+enumerated cases as their *tests* rather than as their *scope*. That belongs
+in the `onboard` and `plan` skills, and is the most transferable thing this
+rehearsal has produced.
