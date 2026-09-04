@@ -187,6 +187,20 @@ SPECIAL = [
     ("fp-writer-none-lets-anyone-write-devteam",
      write("devteam/RECORD.md"), "session-B", False,
      lambda dt: open(os.path.join(dt, "BOARD.md"), "w").write("# The board\n\n**Writer.** none\n")),
+    # F-12: protected paths were read only from the project containing the
+    # TARGET, so a write outside every devteam project returned early and was
+    # never judged -- which is every sibling repository, the case the guard's
+    # own docstring advertises by name.
+    ("deny-protected-path-outside-the-project",
+     write("/etc/devteam-probe/x.conf"), WRITER_SESSION, True,
+     lambda dt: open(os.path.join(dt, "CHARTER.md"), "w").write(
+         CHARTER.replace("| Protected paths | `vendor/`, `generated/` |",
+                         "| Protected paths | `vendor/`, `/etc/devteam-probe` |"))),
+    ("fp-undeclared-path-outside-the-project-is-not-guarded",
+     write("/etc/something-else/x.conf"), WRITER_SESSION, False,
+     lambda dt: open(os.path.join(dt, "CHARTER.md"), "w").write(
+         CHARTER.replace("| Protected paths | `vendor/`, `generated/` |",
+                         "| Protected paths | `vendor/`, `/etc/devteam-probe` |"))),
     ("fp-no-protected-paths-declared",
      write("src/loader/a.py"), WRITER_SESSION, False,
      lambda dt: open(os.path.join(dt, "CHARTER.md"), "w").write(

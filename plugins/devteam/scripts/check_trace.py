@@ -191,8 +191,17 @@ def resolve(target):
 
 
 def main(argv):
+    # Before planning, no task exists, so EVERY requirement is uncovered by
+    # construction. Reporting that at the onboarding gate makes a clean run
+    # impossible and leaves a manager choosing between ignoring the check and
+    # inventing tasks. `--pre-plan` suppresses exactly that one class and
+    # nothing else: orphan-scope, unverified-requirement, missing-field,
+    # unknown-reference and dependency-cycle all still apply, and those are
+    # the ones onboarding actually needs clean.
+    pre_plan = "--pre-plan" in argv[1:]
+    args = [a for a in argv[1:] if a != "--pre-plan"]
     total = 0
-    for t in (argv[1:] or ["."]):
+    for t in (args or ["."]):
         devteam = resolve(t)
         if not os.path.isdir(devteam):
             print(f"check_trace: not a directory: {devteam}", file=sys.stderr)
@@ -202,6 +211,8 @@ def main(argv):
             print(f"check_trace: not a git repository: {devteam}", file=sys.stderr)
             return 2
         findings, ng, nr, nt = got
+        if pre_plan:
+            findings = [f for f in findings if f[0] != "uncovered-requirement"]
         label = os.path.relpath(devteam, os.getcwd())
         if findings:
             print(f"{label}: {len(findings)} finding(s)  [{ng} goals, {nr} requirements, {nt} tasks]")

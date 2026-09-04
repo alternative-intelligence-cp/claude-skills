@@ -302,6 +302,29 @@ def judge(target, what, session, session_project, cache, category="write"):
     """
     if target is None:
         return None
+
+    # PROTECTED PATHS ARE CHECKED FIRST, AND FROM THE SESSION'S OWN PROJECT.
+    # They were previously read only from the project containing the TARGET, so
+    # a write outside every devteam project returned early and was never judged
+    # -- which is every sibling repository, the case this guard's own docstring
+    # advertises by name. The declaring project is the one whose charter names
+    # the path, so that is the charter to consult, wherever the target lands.
+    home = find_project(session_project)
+    if home is not None:
+        if home not in cache:
+            try:
+                cache[home] = load_state(home)
+            except OSError:
+                cache[home] = ([], {}, None)
+        for prot in cache[home][0]:
+            if inside(target, prot):
+                return (f"Refused: {what} targeting {prot}, which this project's "
+                        "charter declares a protected path. It is read-only from "
+                        "here -- reading, grepping and listing it are fine. If it "
+                        "genuinely needs a change, that is a question for the "
+                        "client, not an edit (P-39): a permission the pipeline "
+                        "does not have is a stop, never a workaround.")
+
     # From the TARGET, not its parent. `dirname` started the search one level
     # too high, so a target that IS a project root found no project and went
     # unjudged -- which is precisely what every `git -C <root> …` resolves to.

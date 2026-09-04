@@ -116,6 +116,15 @@ CASES = [
      {"dependency-cycle"}),
 
     # --- FALSE-POSITIVE CONTROLS ------------------------------------------
+    # F-10: at the onboarding gate no task exists, so every requirement is
+    # uncovered by construction and a plain run can never exit 0.
+    ("fp-pre-plan-suppresses-uncovered-requirement",
+     {"tasks/T-1.md": None, "tasks/T-2.md": None}, set(), ["--pre-plan"]),
+    ("uncovered-requirement-without-the-flag",
+     {"tasks/T-1.md": None, "tasks/T-2.md": None}, {"uncovered-requirement"}),
+    ("pre-plan-still-reports-an-orphan-goal",
+     {"CHARTER.md": CHARTER + "- **G-3** — the thing is fast\n"},
+     {"orphan-scope"}, ["--pre-plan"]),
     ("fp-struck-requirement-needs-no-task",
      {"REQUIREMENTS.md": REQS + """
 ### R-3 — withdrawn idea
@@ -213,11 +222,14 @@ def build(root, overrides):
 
 def main():
     passed = failed = 0
-    for name, overrides, expected in CASES:
+    for case in CASES:
+        name, overrides, expected = case[:3]
+        extra = case[3] if len(case) > 3 else []
         root = tempfile.mkdtemp(prefix="devteam-trace-")
         try:
             dt = build(root, overrides)
-            proc = subprocess.run([sys.executable, CHECK, dt], capture_output=True, text=True)
+            proc = subprocess.run([sys.executable, CHECK, *extra, dt],
+                                  capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
             want_exit = 1 if expected else 0
             if got == expected and proc.returncode == want_exit:

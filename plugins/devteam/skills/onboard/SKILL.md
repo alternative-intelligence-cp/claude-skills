@@ -155,9 +155,16 @@ almost always say every, and then the requirement has to say so.
 Then:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" --pre-plan .
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_refs.py" .
 ```
+
+**`--pre-plan` matters here and only here.** No task exists yet, so every
+requirement is uncovered by construction and a plain run can never exit 0 at
+this gate. The flag suppresses that one class and nothing else — `orphan-scope`
+and `unverified-requirement`, the two this stage actually needs, still apply.
+Drop the flag from `/devteam:plan` onward, where an uncovered requirement is a
+real finding.
 
 `orphan-scope` means you promised the client a goal no requirement covers.
 `unverified-requirement` means one will be declared done by opinion. Both must
