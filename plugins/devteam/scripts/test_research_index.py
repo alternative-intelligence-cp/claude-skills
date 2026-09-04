@@ -71,19 +71,25 @@ def main():
             "proj-b/devteam/research/CURRENCY.md": "| Depends on | Pinned |\n|---|---|\n",
             "proj-b/devteam/research/README.md": "# Digests live here\n",
             "proj-b/devteam/research/notes.md": "# just some notes\n\nNot a digest.\n",
-            "proj-c/notes/stray.md": digest("Not under devteam", 5),
+            "proj-c/notes/stray.md": digest("Not in a research dir", 5),
+            "proj-d/meta/research/other-convention.md": digest("Other layout", 5),
         })
         rc, out = run(index, "build", tmp)
         idx = json.load(open(index))
         topics = {d["topic"] for d in idx["digests"]}
 
-        check("indexes real digests", topics == {"POSIX utilities", "TLS ciphers", "TOML spec"},
+        # The SHAPE gates, not the path: a properly written digest under a
+        # different convention (meta/research/) must still be found.
+        check("indexes real digests wherever research/ lives",
+              topics == {"POSIX utilities", "TLS ciphers", "TOML spec", "Other layout"},
               f"got {sorted(topics)}")
         check("skips CURRENCY.md and README.md", "Depends on" not in json.dumps(idx))
         check("skips a file that is not in the digest shape", "just some notes" not in json.dumps(idx))
-        check("skips research outside a devteam/ tree", "Not under devteam" not in topics)
+        check("skips a .md that is not in a research/ directory",
+              "Not in a research dir" not in topics)
         check("records the project each came from",
-              {d["project"] for d in idx["digests"]} == {"proj-a", "proj-b"})
+              {d["project"] for d in idx["digests"]} == {"proj-a", "proj-b", "proj-d"},
+              f"got {sorted({d['project'] for d in idx['digests']})}")
 
         # THE property that matters: pointers, never answers.
         blob = json.dumps(idx)

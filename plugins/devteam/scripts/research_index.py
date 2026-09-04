@@ -66,20 +66,50 @@ def parse(path):
     }
 
 
+SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__",
+             "build", "dist", "target", ".tox", ".mypy_cache"}
+
+
+def owning_project(path):
+    """The nearest ancestor that is a repository, else the parent of research/."""
+    cur = os.path.dirname(path)
+    while True:
+        if os.path.exists(os.path.join(cur, ".git")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return os.path.dirname(os.path.dirname(path))
+        cur = parent
+
+
 def scan(roots):
-    out = []
+    """Every `research/` directory under the roots, at any depth.
+
+    THE SHAPE IS THE GATE, NOT THE PATH. An earlier version matched only
+    `devteam/research`, which meant a properly written digest filed under a
+    different convention -- `meta/research/`, say -- was invisible. The parser
+    already rejects anything that is not a digest, so the directory name buys
+    nothing and costs reach. A document with no `As of` line is skipped
+    wherever it lives, because a digest that cannot be dated cannot be aged,
+    and an entry that cannot be aged is worse than an absent one.
+    """
+    out, seen = [], set()
     for root in roots:
         root = os.path.realpath(os.path.expanduser(root))
         for base, dirs, files in os.walk(root):
-            dirs[:] = [d for d in dirs if d not in (".git", "node_modules", ".venv")]
-            if not base.replace(os.sep, "/").endswith("devteam/research"):
+            dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+            if os.path.basename(base) != "research":
                 continue
-            project = os.path.dirname(os.path.dirname(base))
+            project = owning_project(base)
             for f in sorted(files):
                 if not f.endswith(".md") or f in ("CURRENCY.md", "README.md"):
                     continue
-                d = parse(os.path.join(base, f))
+                path = os.path.realpath(os.path.join(base, f))
+                if path in seen:
+                    continue
+                d = parse(path)
                 if d:
+                    seen.add(path)
                     d["project"] = os.path.basename(project)
                     out.append(d)
     return out
