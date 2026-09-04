@@ -195,6 +195,25 @@ the highest priority is not a trade-off, it is a `CHARTER` question (P-26).
 Where an audit dimension corresponds to a priority, **its findings outrank the
 others in the same ordering.** A safety finding is not one voice among four.
 
+**P-20c — Two attempts, then escalate — and the third attempt belongs to
+whoever answers.** A supervisor dispatches a step, and on failure re-dispatches
+once. After that it escalates rather than trying again, because a third attempt
+is how an afternoon disappears into something the client could have settled in
+ten seconds.
+
+**This is not P-20 and must not be cited as it.** P-20 forbids re-running a red
+*check* until it goes green, which hides intermittent defects. This governs
+*attempts at a step*, and the two were conflated in one citation for long
+enough to make a real decision look impossible.
+
+**What distinguishes a forbidden repeat from permitted new work is evidence,
+not labelling.** A third attempt is forbidden when you do not know why the last
+one failed — repetition in hope. Work dispatched *after* an escalation, on
+authority from whoever answered it, and identified by something measured since,
+is the outcome of the rule rather than an evasion of it. The test is simple and
+hard to fake: **can you state what changed, and did you observe it?** If the
+only new thing is willingness to try again, it is the forbidden kind.
+
 **P-21 — Every decision records the alternatives declined, and why they lost.**
 `devteam/DECISIONS.md` holds `D-n` entries. The alternatives are exactly what a
 later reader — human or agent — will propose, and a decision that does not say

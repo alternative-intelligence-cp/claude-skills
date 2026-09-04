@@ -121,7 +121,15 @@ thing is written before or with the thing, never after it "to save time".
 |---|---|
 | `PASS` | tick the step and move on. **The worker already committed its own block** — do not append it again |
 | `FAIL`, or the worker reported `RED` | re-dispatch **once**, the failure verbatim in `NOTES:` |
-| failed twice, or `BLOCKED`, or `NEEDS-DECISION` | **escalate.** Never a third attempt (P-20) |
+| failed twice, or `BLOCKED`, or `NEEDS-DECISION` | **escalate.** Never a third attempt of your own (P-20c) |
+
+**When a worker withdraws a bar as unsatisfiable, that is a claim — test it.**
+It will usually arrive attached to a principle that is *true in general*, which
+is what makes it persuasive and what makes it dangerous: a true general
+principle deployed to justify not trying something is the most convincing kind
+of wrong argument, because disputing it feels like disputing the principle.
+Build the instrument it says cannot exist, or dispatch someone to. If it really
+cannot be built, that costs one attempt and you now know rather than believe.
 
 **Two attempts, then up.** A third attempt is how a supervisor burns an
 afternoon on something the client could have answered in ten seconds.
