@@ -263,12 +263,42 @@ that decides whether the loop may proceed without an answer (P-26):
 | `CHARTER` | **blocks, always.** Changes what is being built, what done means, or what is out of scope (P-2) |
 | `REVERSIBLE` | goes on the table with its recommendation. When the charter's escalation window expires, **proceed on the recommendation** |
 
+**A blocking question carries its price, and the price is computed BEFORE the
+client is asked.** This is the one thing most likely to make an answer regretted
+rather than wrong. A change that sounds small is priced by how much settled work
+it reopens, not by how much text it alters — and the client cannot see that from
+the question. They see a sentence; the cost is a re-verification.
+
+So a `CHARTER` or `IRREVERSIBLE` question states, in the question itself:
+
+- **what signed text it retires**, and the sweep list of sites that quote it —
+  generated now, not after the answer (the procedure is below);
+- **what already-verified work it reopens.** A discharged requirement returning
+  to `in-progress` is the expensive line, because it means a closed task's
+  verification no longer covers the thing it verified;
+- **whether any affected site is in no task's scope**, which means the change
+  needs a task that does not exist yet;
+- **the estimate**, in step-units, using the model in the plan skill.
+
+A real instance, and it is the shape to expect: a client attached a condition to
+an amendment that amounted to ten lines of test. The honest price was **a full
+step-unit**, because no open task owned the file — plus a discharged requirement
+going back to `in-progress`, because a requirement that gains an acceptance
+clause its discharging task never ran is not discharged. Ten lines, and the
+cheaper of the two routes was still a re-dispatch.
+
+**Neither refuse the change nor agree to it silently.** Say what it costs and
+why, in the same breath as saying it is possible, and let the client decide with
+the number in front of them. A client told the price can choose; a client who
+finds out afterwards was badly served — and the pipeline knew and did not say.
+
 **An amendment that supersedes a rule carries a sweep list, generated when it
 is made.** A `CHARTER` answer usually retires some wording, and the retired
 wording is quoted in places the amendment never looks: other requirements, the
 risks section, module docstrings, a README. One real amendment touched four
 documents and left about fifteen sites still asserting the rule it had
-replaced. So before closing the question, generate the list:
+replaced. Generate the list **before asking**, so it can be priced into the question,
+and use it again before closing:
 
 ```bash
 git grep -n "D-11\|D-13\|carve-out" -- . ':!devteam/RECORD.md'
