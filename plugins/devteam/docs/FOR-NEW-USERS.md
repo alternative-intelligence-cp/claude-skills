@@ -27,7 +27,14 @@ Then, in the project directory:
 /devteam:run          the loop
 /devteam:status       where is it, at any time
 /devteam:checkpoint   diff what exists against the charter
+/devteam:resume       pick up after a crash, a reboot, or a day away
+/devteam:iterate      open the next cycle once one is finished
 ```
+
+**If anything interrupts a run — and something will — use `/devteam:resume`
+rather than `/devteam:run`.** Both reconcile; resume reports what it found and
+waits for you before re-dispatching anything, because a task whose agent died
+may have left uncommitted work that re-dispatching would destroy.
 
 **Give it a repository it owns.** A `devteam/` directory makes its write guard
 police that whole tree for *every* session, not only its own agents — so if

@@ -35,6 +35,8 @@ finds the work has drifted from the charter.
 /devteam:plan            # requirements → a task graph → you approve
 /devteam:run width=2     # the loop. Runs unattended; stops only when it must
 /devteam:status          # where is it, at any time
+/devteam:resume          # pick up after a crash, a reboot, or a day away
+/devteam:iterate         # the next cycle, carrying the last one forward
 /devteam:checkpoint      # diff what exists against the charter, on demand
 ```
 

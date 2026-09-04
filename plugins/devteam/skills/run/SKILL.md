@@ -30,6 +30,13 @@ and do nothing else.
 
 Skipped in `tick` mode.
 
+**If you are picking up after an interruption — a crash, a killed session, a
+reboot, or simply a day's gap — run `/devteam:resume` first.** This startup
+reconciles and recovers *immediately*, which is right when you are continuing
+your own loop and wrong when you are inheriting somebody's. The cheapest-looking
+recovery action, re-dispatching a task whose agent is gone, is also the one that
+can destroy uncommitted work nobody knew was there.
+
 1. **Take the lock.** `mkdir -p devteam/.run/session` and write
    `${CLAUDE_SESSION_ID}` to `devteam/.run/session/manager`. Put the same id
    on `BOARD.md`'s `**Writer.**` line and commit: `board: writer <id>`.
