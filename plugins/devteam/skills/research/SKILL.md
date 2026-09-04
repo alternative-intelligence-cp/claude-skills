@@ -12,6 +12,32 @@ release, a library's behaviour, a known vulnerability — lives outside it and
 **moves**. Your training data has a cutoff and the world does not, so anything
 you "know" about a version number is a hypothesis with a date on it.
 
+## Before you search, look
+
+**Somebody may already have answered this, for another project.** Digests are
+filed per project, so the same question gets paid for twice by default:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/research_index.py" query <terms>
+```
+
+**A hit is a lead, not an answer.** The index holds the topic, the question,
+the date, the sensitivity and the path — deliberately no findings, because an
+index carrying the answer becomes a second home for a fact (P-34), goes stale
+silently, and gets read in preference to the digest precisely because it is
+more convenient.
+
+| The hit is | Do |
+|---|---|
+| fresh, and answers the question | cite it — `per <path>, as of <date>` — and say in your digest that you reused it rather than re-derived it |
+| fresh, and answers a *neighbouring* question | read it for its sources, then do your own work. A digest about TOML's current version does not answer one about YAML's |
+| stale | **re-verify at the primary source.** A stale hit is worth having — it says where to look and what the answer used to be — and is worth nothing as a citation |
+| absent | ordinary research, and your digest becomes the next person's hit |
+
+**Never cite a digest you have not opened.** The index is a finding aid; the
+digest is the evidence. That is the same distinction this skill draws between
+a search result and a primary source, pointed at our own files.
+
 ## When it is a request rather than a fetch
 
 **One fetch may be inline.** More than one, or anything security-relevant, is
@@ -57,7 +83,8 @@ gap gets checked and the guess does not.
 ```
 # <topic> — research digest
 
-**As of <date>.** Question: <the question>.
+**As of <date>.** **Sensitivity.** routine | security
+Question: <the question>.
 
 ## Answer
 <one paragraph: the version, edition or fact, stated plainly>
@@ -101,6 +128,9 @@ checked, the source, the decision that pins it.
 
 - unchecked for **six months** → `stale`
 - a security digest older than **ninety days** → `stale`
+- **a digest whose `Sensitivity.` is unstated cannot be aged at all**, and the
+  index reports it as unknown rather than assuming `routine` — the convenient
+  assumption is the one that hides a stale security digest
 - **a task whose currency rows are stale is not ready to start**
 - **anything called "current" with no date beside it is an unverified claim**
 
