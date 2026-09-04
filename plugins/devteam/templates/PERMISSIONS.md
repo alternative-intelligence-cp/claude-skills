@@ -25,6 +25,7 @@ the same effect, because the other route is the one nobody reviewed.
 | `Read`, `Grep`, `Glob` | reading the project | all |
 | `Edit`, `Write` | the work itself, bounded by the guard to declared scope (P-10) | implementer, tester, documenter |
 | `WebSearch`, `WebFetch` | research digests from primary sources (P-36) | researcher |
+| `Bash(rm devteam/*)` | **the manager only**, and only to remove an UNTRACKED file it created in error under `devteam/`. Granted because withholding it entirely has twice cost something concrete: a heartbeat that could not be retired, and a stray file that leaves `git status` non-empty and so fails the first precondition of every future verification. A file created in error and unremovable is a defect that compounds, and the alternatives — truncating, renaming — are the same effect by another route, which P-39 forbids | manager |
 
 ## Deliberately not requested
 
@@ -32,7 +33,7 @@ the same effect, because the other route is the one nobody reviewed.
 |---|---|
 | `Bash(git push:*)` | publishing is outward-facing and `IRREVERSIBLE` (P-26). The client pushes, or answers a question first |
 | `Bash(gh :*)` | the same, plus it can open, close and merge |
-| `Bash(rm:*)`, `Bash(sudo:*)` | destructive, and nothing in the loop needs them |
+| `Bash(rm:*)` broadly, `Bash(sudo:*)` | destructive, and nothing in the loop needs them |
 | package publication, deployment, anything that spends money | `IRREVERSIBLE` by definition |
 
 ## The escalation window

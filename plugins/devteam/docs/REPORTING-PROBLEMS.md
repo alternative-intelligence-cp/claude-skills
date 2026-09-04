@@ -45,6 +45,25 @@ so far has made this pipeline stricter and nothing has made it simpler.** If a
 requirement, a check, a gate or a whole skill earned nothing on your project,
 that is a finding, and it is worth more than another edge case.
 
+## Before you report a defect in something you did not write, re-read its source
+
+The most expensive wrong finding in this project's history was built like
+this: a document was read as far as line 19, a premise was formed, and then
+four further steps of good reasoning were built outward from it — a workaround
+constructed, a theory derived, a finding written blaming somebody's fix. The
+answer was on **line 22 of the same file**, and none of the four steps was "go
+back and check the premise".
+
+That failure is invisible from inside, because every step after the first is
+sound. The tell is structural rather than technical: **if your finding requires
+the other person to have overlooked something obvious, re-read their source
+before you send it.** They may well have; but the cheaper hypothesis is that
+you stopped reading too early, and it costs one minute to eliminate.
+
+Withdrawing a finding after checking is not an embarrassment — it is frequently
+how the real one surfaces, and it is worth more to us than a finding that was
+right by luck.
+
 ## What not to do
 
 - **Do not fix the pipeline.** It is not yours and a fix hides the finding.

@@ -280,6 +280,24 @@ Skip §1. Read `BOARD.md`. Handle any reports already delivered (§6). Run §4
 once. Send the batch if its conditions hold. End the turn. This is what
 `/loop /devteam:run tick` re-runs.
 
+## 9b. Removing something you created in error
+
+You may remove an **untracked** file you created under `devteam/` and nothing
+else. Record it in `RECORD.md` — what it was, why it was made, why it is going.
+
+This grant exists because the alternative is worse than the risk. A file
+created in error and impossible to remove leaves `git status` non-empty, which
+fails the **first precondition of every future verification** — so one mistake
+in a scratch file silently disables the whole verification chain until somebody
+with a shell intervenes. Twice now the blanket withholding has cost something
+concrete rather than theoretically.
+
+**It does not extend past that boundary.** Not a tracked file: that is history,
+and history is corrected by a commit. Not a file somebody else created: you do
+not know why it is there. Not the product tree. If you want any of those, it is
+a question for the client, and truncating or renaming instead is the same
+effect by another route, which P-39 forbids as plainly as the removal itself.
+
 ## 10. The record (P-42)
 
 `RECORD.md`, append-only, its vocabulary in its own header. Compose from it

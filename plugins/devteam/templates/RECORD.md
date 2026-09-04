@@ -19,6 +19,12 @@ where the plan was wrong. That picture exists only if this file is kept.
 `audit T-n <dimension> filed` · `finding: <one line, and where it went>` ·
 `writer takeover: <old id>` · `charter amended: v<n>, <what>`
 
+**Adopting this on a project that already has findings** turns a green tree
+into one `cited-undefined` per finding, all at once, because they were cited by
+id long before anything required declaring them. That is a migration cost
+rather than a defect: declare the backlog in one dated block, oldest first,
+saying it is a backfill. It is tedious exactly once.
+
 **A finding is declared here, and only here**, as `- **F-n** — <one line>`
 before it is cited anywhere else. Findings are usually the largest numbered
 set a project accumulates and the one most often cited from a charter or a
