@@ -1083,3 +1083,61 @@ once; and it declined to generalise a good rule the client had agreed for one
 case, on the grounds that an unrequested requirement is scope creep with a
 number on it — a line from this project's own onboarding skill, applied against
 its own good idea.
+
+
+---
+
+## 21. The open question: how much of this is ceremony
+
+Deliberately unanswered, and recorded so it is not re-derived from scratch.
+
+**Every change to this pipeline has made it stricter. Not one has made it
+simpler.** That is not evidence the weight is justified — it is a property of
+who has used it. A defect is evidence and gets reported; *"that was tedious and
+bought me nothing"* is a feeling, and everyone who has run this either built it
+or was hunting for problems in it. The forces all push one way, so it ratchets.
+
+The measurement: one project produced **1,865 lines of design documents for a
+tool that will be about 200 lines of code**, across five gates, before any
+product code existed.
+
+### The axis is the cost of being wrong, not the size of the project
+
+This is the framing to build on, and it is not "big project, heavy process".
+
+Where a single verification run takes **hours**, a wrong design costs hours per
+iteration, and the interview and the plan are cheap by comparison — they buy
+back their own cost the first time they prevent one wrong turn. Where the whole
+artifact can be rewritten in an afternoon, front-loading a day of ceremony can
+never pay, because the thing it is protecting against is cheaper than the
+protection.
+
+So the dial is not project size, complexity, or team count. It is: **how
+expensive is a wrong turn here, and how late would you find out?**
+
+### What may scale, and what may not
+
+The load-bearing parts are cheap and stay whatever the setting:
+**independent verification** (the one thing that makes a report worth reading),
+**the guard** (free once installed), **reports passed upward verbatim** (costs
+nothing), and **evidence over assertion** (a command instead of an opinion).
+
+The expensive parts are ceremony, and all of them scale: interview depth, how
+formally a requirement states its acceptance, whether a decision records its
+declined alternatives, the number of gates, audit dimensions, checkpoint
+frequency, and whether a plan needs a full task graph.
+
+A plausible shape is a charter constraint — `Rigor. light | standard | full` —
+set at setup, with the honest asymmetry stated: **you can move up but not
+down.** Light work that turns out to matter can be re-planned; heavy ceremony
+spent on a throwaway is simply gone.
+
+### Why it is not built yet
+
+Because the only person qualified to say which parts are ceremony is somebody
+with real deliverables who did not build this, and no such person has used it.
+Choosing now would be the author keeping his own favourites and calling the
+result a medium. The `unnecessary` category in `docs/REPORTING-PROBLEMS.md`
+exists to collect exactly this, and an empty result there is informative too —
+it would mean either the weight is justified or nobody felt safe saying
+otherwise, and those need telling apart.
