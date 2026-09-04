@@ -1267,17 +1267,34 @@ other arrive at the same departure, and that noticing needs no cleverness — it
 needs someone reading more than one report at a time, which is exactly what a
 supervisor and a manager already do.
 
-It was applied twice within an hour of being stated, both times against this
-project's own grammar:
+It was applied within the hour, and **the first application counted the wrong
+thing** — which turned out to be the more useful half of the story.
 
-- **Three tasks wrote their steps as a table** rather than the checklist form
-  `check_refs` recognised. The natural reading is that three supervisors got
-  the format wrong. The correct reading is that a rich step carries a class, a
-  role and a verify command, and those are *columns* — the grammar was too
-  narrow, and the table form is now recognised.
-- **Four workers hit the post-commit-evidence contradiction.** That one was
-  resolved upstream while the task was still running, which is why it stopped
-  at four rather than reaching every worker in the project.
+The claim made was that *three tasks had independently written their steps as
+a table* rather than the recognised checklist form, and the grammar was widened
+on that basis. Measured afterwards, **one** had. The other two wrote a checklist
+declaration *and* a `### S-n` section carrying the prose — not a third layout
+but the rich body hung off the declaration the grammar already had. Three
+findings had been read as three departures without anyone counting what each
+file contained. The detector was sound; the count fed into it was invented from
+the finding total.
+
+Worse, the obvious next move — recognising `### S-n` as a declaration too —
+is wrong, and only running it says so: it produces **eleven `duplicate-id`
+findings**, because the tasks using it are declaring correctly in the checklist
+and elaborating under the heading. Two layouts that look identical under a grep
+turned out to be one departure and one ordinary use of the grammar.
+
+**So the detector needs a second half, and it is cheap: before widening a
+grammar on a count, apply the widened rule to the corpus and read what it newly
+reports.** That single step catches both errors — the fabricated count and the
+duplicate-id trap — and it costs one command. Counting departures tells you
+where to look; running the candidate rule tells you whether you were looking at
+a departure at all.
+
+The genuine instance stands: **four workers hit the post-commit-evidence
+contradiction**, resolved upstream while the task was still running, which is
+why it stopped at four rather than reaching every worker in the project.
 
 The distinction that makes this usable: one agent departing from a rule is a
 mistake, and the rule usually stands. **Several agents departing the same way,

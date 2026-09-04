@@ -49,14 +49,32 @@ KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F"}
 TASK_FILE = re.compile(r"(^|/)tasks/[^/]+\.md$")
 # `T-4.S-2` -- the only form that names which task's step it means.
 QUALIFIED_STEP = re.compile(r"\bT-(\d+)\.S-(\d+)\b")
-# A STEP TABLE DECLARES ITS STEPS. The checklist form was the only recognised
-# one, and three tasks in one project independently wrote a table instead --
-# because a rich step carries a class, a role and a verify command, and those
-# are columns, not a run-on line. Repeated independent discovery of the same
-# departure is evidence about the grammar, not about the authors. This is one
-# declaration in two layouts, not two homes for one fact: nobody writes both,
-# and a task that does gets `duplicate-id`, correctly.
+# A STEP TABLE DECLARES ITS STEPS, because a rich step carries a class, a role
+# and a verify command, and those are columns rather than a run-on line.
+#
+# The count first given for this was wrong and the correction is worth keeping.
+# It was claimed that THREE tasks had independently written tables; measured,
+# ONE had. The other two wrote a checklist declaration AND a `### S-n` section
+# holding the prose -- which is not a third layout but the rich body hung off
+# the declaration this grammar already has. Three findings had been read as
+# three departures without anyone counting what each file actually contained.
+#
+# `### S-n` is therefore NOT a declaration, and adding it here is the obvious
+# next move and the wrong one: it produces `duplicate-id` on every task using
+# the normal pattern -- eleven of them in one project -- because those tasks
+# correctly declare in the checklist and elaborate under the heading.
+#
+# So: nobody writes the checklist AND the table, and a task that does gets
+# `duplicate-id`, correctly. That reasoning holds for the table and does not
+# transfer to the heading, which is why the heading stays a body.
 TABLE_STEP = re.compile(r"^\|\s*\*{0,2}(S)-(\d+)\*{0,2}\s*\|")
+# The tail of a qualified reference, immediately before the bare half.
+# `CITATION` finds BOTH `T-9` and `S-4` inside `T-9.S-4`, and the `S-4` was
+# charged to the CITING file -- so the one form offered for a cross-task step
+# reference fired `cited-undefined` against the task using it, unless that task
+# happened to declare the same number. Every control used the form on a task
+# that did, which is the single case where the defect is invisible.
+QUAL_TAIL = re.compile(r"\bT-\d+\.$")
 # Prefixes that live outside devteam/ and are never declared here. `P-n` is a
 # protocol rule; citing one is correct and must not be reported as undefined.
 EXTERNAL = {"P"}
@@ -308,10 +326,17 @@ def scan(files, base):
             for m in QUALIFIED_STEP.finditer(line):
                 step_cited.setdefault((f"tasks/T-{m.group(1)}.md", f"S-{m.group(2)}"),
                                       f"{rel}:{n}")
-            for pre, num in CITATION.findall(line):
+            for m in CITATION.finditer(line):
+                pre, num = m.group(1), m.group(2)
                 if pre in EXTERNAL or pre not in KNOWN:
                     continue
                 if pre == "S":
+                    # The bare half of `T-n.S-m`, already recorded against the
+                    # task it names. Charging it to this file as well made the
+                    # qualified form self-defeating. The `T-n` half is a real
+                    # citation of that task and is deliberately left alone.
+                    if QUAL_TAIL.search(line[:m.start()]):
+                        continue
                     # Bare `S-n` outside a task file names no task and cannot
                     # be resolved -- `T-4.S-2` is the form that can. Skipping
                     # it beats guessing: the record legitimately discusses

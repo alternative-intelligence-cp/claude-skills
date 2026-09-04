@@ -201,6 +201,29 @@ S-1 is the only step.
      [append("RECORD.md", "\n- T-1.S-1 landed clean\n")], set()),
     ("cited-undefined-qualified-step-that-does-not-exist",
      [append("RECORD.md", "\n- T-1.S-9 landed clean\n")], {"cited-undefined"}),
+    # THE QUALIFIED FORM MUST NOT CITE ITSELF TWICE. `CITATION` finds both
+    # `T-2` and `S-7` inside `T-2.S-7`, and the bare half was charged to the
+    # CITING file -- so the one form offered for a cross-task step reference
+    # fired against the task using it. Every control above uses the form
+    # either outside a task file or on a task declaring the same number, which
+    # are exactly the two cases where the defect cannot show.
+    ("fp-qualified-step-cited-from-a-task-that-declares-no-such-number",
+     [create("tasks/T-2.md", """# T-2 — a second task — PLANNED
+
+- **Discharges.** R-1
+- **Depends on.** T-1
+- **Scope.**
+  - `docs/`
+- **Gate.** it is written.
+- **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
+
+## Steps
+
+- [ ] **S-7** — the step this task does declare · verify: `true`
+"""),
+      append("tasks/T-1.md", "\nThe refactor is T-2.S-7's, declined by it.\n")],
+     set()),
 
     ("fp-needs-decision-task-title",
      [replace("tasks/T-1.md", "— PLANNED", "— NEEDS-DECISION (R-7 narrows G-3; charter-adjacent)")], set()),
