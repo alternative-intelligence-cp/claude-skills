@@ -42,6 +42,14 @@ Then go past what the scripts can see: **read the acceptance criteria and ask
 whether what was built actually satisfies them**, rather than whether a
 command exited zero. A test can pass and still not test the requirement.
 
+**And ask the question no script can: do the requirements under this goal
+*cover* it, or merely exist under it?** A goal that quantifies — "any failure",
+"every field", "all responses" — answered by requirements that enumerate two
+cases is a goal that will keep producing surprises, one per missed member. The
+trace is clean and the goal is half built. When you find one, the finding is not
+the missing case; it is the requirement's shape, and the fix is to restate it as
+a rule with the cases as its tests.
+
 ## 2. What diverged, and did anyone decide it?
 
 Divergence recorded as a `D-n` is normal and healthy — plans meet reality.

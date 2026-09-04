@@ -105,6 +105,37 @@ the README and gets a running server without asking anyone"* is checkable by a
 person even though no script can run it. What is **not** allowed is an
 adjective with nothing behind it.
 
+### Write requirements as rules, not as lists of cases
+
+**This is the single most expensive mistake available at this stage**, and it is
+invisible until late. A goal quantifies: *"the tool fails with a clear message
+rather than a traceback"* is a claim about **every** failure. A requirement that
+answers it with *"a missing file prints one line and exits non-zero"* has
+answered it for one case and looks, to every check in this pipeline, like
+complete coverage.
+
+What follows is that each new gap — undecodable input, a broken pipe, memory
+exhaustion, a filename containing a newline — arrives as a surprise, gets its own
+requirement, and leaves the pattern intact. The list grows and never closes,
+because a goal quantifies over a domain and a list cannot.
+
+| Instead of | Write |
+|---|---|
+| "a missing file prints one line and exits non-zero" | "**any** failure to read the input prints one line naming the path and exits non-zero, with no traceback — a missing file, an unreadable one, a directory, undecodable bytes, an interrupted write" |
+| "rejects an empty username" | "**every** field rejects input outside its stated domain, with a message naming the field" |
+| "handles a 404 from the API" | "**every** non-success response is surfaced as a typed error; none is retried silently" |
+
+**The enumerated cases become the acceptance criterion, not the requirement.**
+The rule is what must hold; the list is how you check it, and it is allowed to be
+incomplete because it is a sample rather than a definition. Then the next gap
+found is a **missing test** against a requirement that already covered it —
+cheap, and nobody's fault — rather than a missing requirement, which means the
+charter promised something nobody owned.
+
+**Ask the client the quantifier explicitly.** *"When you say it should fail
+clearly — for every failure, or only the ones we have thought of?"* They will
+almost always say every, and then the requirement has to say so.
+
 Then:
 
 ```bash

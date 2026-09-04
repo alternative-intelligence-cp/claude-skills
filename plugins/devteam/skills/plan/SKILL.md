@@ -57,6 +57,15 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" .
 3. **A task is one worker's worth of work.** If you cannot say what command
    proves it, it is too big or too vague — split it.
 
+**Check the requirements quantify before you plan against them.** A requirement
+that enumerates cases where its goal quantifies produces a task that discharges
+cleanly and leaves the goal unmet — and `check_trace` reports the whole chain
+clean, because every link exists. If a requirement reads as a list, that is an
+escalation to the manager before it becomes a task, not something to plan
+around. The signs: the requirement names a specific input where the goal names a
+class; the acceptance criterion tests exactly the cases the statement lists; the
+phrase "a missing X" or "an invalid Y" where the goal said "any" or "every".
+
 **A verification command must be able to FAIL.** This is the one that is
 easiest to get wrong and hardest to notice. A step's verify is evidence only
 if it would have come out differently before the step was done — otherwise it
