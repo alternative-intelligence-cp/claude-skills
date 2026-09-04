@@ -642,6 +642,16 @@ one real run.
    actual, because it counted the code to be written. Almost none of the cost
    is typing; it is reading, verifying and reporting.
 
+**A seventh finding, about watching rather than running.** A supervisor is
+blocked for the entire time its worker runs, so it emits nothing — no tokens,
+no output, no progress. From outside, a supervisor doing its job is
+indistinguishable from a hung one, and during the first dispatch that read as
+a stall for six minutes before the child's transcript proved otherwise. This
+is inherent to a three-layer design and cannot be removed, so it is made
+visible instead: a supervisor writes `waiting on S-n` into its task's
+execution record *before* it dispatches. That line is what separates blocked
+from dead, for a human watching and for the recovery procedure alike (P-14).
+
 **What did not go wrong is worth as much.** The tests-first ordering survived
 — the worker wrote five genuinely failing tests before any implementation,
 rather than tests shaped around code it had already written. Both workers

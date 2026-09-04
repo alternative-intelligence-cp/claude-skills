@@ -65,15 +65,23 @@ thing is written before or with the thing, never after it "to save time".
 
 1. **Pick the model** for the class, inside `MODEL-BAND`. Never above the
    ceiling; never below the floor.
-2. **Dispatch one worker** — `devteam:implementer` unless the step's role says
+2. **Leave a heartbeat, then dispatch.** Append one line to the task file's
+   execution record *before* dispatching:
+   `waiting on S-n (<role>, dispatched <time>)`. You will be blocked for the
+   whole time that worker runs, and from outside a blocked supervisor is
+   indistinguishable from a dead one — no output, no tokens, no progress. The
+   line is the only evidence that you are waiting rather than hung, and it is
+   what the manager's recovery procedure reads to tell those apart (P-14).
+
+3. **Dispatch one worker** — `devteam:implementer` unless the step's role says
    otherwise — with the step dispatch: your inputs, plus `STEP:`, `ROLE:`,
    `GOAL:` and `STEP-VERIFY:`. Send **only that step**. A worker that can see
    the whole task starts optimising it, and then nobody is doing the step you
    asked for.
-3. **Receive its REPORT.** Read it. Do not skim it.
-4. **Verify it** (P-18) — dispatch `devteam:verifier` with the step id, the
+4. **Receive its REPORT.** Read it. Do not skim it.
+5. **Verify it** (P-18) — dispatch `devteam:verifier` with the step id, the
    pin and the report's `checks:` lines. Nothing is accepted before `PASS`.
-5. **Then one of three things:**
+6. **Then one of three things:**
 
 | Outcome | Do |
 |---|---|
