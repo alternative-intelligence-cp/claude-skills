@@ -129,6 +129,30 @@ third command actually discriminated.
 A command that cannot fail is worse than no command, because it converts "we
 did not check" into "we checked and it was fine".
 
+**When the task IS shared infrastructure, scoping the command is impossible —
+pin a snapshot instead.** The table above says a verify must be scoped to the
+task's own files, because at width above one a whole-suite command measures
+other tasks' half-finished work. That advice runs out exactly where it is
+needed most. A task that changes the test harness, a fixture module, a
+`conftest.py` or a build file has a gate that is *inherently* about everybody's
+tests: "the suite still passes" is the only thing such a change can mean, and
+there is no subset of files that expresses it.
+
+Writing `pytest -q` and an expected count is then not laziness, it is the
+obvious reading — and it does not work. One harness task's gate expected an
+unchanged count; the live tree went from 17 passed to 33 failed during the
+task, **none of it caused by the task**. The number measured two concurrent
+tasks' in-flight work and said nothing about the harness.
+
+What makes the number mean something is a **pinned snapshot with only this
+task's file substituted**: `git archive` the last commit into a scratch
+directory, copy this task's changed file over it, and run the suite there.
+Everything else is then held still by construction, and the count is a
+statement about this change alone. At width 1 that is the same command as
+running it in place, which is why the distinction is invisible until it costs
+you. Write the snapshot form anyway — the width the task eventually runs at is
+not the planner's to know.
+
 **A tests-first step still needs something to import.** A step whose
 verification is "the tests collect" cannot pass while the module those tests
 import does not exist — collection fails before any assertion runs. So a

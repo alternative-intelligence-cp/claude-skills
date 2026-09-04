@@ -151,18 +151,28 @@ to an installed plugin appears in the *current* session almost immediately. A
 new **agent type** does not: a dispatch to one added minutes earlier fails with
 *"agent type not found"* while its skill sits there working.
 
-**What is actually known, since the obvious conclusion is wrong.** A new agent
-was measured as still undispatchable two minutes after its file was written,
-under both its bare and its namespaced name. But a separate long-running
-session, never restarted, watched this plugin's agents appear in batches over
-several hours. So agents **do** reach running sessions — with a lag of
-unmeasured length, not never.
+**Dispatchability is a property of the session, not of the file.** This was
+measured rather than assumed, and the result rules out both obvious answers.
+One agent file, one machine, two sessions, the same minute: session A — the one
+that *wrote* the file — got `agent type not found` two minutes after writing it
+and again at twenty-two, under both bare and namespaced names. Session B
+dispatched the same agent successfully in between: it ran, confirmed its own
+type, and used its declared tool. So the file was fine and the delay was not
+simply elapsed time. Each session dispatches against its own view of the agent
+list, and those views do not update together.
 
-The practical rule is unchanged and the reason for it is not: **restart after
-adding an agent**, because that makes it available now rather than eventually,
-and "eventually" is not a thing you can plan a dispatch around. But do not tell
-somebody their session must restart to *receive* an agent you added — theirs
-may well pick it up on its own.
+So state neither "agents hot-load" nor "agents require a restart". What holds
+is: **a new agent is dispatchable when your session can see it, and you find
+that out by dispatching it.** A `not found` that a peer session can dispatch is
+the known behaviour, not a broken install.
+
+**Do not restart a running pipeline to pick up an agent.** This is the part that
+costs real money. A restart is not free here — P-14 makes every claim stale, so
+restarting forces a recovery pass over every task in flight. At width 3 that is
+three tasks re-verified against a tree nobody was watching, to acquire an agent
+type that may well arrive on its own. Add the agent, carry on with the work you
+have, and dispatch it when it appears. If you genuinely cannot proceed without
+it, close the live claims *first* and restart into a clean board.
 
 **Then prove it, end to end.** After the restart, attempt one write the guard
 must refuse — a path outside every declared scope while a task is `RUNNING` —

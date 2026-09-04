@@ -128,6 +128,36 @@ LEAKS = (
 TEACHING = re.compile(r"<[A-Za-z][^>]*>|`[A-Z]{1,2}-<n>`|\bPREFIX\b")
 
 
+
+# Where each kind is declared, and in what shape. A `cited-undefined` that only
+# says an identifier is undeclared makes the reader go and find the grammar; a
+# record has two grammars for a finding -- the narrative `finding: F-n ...`
+# entry and the `- **F-n** --` register line -- and a manager who wrote four of
+# the first and none of the second shipped a red tree that cost two of another
+# task's agents time establishing the findings were not theirs. Naming the line
+# to add turns a diagnosis into a paste, which is a fix; remembering to write
+# both is vigilance, which is not.
+HOMES = {
+    "G":  ("CHARTER.md",      "- **{id}** — <one line>"),
+    "DM": ("CHARTER.md",      "- **{id}** — <one line>"),
+    "F":  ("RECORD.md",       "- **{id}** — <one line>"),
+    "R":  ("REQUIREMENTS.md", "### {id} — <one line>"),
+    "D":  ("DECISIONS.md",    "### {id} — <one line>"),
+    "Q":  ("QUESTIONS.md",    "### {id} — <one line>"),
+    "T":  ("tasks/{id}.md",   "# {id} — <title>"),
+    "C":  ("checkpoints/",    "# {id} — <title>"),
+    "S":  ("its task file",   "- [ ] **{id}** <one line>"),
+}
+
+
+def how_to_declare(ident):
+    """The line that would declare this identifier, or "" for an unknown kind."""
+    home = HOMES.get(ident.split("-")[0])
+    if home is None:
+        return ""
+    where, shape = home
+    return f". Declare it in {where.format(id=ident)} as `{shape.format(id=ident)}`"
+
 def tracked_markdown(root: str):
     """Git-tracked .md files under root, as absolute paths."""
     try:
@@ -240,7 +270,8 @@ def scan(files, base):
     for ident, where in sorted(cited.items()):
         if ident not in bare:
             findings.append(("cited-undefined", where[0].split(":")[0],
-                             int(where[0].split(":")[-1]), f"{ident} is cited but never declared"))
+                             int(where[0].split(":")[-1]),
+                             f"{ident} is cited but never declared{how_to_declare(ident)}"))
     for key, where in sorted(declared.items()):
         ident = key.split(":", 1)[1] if ":" in key else key
         if ident.split("-")[0] in MUST_BE_CITED and ident not in cited:
