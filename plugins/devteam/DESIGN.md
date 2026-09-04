@@ -1160,6 +1160,35 @@ belongs where judgement is: design, planning, audit, and the interview. It is
 one data point and it argues against the reflex of spending the expensive model
 everywhere because verification sounds important.
 
+### The ceremony cost grows with the record, and nothing bounds it
+
+Found while revising estimates, and it is a scaling property of this design
+rather than a defect in a plan.
+
+The per-step cost is dominated by **fixed overhead**: reading the charter, the
+requirements, every decision, the digests, then dispatching, verifying and
+reporting. Measured at roughly 200,000 tokens per step-unit on the first real
+task. But the decisions file is append-only and grows with the project, so
+**every task from here reads a longer record than the one before it.** The
+fixed cost is not fixed; it drifts up, and the drift is unbounded by anything
+in the current design.
+
+For a short project this never bites. For the projects this pipeline is
+ultimately aimed at — a compiler, a library ecosystem, something worked on for
+a year — it eventually dominates, and the discipline that makes the record
+valuable is the same discipline that makes it expensive to consult.
+
+The obvious answers all have costs worth naming before anyone reaches for one.
+**Summarising the record** puts a second, lossy home next to the authoritative
+one (P-34), and the summary is what gets read. **Scoping decisions to areas**
+means a worker no longer sees a decision from a neighbouring area that
+contradicts its own, which is precisely the cross-cutting contradiction audits
+exist to catch. **Reading only recent decisions** inverts the value: the oldest
+decisions are the load-bearing ones, which is why they are still cited.
+
+No answer is proposed here. It is recorded so that the first person to notice
+the cost does not reach for summarisation without seeing what it trades away.
+
 ### Why it is not built yet
 
 Because the only person qualified to say which parts are ceremony is somebody

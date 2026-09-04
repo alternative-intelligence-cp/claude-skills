@@ -11,6 +11,13 @@ decision was made.
 Each rule states what to do **and why**. A rule whose reason is not written is
 a rule the next reader will litigate.
 
+**A rule earns its place by catching its own author.** Prefer a test somebody
+motivated to get around it cannot answer dishonestly without noticing they are
+doing so — "can you state what changed, and did you observe it?" works on the
+person asking it, where "use your judgement" only ever works on strangers. A
+criterion that binds the writer is the only kind that survives being
+inconvenient.
+
 ---
 
 ## 1. The charter is the authority
@@ -366,10 +373,27 @@ tests, `deep` for design, audit and interview — and the supervisor picks withi
 the band. The report records what actually ran, because a result is not
 comparable to another result run on a different model.
 
-**P-41 — Budget is tracked per task and compared against estimate.** Tokens and
-wall-clock go in every report. The manager compares them to the estimate at
-each checkpoint and rebalances. An estimate never compared to a measurement
-stays wrong forever.
+**P-41 — Budget is tracked per task, and estimates come from a stated model
+rather than a number.** Tokens and wall-clock go in every report. The manager
+compares them to the estimate at each checkpoint and rebalances; an estimate
+never compared to a measurement stays wrong forever.
+
+**Write the model down, not only the figure** — "steps × per-step-unit +
+per-task overhead", with the numbers you used. A bare estimate can only be
+right or wrong; a model can be *corrected*, and the next measurement then fixes
+every remaining estimate at once instead of one at a time. It also makes the
+estimate falsifiable in a useful direction: if the next task comes in at a
+quarter of its figure, the fixed overhead is smaller than you thought and every
+other number is wrong the same way.
+
+**Estimate from what the work actually costs, not from the size of the
+artifact.** The first measured task in this system came in at six times its
+estimate because the estimate was built from the code to be written, which is
+the smallest term. The cost is reading the charter, the requirements and the
+decisions; dispatching; verifying independently; and writing the report.
+
+**And say what your sample is.** A per-step figure drawn from one task is drawn
+from one task, and a first task is usually the worst case.
 
 **P-42 — The record is append-only, and it is the durable output.**
 `devteam/RECORD.md` holds one line per event: dispatch, report, verify,
