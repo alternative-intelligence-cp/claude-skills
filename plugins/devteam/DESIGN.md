@@ -585,7 +585,7 @@ riskiest unknown goes earliest and a probe that fails changes the design.
 | **2** | `setup`, the checks with their controls, the guard with its control | ✅ **done** — 127 control cases green, 57% of them false-positive controls; a freshly scaffolded project checks clean |
 | **3** | one path end to end: `onboard` → `plan` → one task → `supervise` → `implementer` → `verify` → `checkpoint` | ◐ **written, not yet walked.** Ten skills, five agents and both hooks exist and are internally consistent. The phase is not done until a trivial project goes from idea to verified commit with no manual intervention between gates — writing the procedure is not the same as running it |
 | **4** | rehearse on a throwaway project; fix what the rehearsal breaks | ◐ **first real dispatch done** — one task, two steps, two workers, green and correct. It found six defects (§15). Remaining: compaction, a killed agent, a deliberately failing check, a scope violation under a live guard |
-| **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | each dispatched and verified at least once in the rehearsal project |
+| **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | ◐ **written; awaiting a restart to dispatch.** The roster is complete at 13 skills and 9 agents. A new *skill* loads into a running session; a new *agent type* does not, so the four new agents cannot be dispatched until the session restarts |
 
 Phase 3 is the one that matters. Everything before it is scaffolding, and
 everything after it is filling in a loop already known to work.

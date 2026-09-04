@@ -93,6 +93,13 @@ register the guard by hand in `~/.claude/settings.json`:
 
 Hooks are read at session start, so **this needs a restart.**
 
+**Skills and agents load differently, which will catch you out.** A skill added
+to an installed plugin appears in the *current* session almost immediately. A
+new **agent type** does not — agents are read at session start, so a dispatch
+to one added since startup fails with *"agent type not found"* while its skill
+sits there working. Add agents and hooks, then restart; add a skill and carry
+on.
+
 **Then prove it, end to end.** After the restart, attempt one write the guard
 must refuse — a path outside every declared scope while a task is `RUNNING` —
 and confirm it is actually refused. That single refused write is the only
