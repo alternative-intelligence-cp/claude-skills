@@ -78,8 +78,16 @@ NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" "$REPO" T-n
-git -C "$REPO" add -A && git -C "$REPO" commit -F "$msgfile"
+git -C "$REPO" add <each path you wrote, explicitly>
+git -C "$REPO" commit -F "$msgfile"
 ```
+
+**Stage explicit paths. Never `git add -A`.** You are not the only writer in
+this tree: the manager owns `devteam/` and may have an uncommitted file of its
+own at any moment. `-A` sweeps it into your commit, where it becomes an
+undeclared write against your task and a change the manager never made
+deliberately. A supervisor had to override this instruction on every dispatch
+before it was fixed here.
 
 Scope clean, or the commit does not happen. The subject is
 `T-n.S-n: <what>`; the body says **why** — the diff already says what. End the
@@ -130,6 +138,25 @@ something.
   passes just as happily before your work as after it, say so in your report
   rather than banking it. That is a finding about the plan, and reporting it
   is worth more than a clean pass.
+- **Assert your fixture before you trust what it proves.** A negative test is
+  only as good as the bad input it is given. `printf '\xff\xfe'` under `sh`
+  does not expand `\x`, so the "invalid" file comes out as valid text, the
+  code under test correctly succeeds, and the check reports a pass that means
+  nothing. **Verify the fixture is what you think it is** — decode it, measure
+  it, print its bytes — before reading anything into the result.
+- **Cite scripts as `${CLAUDE_PLUGIN_ROOT}/scripts/...` in a report.** An
+  absolute `/home/...` path is a `leak` finding, because reports are committed
+  to a tracked file. Do not invent a shorter path to dodge that — a worker
+  once wrote a plausible-looking path that did not exist. The variable form is
+  both runnable and leak-free.
+- **A check that can only run after the commit cannot appear in the report
+  inside it.** `check_scope` inspects the committed diff, so a report that is
+  part of that commit cannot carry its result. Run it, say in `notes:` that
+  you did and what it said, and leave it out of `checks:`. This is the same
+  shape as the commit-hash problem below.
+- **If your supervisor has you amend a commit, re-point any hash you cited.**
+  An amend leaves the old commit on no branch, so a hash written in your
+  `checks:` lines now names something orphaned. Re-derive it, or name `HEAD`.
 
 **Naming the commit you are inside.** Your report is committed in the same
 commit as your work (P-16), so that commit's own hash cannot appear inside it

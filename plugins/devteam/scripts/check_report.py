@@ -60,6 +60,56 @@ def git(root, *args):
         return 127, ""
 
 
+# `git status --porcelain` emits `XY PATH`, and X is a SPACE for a
+# worktree-only change. Stripping the output eats that space and shifts every
+# path by one character. The original check only counted lines, so it never
+# noticed; scoping it to a task's paths made it matter immediately.
+STATUS_LINE = re.compile(r"^(..) (.*)$")
+
+
+def status_paths(root):
+    """(returncode, [path, ...]) for every uncommitted path, unshifted."""
+    try:
+        p = subprocess.run(["git", "-C", root, "status", "--porcelain"],
+                           capture_output=True, text=True)
+    except FileNotFoundError:
+        return 127, []
+    out = []
+    for line in p.stdout.split("\n"):
+        m = STATUS_LINE.match(line)
+        if m:
+            path = m.group(2).strip()
+            out.append(path.split(" -> ")[-1])       # a rename names both
+    return p.returncode, out
+
+
+SCOPE_FIELD = re.compile(r"^-\s+\*\*Scope\.\*\*\s*(.*)$")
+SCOPE_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
+ANY_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]")
+
+
+def task_scope(devteam, task_id):
+    """The paths a task declares it writes, relative to the project root."""
+    try:
+        lines = open(os.path.join(devteam, "tasks", f"{task_id}.md"),
+                     encoding="utf-8", errors="replace").read().split("\n")
+    except OSError:
+        return []
+    out, collecting = [], False
+    for line in lines:
+        if SCOPE_FIELD.match(line):
+            collecting = True
+            continue
+        if collecting:
+            m = SCOPE_ITEM.match(line)
+            if m:
+                out.append(m.group(1).strip("`"))
+                continue
+            if line.strip() and (ANY_FIELD.match(line) or line.startswith("#")):
+                break
+    return [p for p in out if p and "<" not in p]
+
+
 def parse_report(lines, task_id=None, step_id=None):
     """The last REPORT block FOR THIS TASK, as (role, task, step, fields).
 
@@ -202,9 +252,20 @@ def check(project, want_id):
             add("unknown-commit", f"no commit has the subject {subject[:60]!r}")
 
     if status in CLOSING and not is_step:
-        rc, out = git(repo, "status", "--porcelain")
-        if rc == 0 and out:
-            add("dirty-tree", f"{len(out.splitlines())} uncommitted path(s) on status {status}")
+        # Only paths the TASK controls. A supervisor owns its declared scope and
+        # its own task file, and nothing else -- so measuring the whole tree
+        # made a clean close unreachable from inside the task whenever the
+        # manager happened to have an uncommitted file of its own. That is a
+        # check nobody can satisfy, which is a check that gets ignored (P-35).
+        scope = task_scope(devteam, task_id) + [f"devteam/tasks/{task_id}.md"]
+        rc, paths = status_paths(repo)
+        if rc == 0 and paths:
+            mine = [p for p in paths
+                    if any(p == s.rstrip("/") or p.startswith(s.rstrip("/") + "/")
+                           for s in scope)]
+            if mine:
+                add("dirty-tree", f"uncommitted inside {task_id}'s scope on status "
+                                  f"{status}: {', '.join(mine[:4])}")
         rc, subject = git(repo, "log", "-1", "--format=%s")
         if rc == 0 and subject and task_id.lower() not in subject.lower():
             add("head-subject", f"HEAD is {subject!r}, which does not name {task_id}")

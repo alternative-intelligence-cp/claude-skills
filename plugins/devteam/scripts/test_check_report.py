@@ -127,6 +127,13 @@ CASES = [
     # From the second real dispatch: a mid-flight task whose record holds only
     # a finished STEP block was reporting a spurious status-mismatch, because a
     # DONE step necessarily sits under a RUNNING task.
+    # From the recovery dispatch: a supervisor cannot close cleanly while the
+    # MANAGER has an uncommitted file, even though nothing of the task's is
+    # dirty. dirty-tree now measures only the task's own scope.
+    ("fp-dirty-file-outside-the-tasks-scope",
+     task_file(), set(), "T-1", [("devteam/RECORD.md", "manager's own edit\n")]),
+    ("dirty-file-inside-the-tasks-scope",
+     task_file(), {"dirty-tree"}, "T-1", [("src/leftover.py", "x = 1\n")]),
     ("fp-finished-step-under-a-running-task",
      task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1"),
                title="RUNNING (since 2026-09-03, T1-a-1200)"), set()),
@@ -142,7 +149,7 @@ CASES = [
 ]
 
 
-def build(root, body):
+def build(root, body, leftovers=()):
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     with open(os.path.join(dt, "T-1.md"), "w", encoding="utf-8") as fh:
@@ -157,6 +164,12 @@ def build(root, body):
     run("add", "-A")
     run("commit", "-qm", "cycle T-1: the config loader")
     run("commit", "-q", "--allow-empty", "-m", "cycle T-1: the config loader")
+    for rel, text in leftovers:                # uncommitted after the commit
+        p = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        run("add", "-N", rel)
     return root
 
 
@@ -165,9 +178,10 @@ def main():
     for case in CASES:
         name, body, expected = case[:3]
         want = case[3] if len(case) > 3 else "T-1"
+        leftovers = case[4] if len(case) > 4 else []
         root = tempfile.mkdtemp(prefix="devteam-report-")
         try:
-            build(root, body)
+            build(root, body, leftovers)
             proc = subprocess.run([sys.executable, CHECK, root, want],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}

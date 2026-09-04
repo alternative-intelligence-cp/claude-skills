@@ -58,6 +58,14 @@ say what command proves it, either the step is wrong or the requirement it
 serves has no acceptance criterion — and the second is an escalation, not
 something to paper over.
 
+**And check the fixture, not just the command.** A negative test proves
+nothing if its bad input is not actually bad. A supervisor building a gate
+check wrote invalid bytes with `printf '\xff\xfe'` under `sh`, which does not
+expand `\x`; the file was valid text, the tool correctly succeeded, and the
+check printed a pass. It was caught only because the check was phrased to
+*report what it saw* rather than to assert success — which is the habit worth
+keeping.
+
 **And the command must be able to fail.** Before accepting a step on the
 strength of its verify, satisfy yourself the command would have come out
 differently *before* the work — `git archive HEAD~1` to a scratch tree and run

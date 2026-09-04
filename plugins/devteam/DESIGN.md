@@ -808,3 +808,67 @@ what a checkpoint is for.
 after already being raised 13x from T-1's measurement. Most of it went to one
 `mechanical` step, because proving an instrument discriminates costs more than
 writing the thing it measures.
+
+
+---
+
+## 17. What killing a supervisor found
+
+The last untested mechanic. A supervisor was dispatched on T-3 and killed
+mid-flight, deliberately, to exercise stale-claim recovery (P-14). The claim
+was detected stale, classified `RUNNING` + dirty, re-dispatched with the
+predecessor's state explained, and the task closed `DONE`.
+
+**The recovery worked because the dead supervisor's work was uncommitted.**
+That is not luck — the `work` skill forbids committing a title line on its own,
+on the grounds that *if you die before the real commit, the uncommitted line is
+exactly what the next worker needs to see.* It was written as an assertion and
+is now a demonstration. What the predecessor left was worth more than a title
+line: it had found S-1's planned verify vacuous, proved it against an export of
+the pre-change tree, and written a replacement. Its successor re-proved that
+finding rather than inheriting it, and kept the amendment.
+
+**And the new discriminating-verify rule was applied unprompted, twice**, by
+agents that had only the skill text to go on — including by the supervisor
+that was then killed for its trouble.
+
+Six more findings, five of them mine:
+
+1. **`git add -A` in the worker's commit form is actively wrong.** The manager
+   owns `devteam/` and may have an uncommitted file at any moment; `-A` sweeps
+   it into a worker's commit, where it becomes an undeclared write against the
+   task. A supervisor overrode this on all three of its dispatches before it
+   was fixed. Workers now stage explicit paths.
+2. **`dirty-tree` measured the whole tree**, so one uncommitted manager-owned
+   file made a clean close unreachable from inside a task. A check nobody can
+   satisfy is a check that gets ignored (P-35). It is now scoped to the task's
+   declared paths.
+3. **And fixing that exposed a bug the original had masked.** The `git()`
+   helper stripped its output, which eats the leading space of
+   `git status --porcelain`'s two-character code and shifts every path by one.
+   The old check only counted lines, so it never noticed; scoping it to paths
+   made it matter in the first run.
+4. **A check that can only run after the commit cannot appear in the report
+   inside it.** `check_scope` reads the committed diff. Same shape as the
+   commit-hash problem, and now stated for both.
+5. **Amending a commit orphans any hash already cited in a report.**
+6. **Telling a worker to keep `/home/...` out of its report produced an
+   invented path.** The instruction now names the form to use —
+   `${CLAUDE_PLUGIN_ROOT}/scripts/...` — which is runnable and leak-free.
+
+**The finding worth keeping is the one about instruments.** Building a gate
+check, a supervisor wrote invalid bytes with `printf '\xff\xfe'` under `sh`,
+which does not expand `\x`. The file came out as valid text, the tool
+correctly succeeded, and the check reported a pass. **A negative test proves
+nothing if its bad input is not actually bad** — and this was caught only
+because the check was phrased to *report what it saw* rather than to assert a
+result. That habit is now in both skills, alongside the rule that a verify must
+be able to fail. Three tasks in, this project's characteristic defect is not
+wrong code. It is instruments that cannot detect what they were built to
+detect.
+
+**Twice now a step has been rejected for bad evidence behind correct work.**
+T-2's S-0 had a vacuous verify; T-3's S-1 misread a diff hunk header as a
+count of added lines. Both artifacts were right; both reports were wrong; both
+were caught by a verifier and re-run. That ratio — evidence failing more often
+than work — is the clearest sign the gate is pointed at the right thing.
