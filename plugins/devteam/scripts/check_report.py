@@ -37,9 +37,15 @@ STATUSES = ("DONE", "BLOCKED", "NEEDS-DECISION", "RED", "READY-TO-AUDIT")
 CLOSING = ("DONE", "READY-TO-AUDIT")
 
 DASH = r"[—–-]"
+# A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
+# non-greedy matching on a bare dash works: non-greedy splits at the hyphen in
+# "well-known", and greedy splits at the one inside "DONE (2026-09-03)". A
+# hyphen inside a word or a date never has spaces around it; a separator always
+# does.
+SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 HEADER = re.compile(r"^REPORT\s+(\S+)\s+(T-\d+)(?:\.(S-\d+))?\s*$")
 KEY = re.compile(r"^([a-z][a-z-]*):\s*(.*)$")
-TITLE = re.compile(r"^#\s+(T-\d+)\s*" + DASH + r"\s*(.*?)\s*" + DASH + r"\s*(\S.*)$")
+TITLE = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 RECORD_HEADING = re.compile(r"^##\s+Execution record\s*$", re.I)
 # `HEAD` alone means "the commit this block is in"; `HEAD~1`, `HEAD^` and a
 # bare hash are ordinary resolvable refs and are checked as such.

@@ -69,7 +69,13 @@ SEPARATORS = {"&&", "||", ";", ";;", "|", "|&", "&"}
 REDIRECTS = {">", ">>", "&>", "&>>"}
 
 DASH = r"[—–-]"
-TITLE = re.compile(r"^#\s+(T-\d+)\s*" + DASH + r"\s*(.*?)\s*" + DASH + r"\s*(\S.*)$")
+# A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
+# non-greedy matching on a bare dash works: non-greedy splits at the hyphen in
+# "well-known", and greedy splits at the one inside "DONE (2026-09-03)". A
+# hyphen inside a word or a date never has spaces around it; a separator always
+# does.
+SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
+TITLE = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 SCOPE_FIELD = re.compile(r"^-\s+\*\*Scope\.\*\*\s*(.*)$")
 SCOPE_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
 ANY_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]")

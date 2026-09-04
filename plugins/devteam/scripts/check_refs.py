@@ -31,6 +31,12 @@ import sys
 # --- the grammar (templates/FORMATS.md) ----------------------------------
 
 DASH = r"[—–-]"
+# A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
+# non-greedy matching on a bare dash works: non-greedy splits at the hyphen in
+# "well-known", and greedy splits at the one inside "DONE (2026-09-03)". A
+# hyphen inside a word or a date never has spaces around it; a separator always
+# does.
+SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 
 DECLARATIONS = (
     re.compile(r"^###\s+(R|D|Q)-(\d+)\s*" + DASH),          # REQUIREMENTS/DECISIONS/QUESTIONS
@@ -82,11 +88,11 @@ VOCAB = (
      re.compile(r"^(open|answered D-\d+|proceeded-unreviewed D-\d+|withdrawn)$")),
     ("task-title",
      re.compile(r"(^|/)tasks/[^/]+\.md$"),
-     re.compile(r"^#\s+T-\d+\s*" + DASH + r".*?" + DASH + r"\s*(.+?)\s*$"),
+     re.compile(r"^#\s+T-\d+" + SEP + r".*?" + SEP + r"(.+?)\s*$"),
      re.compile(r"^(PLANNED|RUNNING \(.+\)|READY-TO-AUDIT|BLOCKED \(.+\)|DONE \(.+\))$")),
     ("checkpoint-verdict",
      re.compile(r"(^|/)checkpoints/[^/]+\.md$"),
-     re.compile(r"^#\s+C-\d+\s*" + DASH + r".*?" + DASH + r"\s*(.+?)\s*$"),
+     re.compile(r"^#\s+C-\d+" + SEP + r".*?" + SEP + r"(.+?)\s*$"),
      re.compile(r"^(ON-COURSE|DRIFTED|BLOCKED)$")),
 )
 

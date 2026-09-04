@@ -32,9 +32,15 @@ import subprocess
 import sys
 
 DASH = r"[—–-]"
+# A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
+# non-greedy matching on a bare dash works: non-greedy splits at the hyphen in
+# "well-known", and greedy splits at the one inside "DONE (2026-09-03)". A
+# hyphen inside a word or a date never has spaces around it; a separator always
+# does.
+SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 GOAL = re.compile(r"^-\s+\*\*(G-\d+)\*\*\s*" + DASH)
 REQ = re.compile(r"^###\s+(R-\d+)\s*" + DASH + r"\s*(.*)$")
-TASK = re.compile(r"^#\s+(T-\d+)\s*" + DASH + r"\s*(.*?)\s*" + DASH + r"\s*(\S.*)$")
+TASK = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 FIELD = re.compile(r"^-\s+\*\*([A-Za-z][A-Za-z ]*)\.\*\*\s*(.*)$")
 IDS = re.compile(r"\b([GRT]-\d+)\b")
 

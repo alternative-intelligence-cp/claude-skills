@@ -150,6 +150,16 @@ CASES = [
     ("links-and-leaks-are-checked-outside-artifacts-too",
      [("tracked", "NOTES.md", "See [gone](nope.md) at /home/someone/x/\n")],
      {"broken-link", "leak"}),
+    # A title's status is its LAST segment. A hyphenated word or a date in the
+    # middle used to split it and yield the tail of the wrong segment.
+    ("fp-hyphenated-title-text-does-not-split-the-status",
+     [replace("tasks/T-1.md", "# T-1 — make it work — PLANNED",
+              "# T-1 — the well-known parser — DONE (2026-09-03)")], set()),
+    ("fp-checkpoint-title-with-a-date",
+     [("tracked", "checkpoints/C-1-2026-09-03.md", "# C-1 — 2026-09-03 — DRIFTED\n")], set()),
+    ("bad-checkpoint-verdict",
+     [("tracked", "checkpoints/C-1-2026-09-03.md", "# C-1 — 2026-09-03 — MOSTLY FINE\n")],
+     {"bad-status"}),
     ("fp-directory-readme-is-not-an-artifact",
      [("tracked", "tasks/README.md",
        "One file per task, named `T-1.md`. See `C-1-<date>.md` for checkpoints.\n"),
