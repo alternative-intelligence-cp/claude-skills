@@ -91,6 +91,45 @@ wrong, and the drift is only visible in aggregate, which is here.
 Anything that sacrificed the *highest* priority should have been a `CHARTER`
 question and stopped for the client. If one did not, that is the finding.
 
+## 3c. Has the verification layer ever rejected anything?
+
+Every check in this pipeline ships a negative control, because a check that has
+never failed has not been shown to work (P-35). **The verification layer is
+held to no such standard, and it is the layer everything else rests on.**
+
+Count it:
+
+```bash
+grep -coE "verify [A-Za-z0-9-]+ PASS" devteam/RECORD.md
+grep -coE "verify [A-Za-z0-9-]+ FAIL" devteam/RECORD.md
+```
+
+**A project whose verify step has never returned FAIL is indistinguishable from
+a project with a rubber stamp**, and you cannot tell which one you have by
+reading the verdicts — only by counting them. On the project where this was
+first measured the answer was nine verdicts, seven PASS and two FAIL, both on
+the same task. That does not prove no verifier ever waved something through; it
+proves the layer *can* reject, which is the whole of what a negative control
+establishes anywhere else.
+
+Report the ratio in the checkpoint whatever it is. **Zero FAILs is not a
+finding on a small project** — it is a question about whether the bar has been
+tested, and the answer may honestly be "not yet". Treat it as one number that
+must be looked at, not as a threshold to pass.
+
+**Then ask what the verifiers could not do.** A verifier that quietly downgrades
+an independent rebuild to an independent reading and reports PASS is
+indistinguishable from one that rebuilt, and nothing downstream can tell them
+apart. The mitigation is in the dispatch, not here: **a verifier brief asks for
+"anything you could not reproduce" as a result rather than as an apology**, and
+says plainly that a disclosed gap is worth more than an undisclosed workaround.
+Read the record for those disclosures and list them. A gap you can see is not
+the risk; its invisibility would have been.
+
+What stays unknowable by construction is whether a verifier had a gap it did
+not disclose. The only mitigation for that is the two independent layers, and
+an undisclosed gap would have to be common to both.
+
 ## 4. Is the plan still right?
 
 - **requirements that turned out wrong** — and whether anyone said so

@@ -283,6 +283,17 @@ per step against 290,905 for the other five, and it is excluded deliberately:
 it measures a *disagreement*, not a task. A model that absorbed it would be
 predicting how often the project argues with itself.
 
+**Excluding an outlier is only honest if you know what it measures**, and this
+one turned out to be more than an argument. Counting the project's verify
+verdicts afterwards showed nine, of which two were FAIL — **and both were on
+that same task.** The outlier and the rejections are one event seen twice: the
+bar was argued three times because it was rejected twice and rebuilt. So the
+excess cost is not noise, it is **the price of the verification layer catching
+something**, and a constant fitted to absorb it would be predicting how often
+the project catches itself. That is precisely the quantity you must not smooth
+into a per-step figure, because the planner reading that figure would then be
+budgeting for verification never working.
+
 **Write a probe as `Kind. probe`, not as an implementation task.** A probe
 discharges no requirement — that is what makes it a probe — so an
 implementation task with an invented `Discharges` field is the wrong shape and
