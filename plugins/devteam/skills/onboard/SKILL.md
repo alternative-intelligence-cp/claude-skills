@@ -55,6 +55,17 @@ budget you are actually spending.
    the memory tax is the one who least needs another thing to hold in their
    head.
 
+   **Report an empty result as loudly as a full one.** If nothing matches, say
+   so explicitly — *"I have no standing constraints on record for this project;
+   is that right?"* — rather than moving on in silence. This is the case the
+   feature most exists for: a client running several projects at once can lose
+   track of which agent was told what, and end up believing they told **this**
+   one a constraint they only mentioned elsewhere. **The agent that was not
+   told has no signal that anything is missing**, so it proceeds confidently on
+   an incomplete picture while the client proceeds confidently believing it was
+   covered, and nothing anywhere feels wrong. One line naming the absence is
+   the only thing that gives them a chance to notice.
+
    **Nothing here was inferred, and nothing may be.** A convention exists
    because the client stated it. A pattern noticed in their past decisions is a
    hypothesis, and one that grows more confident with repetition whether or not
@@ -216,6 +227,12 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conventions.py" new CNV-<n>
 **Ask; never decide.** The client saying "that goes for everything I build" is
 a statement. Your noticing that they answered the same way twice is not, and
 the difference is the whole safety property of this feature.
+
+**This is not only an end-of-interview question.** Any time the client states
+something that sounds family-wide — during the interview, at a checkpoint, in
+answer to an escalation — offer to record it then. A constraint that lives only
+in this conversation is one the next project cannot see, and the client will
+reasonably remember having said it.
 
 ## 5. The signature (GATE 1)
 

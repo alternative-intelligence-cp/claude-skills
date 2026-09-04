@@ -259,6 +259,13 @@ An answer becomes `question Q-n answered:` in `RECORD.md`, the question is
 struck through with its decision number (P-24), and the task restarts with the
 answer in `NOTES:`.
 
+**If an answer sounds like it applies beyond this project, offer to record it
+as a convention** (`scripts/conventions.py`). A client running several projects
+at once will reasonably remember having stated a constraint and not which agent
+they stated it to — and an answer that lives only in this conversation is one
+the next project cannot see. Offer; never assume, and never record a pattern
+you merely noticed.
+
 ## 9. `tick`
 
 Skip §1. Read `BOARD.md`. Handle any reports already delivered (§6). Run §4
