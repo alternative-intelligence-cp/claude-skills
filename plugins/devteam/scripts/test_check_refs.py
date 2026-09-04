@@ -139,6 +139,17 @@ CASES = [
      [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** <open | discharged (T-n)>")], set()),
     ("fp-version-numbers-are-not-citations",
      [append("CHARTER.md", "\nApache-2.0, UTF-8, SHA-256, ISO-8601, Python 3.12.\n")], set()),
+    # F-50: a requirement advanced by one task and completed by another could
+    # not be expressed, so the record had to say something untrue.
+    ("fp-in-progress-across-two-tasks",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** in-progress (T-2, T-5)")],
+     set()),
+    ("fp-discharged-by-two-tasks",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** discharged (T-2, T-5)")],
+     set()),
+    ("bad-status-still-caught-with-a-task-list",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** nearly (T-2, T-5)")],
+     {"bad-status"}),
     ("fp-in-progress-status",
      [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** in-progress (T-1)")], set()),
     ("fp-struck-question-keeps-its-decision",

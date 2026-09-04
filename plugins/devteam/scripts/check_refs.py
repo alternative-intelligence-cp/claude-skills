@@ -77,7 +77,10 @@ VOCAB = (
     ("requirement-status",
      re.compile(r"(^|/)REQUIREMENTS\.md$"),
      re.compile(r"^-\s+\*\*Status\.\*\*\s+(.+?)\s*$"),
-     re.compile(r"^(open|in-progress \(T-\d+\)|discharged \(T-\d+\)|struck \(D-\d+\))$")),
+     re.compile(r"^(open"
+                r"|in-progress \(T-\d+(?:,\s*T-\d+)*\)"
+                r"|discharged \(T-\d+(?:,\s*T-\d+)*\)"
+                r"|struck \(D-\d+\))$")),
     ("question-class",
      re.compile(r"(^|/)QUESTIONS\.md$"),
      re.compile(r"^-\s+\*\*Class\.\*\*\s+(.+?)\s*$"),

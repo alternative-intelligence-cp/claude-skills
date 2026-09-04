@@ -147,6 +147,11 @@ something.
   passes just as happily before your work as after it, say so in your report
   rather than banking it. That is a finding about the plan, and reporting it
   is worth more than a clean pass.
+- **A mutation must name what it expects to fail.** Breaking the thing on
+  purpose and watching the suite go red proves only that *something* is
+  watching. Name the node id, and check that one failed — three tests going red
+  when one mutation lands means two of them were not the instrument you were
+  testing.
 - **Assert your fixture before you trust what it proves.** A negative test is
   only as good as the bad input it is given. `printf '\xff\xfe'` under `sh`
   does not expand `\x`, so the "invalid" file comes out as valid text, the

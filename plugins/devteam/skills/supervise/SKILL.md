@@ -66,6 +66,13 @@ check printed a pass. It was caught only because the check was phrased to
 *report what it saw* rather than to assert success — which is the habit worth
 keeping.
 
+**And when you prove it by mutation, name the node id you expect to fail.**
+"The suite went red" is not evidence that the *instrument* went red. One
+deliberate mutation in this project turned three tests red and only one was
+under test — a step whose evidence was "it failed" would have been satisfied
+by either of the other two, and the instrument could have been vacuous the
+whole time behind a genuine failure somewhere else.
+
 **And the command must be able to fail.** Before accepting a step on the
 strength of its verify, satisfy yourself the command would have come out
 differently *before* the work — `git archive HEAD~1` to a scratch tree and run

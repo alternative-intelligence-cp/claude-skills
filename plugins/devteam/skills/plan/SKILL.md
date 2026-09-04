@@ -83,6 +83,13 @@ So the criterion is written **before** the work, from the requirement rather
 than from the implementation, and it survives being read by someone who has
 not seen the code.
 
+**And when you prove it by mutation, name the node id you expect to fail.**
+"The suite went red" is not evidence that the *instrument* went red. One
+deliberate mutation in this project turned three tests red and only one was
+under test — a step whose evidence was "it failed" would have been satisfied
+by either of the other two, and the instrument could have been vacuous the
+whole time behind a genuine failure somewhere else.
+
 **A verification command must be able to FAIL.** This is the one that is
 easiest to get wrong and hardest to notice. A step's verify is evidence only
 if it would have come out differently before the step was done — otherwise it
