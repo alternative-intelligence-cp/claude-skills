@@ -70,7 +70,9 @@ directions (P-22).
 
 **The rule: anything else that numbers something uses a prefix of three or
 more letters.** `COR-1`, `SEC-5`, `HYG-3` for audit findings by dimension;
-`REV-2` for a review finding. Never a new one- or two-letter prefix.
+`REV-2` for a review finding; `CNV-1` for a project-family convention, which
+lives outside any project and is cited from a decision that adopts or declines
+it. Never a new one- or two-letter prefix.
 
 **Why, mechanically.** The citation scanner matches `[A-Z]{1,2}-<digits>`
 anywhere in an artifact. A two-letter identifier is therefore *indistinguishable

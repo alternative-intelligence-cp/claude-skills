@@ -29,7 +29,39 @@ budget you are actually spending.
    fetch (P-36); file each digest under `devteam/research/` and open
    `research/CURRENCY.md` with a row per external thing the plan will rest on
    (P-37).
-3. **Then ask about what research cannot settle:** what the client wants, what
+3. **Check the project-family conventions.** Constraints the client has stated
+   once, for a family of projects, that no single charter is the natural home
+   for — a toolchain required or forbidden, a verification obligation, a
+   standard, where shared resources live:
+
+   ```bash
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conventions.py" match <project> [tags]
+   ```
+
+   **Put each one to the client as a question and record the answer either
+   way.** They are not defaults and must never be applied silently:
+
+   - **Confirmed** → it becomes a charter constraint or a numbered decision
+     citing the convention id, so the project's own record stands alone.
+   - **Declined** → a decision recording *that it was declined and why*. "This
+     project deliberately does not follow the house rule" is information; an
+     unnoticed omission is not, and is indistinguishable from an oversight six
+     months later.
+
+   The point is **recognition rather than recall**. The client already knows
+   these; what costs them is having to remember to say so at the right moment,
+   every time. A list they can confirm or reject in seconds is a different
+   task from an empty page they must fill from memory — and the person paying
+   the memory tax is the one who least needs another thing to hold in their
+   head.
+
+   **Nothing here was inferred, and nothing may be.** A convention exists
+   because the client stated it. A pattern noticed in their past decisions is a
+   hypothesis, and one that grows more confident with repetition whether or not
+   it is true — most confident exactly where a real exception costs most. If
+   you think you see a pattern, ask about it; do not record it.
+
+4. **Then ask about what research cannot settle:** what the client wants, what
    they will not accept, what they already tried, and what "done" means to
    them.
 
@@ -169,6 +201,21 @@ real finding.
 `orphan-scope` means you promised the client a goal no requirement covers.
 `unverified-requirement` means one will be declared done by opinion. Both must
 be clean before you show the client anything.
+
+## 4b. Offer to record what generalises
+
+At the end, when the answers are in, ask one question: **"do any of these apply
+to your other projects too?"** If the client says a constraint is
+family-wide — a toolchain rule, a standard, a shared location — offer to record
+it as a convention so they are not asked to recall it next time:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conventions.py" new CNV-<n>
+```
+
+**Ask; never decide.** The client saying "that goes for everything I build" is
+a statement. Your noticing that they answered the same way twice is not, and
+the difference is the whole safety property of this feature.
 
 ## 5. The signature (GATE 1)
 
