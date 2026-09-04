@@ -594,9 +594,10 @@ riskiest unknown goes earliest and a probe that fails changes the design.
 | **0** | this document and `PROTOCOL.md` | ✅ **done** |
 | **1** | marketplace, plugin manifest, repository housekeeping | ✅ **done** — the plugin loads and its manifests resolve |
 | **2** | `setup`, the checks with their controls, the guard with its control | ✅ **done** — 127 control cases green, 57% of them false-positive controls; a freshly scaffolded project checks clean |
-| **3** | one path end to end: `onboard` → `plan` → one task → `supervise` → `implementer` → `verify` → `checkpoint` | ◐ **written, not yet walked.** Ten skills, five agents and both hooks exist and are internally consistent. The phase is not done until a trivial project goes from idea to verified commit with no manual intervention between gates — writing the procedure is not the same as running it |
-| **4** | rehearse on a throwaway project; fix what the rehearsal breaks | ◐ **first real dispatch done** — one task, two steps, two workers, green and correct. It found six defects (§15). Remaining: compaction, a killed agent, a deliberately failing check, a scope violation under a live guard |
-| **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | ◐ **written; awaiting a restart to dispatch.** The roster is complete at 13 skills and 9 agents. A new *skill* loads into a running session; a new *agent type* does not, so the four new agents cannot be dispatched until the session restarts |
+| **3** | one path end to end: `onboard` → `plan` → one task → `supervise` → `implementer` → `verify` → `checkpoint` | ✅ **done** — walked in §15, and the walking is what found the six defects |
+| **4** | rehearse on a throwaway project; fix what the rehearsal breaks | ✅ **done** — three tasks, a killed supervisor recovered, a correct verifier FAIL, a live guard refusal, and a DRIFTED checkpoint; §15–§17 |
+| **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | ✅ **done** — three auditors dispatched in parallel against the rehearsal project, none able to write; §18 |
+| **6** | a client the pipeline did not write: another session, briefed only with an underspecified paragraph, interviewed and run end to end | ◐ **in flight** — eighteen findings before the product had a line of code; §20 |
 
 Phase 3 is the one that matters. Everything before it is scaffolding, and
 everything after it is filling in a loop already known to work.
@@ -916,7 +917,7 @@ missing — the knowledge is present, in prose, in the wrong register.
 **And an audit found the audit tooling failing at its own job.** `check_refs`
 reported a tree clean while four committed lines carried an absolute session
 path — the home directory survived path-encoding as
-`-home-randy-Workspace-…`, which no `/home/` pattern can see. A check passing
+`-home-<user>-<segments>`, which no `/home/` pattern can see. A check passing
 on the exact condition it exists to detect. Fixed with two patterns and four
 controls; it now reports all four.
 
@@ -985,3 +986,100 @@ The pattern across all three is one thing: **an identifier grammar is a shared
 namespace, and every document that numbers anything is competing in it.** The
 grammar in `templates/FORMATS.md` reserved seven prefixes and said nothing
 about what else might want to number something.
+
+
+---
+
+## 20. What a client the pipeline had not written found
+
+The rehearsal in §15–§18 had one weakness that could not be designed away: the
+manager was the author of the thing it was testing. So a second session was
+given an underspecified paragraph — *"turns CSV files into JSON… reliable…
+handles bad input gracefully. Python. Nothing fancy."* — and told to run the
+pipeline as written, reporting anything impossible rather than working around
+it. The client's positions were written down **before** the interview so the
+run could be scored on what it extracted rather than on what the client
+invented to fit the questions.
+
+**Eighteen findings arrived before the product had a line of code**, and the
+distribution is the interesting part: the last dozen were contradictions
+between documents this project wrote, not defects in the manager's work.
+
+### The ones that changed the design
+
+**The guard's git rule was dead exactly where git runs.** `judge()` searched
+from the target's parent, so a target that *is* a project root found no project
+— and every `git -C <root> …` resolves to precisely that. `git reset --hard`,
+`git clean -fd` and `git push` were all permitted at a project root while
+`touch <root>/x` on the same project was refused. Fixing it required splitting
+git by what each subcommand can *destroy*, because one undifferentiated set
+either blocks every worker's commit or permits `reset --hard`.
+
+**Protected paths protected nothing outside the project.** The feature the
+guard's own docstring advertises by name — sibling repositories — was the exact
+case it could not cover, because the early return for "target is in no project"
+came before the protected-path check.
+
+**The guard refused `2>&1`.** A file-descriptor number belongs to the redirect,
+not the command, so `2` was read as a positional argument and resolved to
+`<project>/2`. Constant false refusals on correct work, and none of the 27
+existing false-positive controls carried an explicit fd.
+
+**A client is not an operator.** Setup had the manager write the client's
+approved allowlist into `.claude/settings.json` — executable only while the
+client *is* the operator of the session. The manager **refused the
+instruction**, correctly, and that refusal is the finding: a manager that
+complied because the client sounded authoritative would be laundering a
+permission.
+
+**A probe discharges nothing, and the checks made it unexpressible.** The plan
+skill demands the riskiest unknown as "task one, and it is small"; a probe
+answers a question rather than a requirement, and `unmotivated-task` fired on
+exactly that. A plan had to choose between an untrue field and a permanent
+finding.
+
+**Recovery could not tell a waiting supervisor from a dead one.** The board
+names the supervisor; a supervisor awaiting its worker reports as completed. A
+manager applying the recovery rule literally would declare a live claim stale
+and put a second writer on a scope a worker was writing — **the two-writers
+failure the whole design exists to prevent, reached by following the design.**
+Observed rather than suffered, and only because `ListAgents` happened to show
+the child.
+
+**`git add -A` steals a worker's commit.** The rule existed for workers and not
+for the manager, which is backwards: the manager is the one party guaranteed to
+be writing concurrently with every worker.
+
+**A document that contains a control byte stops being diffable.** A digest
+documented a NUL by containing it; git committed the file as binary and
+produced no diff for it. Every audit is a diff of a document against what it
+describes, so the file had silently left every comparison — and only git's own
+stat line noticed.
+
+### What the run says about the method
+
+**Three defects were found by adding a feature, not by testing one.** Task
+kinds exposed a default that contradicted the parsing contract seventy lines
+above it; the research index exposed a digest format that recorded a date but
+never a sensitivity, so shelf life could not be computed from the file. The
+features were cheap; what they bought was a forcing function on the shapes.
+
+**Two fixes overshot and had to be corrected.** Naming every skipped file in
+the research index produced 125 lines against a real tree — a report nobody
+reads, which fails the same way silence does, wearing the opposite coat. The
+correction was to name *near misses* and count the rest.
+
+**The instrument problem did not go away.** Four broken instruments across the
+project's history, two of them built during this run while *verifying other
+people's findings*: a leak probe that classified URL fragments as prose, and a
+pipe test that redirected the wrong stream. The only defence that has ever
+worked is refusing to trust a summary over the structure.
+
+**And the interview worked.** It researched before asking and found that RFC
+4180 is Informational rather than Standards Track, so "RFC 4180 compliant" is
+not a promise anyone can make; it asked the quantifier question in the skill's
+own words; it changed the client's mind twice with evidence and was overruled
+once; and it declined to generalise a good rule the client had agreed for one
+case, on the grounds that an unrequested requirement is scope creep with a
+number on it — a line from this project's own onboarding skill, applied against
+its own good idea.
