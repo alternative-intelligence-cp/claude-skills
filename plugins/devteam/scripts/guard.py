@@ -58,12 +58,26 @@ WRITE_CMDS = {
 DEST_LAST_CMDS = {"cp": "a copy", "install": "an install",
                   "rsync": "an rsync", "ln": "a link"}
 BOTH_ENDS_CMDS = {"mv": "a move"}
-GIT_WRITE = {
-    "add", "commit", "checkout", "switch", "restore", "reset", "revert",
-    "merge", "rebase", "cherry-pick", "push", "pull", "fetch", "stash",
-    "clean", "rm", "mv", "apply", "am", "init", "gc", "prune", "worktree",
-    "tag", "remote", "config",
+# Git subcommands are split by WHAT THEY CAN DESTROY, not by whether they
+# write. Treating them as one set made the rule unusable: judged against task
+# scope it refuses `git commit`, which every worker must do; not judged at all
+# it lets `git reset --hard` through. Three sets, three answers.
+#
+# The index and refs only. These cannot overwrite a working-tree file that was
+# not already written -- and that write was judged when it happened.
+GIT_INDEX = {"add", "commit", "tag", "notes", "init", "gc", "prune"}
+# These overwrite or delete arbitrary working-tree paths, including paths no
+# live task has claimed. Judged as a write to the repository itself.
+GIT_TREE = {
+    "checkout", "switch", "restore", "reset", "revert", "merge", "rebase",
+    "cherry-pick", "stash", "clean", "rm", "mv", "apply", "am", "worktree",
+    "config",
 }
+# Outward-facing or ref-fetching. `push` is IRREVERSIBLE by P-26 and the
+# permission set deliberately never grants it; the rest move refs under the
+# working tree from somewhere nobody in this session controls.
+GIT_OUTWARD = {"push", "pull", "fetch", "remote"}
+GIT_WRITE = GIT_INDEX | GIT_TREE | GIT_OUTWARD
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1.*?^\s*\2\s*$", re.S | re.M)
 SEPARATORS = {"&&", "||", ";", ";;", "|", "|&", "&"}
 REDIRECTS = {">", ">>", "&>", "&>>"}
@@ -116,7 +130,7 @@ def tokens(cmd):
 def targets(cmd, cwd):
     """(absolute target, description) for every write, following `cd` anywhere."""
     for m in re.finditer(r"\bof=([^\s;|&()]+)", cmd):
-        yield resolve(m.group(1), cwd), "dd"
+        yield resolve(m.group(1), cwd), "dd", "write"
     toks = tokens(cmd)
     eff, stack, seg = cwd, [], []
 
@@ -144,7 +158,7 @@ def targets(cmd, cwd):
             eff = flush(seg, eff); seg = []; i += 1; continue
         if t in REDIRECTS:
             if i + 1 < n and not toks[i + 1].startswith("&"):
-                yield resolve(toks[i + 1], eff), "a redirection"
+                yield resolve(toks[i + 1], eff), "a redirection", "write"
                 i += 2; continue
             i += 1; continue
         if t.startswith(">") or t.startswith("<"):
@@ -156,25 +170,29 @@ def targets(cmd, cwd):
             args = [a for a in seg[1:] if not a.startswith("-")]
             if base in WRITE_CMDS:
                 for a in args:
-                    yield resolve(a, eff), WRITE_CMDS[base]
+                    yield resolve(a, eff), WRITE_CMDS[base], "write"
             elif base in BOTH_ENDS_CMDS:
                 for a in args:
-                    yield resolve(a, eff), BOTH_ENDS_CMDS[base]
+                    yield resolve(a, eff), BOTH_ENDS_CMDS[base], "write"
             elif base in DEST_LAST_CMDS and args:
-                yield resolve(args[-1], eff), DEST_LAST_CMDS[base]
+                yield resolve(args[-1], eff), DEST_LAST_CMDS[base], "write"
             elif base in ("sed", "perl") and any(a.startswith("-") and "i" in a for a in seg[1:4]):
                 for a in args:
                     r = resolve(a, eff)
                     if r and os.path.exists(r):
-                        yield r, f"{base} -i"
+                        yield r, f"{base} -i", "write"
             elif base == "git":
                 rest = seg[1:]
                 gdir = None
                 if len(rest) >= 2 and rest[0] == "-C":
                     gdir, rest = rest[1], rest[2:]
                 sub = next((r for r in rest if not r.startswith("-")), None)
-                if sub in GIT_WRITE:
-                    yield resolve(gdir if gdir is not None else ".", eff), "a mutating git subcommand"
+                if sub in GIT_OUTWARD:
+                    yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "outward"
+                elif sub in GIT_INDEX:
+                    yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "index"
+                elif sub in GIT_TREE:
+                    yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "tree"
 
 
 def find_project(start):
@@ -255,7 +273,7 @@ def load_state(project):
     return protected, live, writer
 
 
-def judge(target, what, session, session_project, cache):
+def judge(target, what, session, session_project, cache, category="write"):
     """None, or a refusal reason for a target this session may not write.
 
     The project is discovered by walking up from the TARGET, not from the
@@ -268,7 +286,12 @@ def judge(target, what, session, session_project, cache):
     """
     if target is None:
         return None
-    project = find_project(os.path.dirname(target) or target)
+    # From the TARGET, not its parent. `dirname` started the search one level
+    # too high, so a target that IS a project root found no project and went
+    # unjudged -- which is precisely what every `git -C <root> …` resolves to.
+    # `git reset --hard`, `git clean -fd` and `git push` were all allowed at a
+    # project root while `touch <root>/x` on the same project was refused.
+    project = find_project(target)
     if project is None:
         return None                           # not inside any devteam project
     if project not in cache:
@@ -292,7 +315,13 @@ def judge(target, what, session, session_project, cache):
     if inside(target, devteam):
         if target == board:
             return None                       # the board IS the lock
-        if writer is None or re.search(r"\bnone\b", writer):
+        # A writer line still holding its template placeholder is VACANT, not
+        # held by someone else. Reading `<session id>` as another session
+        # locked every new project out of its own devteam/ on the first write
+        # after setup, and taught managers that forcing a lock takeover is a
+        # routine move. The same script already treats `<…>` as unfilled in
+        # scope entries and protected paths.
+        if writer is None or re.search(r"\bnone\b", writer) or PLACEHOLDER.search(writer):
             return None
         # An EXACT token match. `session in writer` is a substring test, and a
         # short id matched inside an ordinary word -- "me" inside "names" --
@@ -305,10 +334,25 @@ def judge(target, what, session, session_project, cache):
                 "the `**Writer.**` line to this session's id — BOARD.md itself is "
                 "always writable — and record the takeover in RECORD.md.")
 
+    if category == "outward":
+        return (f"Refused: `{what}` from inside a devteam project. Publishing is "
+                "outward-facing and IRREVERSIBLE (P-26) — it is the client's to "
+                "do, at the moment it matters, not a standing grant. Fetching "
+                "moves refs under a working tree a task is claiming. If this is "
+                "genuinely needed, it is a question for the client.")
+
     if inside(session_project, project) and not live:
         return None                           # the author's own project, loop idle
     if not live:
         return None                           # no claim is in flight; nothing to police
+
+    if category == "index":
+        # Staging and committing touch the index and refs. They cannot write a
+        # working-tree file that was not already written, and that write was
+        # judged when it happened. Refusing these would make every step's
+        # commit impossible, which is why one undifferentiated GIT_WRITE set
+        # could not be enforced at all.
+        return None
 
     for paths in live.values():
         for p in paths:
@@ -344,8 +388,8 @@ def main():
         # A newline separates commands as surely as `;`. Without this the line
         # after a heredoc is swallowed into the interpreter's segment.
         cmd = strip_heredocs(ti.get("command") or "").replace("\n", " ; ")
-        for target, what in targets(cmd, cwd):
-            reason = judge(target, what, session, session_project, cache)
+        for target, what, category in targets(cmd, cwd):
+            reason = judge(target, what, session, session_project, cache, category)
             if reason:
                 break
     else:

@@ -90,7 +90,23 @@ CASES = [
     ("deny-cd-then-write-into-protected", bash("cd vendor/lib && touch x.c"), WRITER_SESSION, True),
     ("deny-touch-out-of-scope", bash("touch src/render/new.py"), WRITER_SESSION, True),
 
+    # --- the project-root blind spot, found by a manager during a live run --
+    # judge() searched from the target's PARENT, so a target that IS the
+    # project root found no project and went unjudged. Every `git -C <root> …`
+    # resolves to exactly that, so the whole git rule was dead where git runs.
+    ("deny-git-reset-hard-at-the-project-root", bash("git reset --hard"), WRITER_SESSION, True),
+    ("deny-git-clean-at-the-project-root", bash("git clean -fd"), WRITER_SESSION, True),
+    ("deny-git-checkout-dot-at-the-project-root", bash("git checkout ."), WRITER_SESSION, True),
+    ("deny-git-push-is-outward-facing", bash("git push origin main"), WRITER_SESSION, True),
+    ("deny-git-fetch-moves-refs-under-a-claim", bash("git fetch origin"), WRITER_SESSION, True),
+
     # --- FALSE-POSITIVE CONTROLS: must be ALLOWED --------------------------
+    # Splitting git by what it can DESTROY is the point: judged as one set,
+    # the rule either refuses every worker's commit or permits reset --hard.
+    ("fp-git-commit-at-the-project-root", bash("git commit -m x"), WRITER_SESSION, False),
+    ("fp-git-add-at-the-project-root", bash("git add -A"), WRITER_SESSION, False),
+    ("fp-git-tag-touches-refs-only", bash("git tag v1"), WRITER_SESSION, False),
+    ("fp-git-status-is-still-a-read", bash("git status"), WRITER_SESSION, False),
     ("fp-write-inside-scope", write("src/loader/a.py"), WRITER_SESSION, False),
     ("fp-write-inside-second-scope-entry", write("tests/loader/t.py"), WRITER_SESSION, False),
     ("fp-board-is-always-writable", write("devteam/BOARD.md"), "session-B", False),
@@ -143,6 +159,13 @@ SPECIAL = [
      write("docs/guide.md"), WRITER_SESSION, False,
      lambda dt: open(os.path.join(dt, "tasks", "T-1.md"), "w").write(
          T1.replace("RUNNING (since 2026-09-03, T1-a-1200)", "DONE (2026-09-03)"))),
+    # A writer line still holding its template placeholder is VACANT. Reading
+    # it as another session locked every new project out of its own devteam/
+    # on the first write after setup.
+    ("fp-unfilled-writer-placeholder-is-vacant",
+     write("devteam/RECORD.md"), "session-B", False,
+     lambda dt: open(os.path.join(dt, "BOARD.md"), "w").write(
+         "# The board\n\n**Writer.** `<session id>` since <date>\n")),
     ("fp-writer-none-lets-anyone-write-devteam",
      write("devteam/RECORD.md"), "session-B", False,
      lambda dt: open(os.path.join(dt, "BOARD.md"), "w").write("# The board\n\n**Writer.** none\n")),

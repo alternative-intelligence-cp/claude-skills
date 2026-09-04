@@ -214,7 +214,11 @@ def main(argv):
     print(f"  {installed} artifacts, empty tasks/ and checkpoints/, .run/ (untracked)")
     if added:
         print(f"  added {GITIGNORE_LINE} to .gitignore")
-    if found:
+    # A greenfield project detects `git_root` and nothing else. Printing the
+    # header over an empty list reads as though detection ran and found things,
+    # which is the opposite of what happened.
+    substantive = {k: v for k, v in found.items() if k != "git_root"}
+    if substantive:
         print("\nDetected, and pre-filled into the charter where confident:")
         for k in ("stack", "build", "test", "lint", "remote"):
             if k in found:
@@ -224,7 +228,10 @@ def main(argv):
         print("\nEverything above is a PROPOSAL. The interview confirms each one —")
         print("a detected command that is wrong is worse than one that was asked about.")
     else:
-        print("\nNothing detected about this project's toolchain; the interview asks.")
+        print("\nNOTHING was detected about this project's toolchain — no build,")
+        print("test or lint command, no manifest, no remote. Every toolchain value")
+        print("in the charter is therefore a RECOMMENDATION you must make and the")
+        print("client must confirm. Do not present one as though it were found.")
     print("\nNext:  /devteam:onboard")
     return 0
 

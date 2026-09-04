@@ -43,14 +43,26 @@ the loop needs — **no more**, so the grant stays reviewable, and **no less**,
 so it does not stall.
 
 Fill in `devteam/PERMISSIONS.md` from the confirmed build, test and lint
-commands. Then put the matching allowlist in the project's
+commands.
+
+**On a greenfield project there are no confirmed commands yet**, because the
+interview that settles them runs after this stage, deliberately. Do not invent
+them and do not stall: write the file marked **`PROPOSED`**, say in the file
+that it could not be filled from detection, carry the toolchain into the
+interview as a question with your recommendation, and regenerate the file once
+the charter is signed. A permission set that claims to be derived from a
+charter that does not exist is worse than one that admits it is a proposal. Then put the matching allowlist in the project's
 `.claude/settings.json` — `permissions.allow` — and **show the client the
 diff before writing it.** A permission set nobody read is not a grant.
 
 Three rules for what goes in it:
 
-- **Commands, scoped.** `Bash(pytest:*)`, not `Bash(*)`. The narrow form is
-  the one a client can actually review.
+- **Commands, scoped — and never an interpreter at its bare entry point.**
+  `Bash(python3 -m pytest:*)`, not `Bash(python3:*)` and not `Bash(*)`.
+  `Bash(python3:*)` looks scoped and satisfies a naive reading of this rule,
+  and `python3 -c "..."` is arbitrary code execution — it silently re-grants
+  every removal, install and network call the rest of this section refuses.
+  The same trap is `Bash(sh:*)`, `Bash(node:*)`, `Bash(uv run:*)`.
 - **Nothing outward-facing.** No `git push`, no `gh`, no publish, no deploy.
   Those are `IRREVERSIBLE` (P-26) and belong to the client, who is asked at
   the moment it matters rather than pre-authorising it in the dark.
