@@ -1218,6 +1218,39 @@ which is invisible to anyone already using it. That is worth remembering when
 reading §21: the missing findings are not hiding in the runs, they are in the
 people who did not start one.
 
+### The shape that has cost the most: two rules that cannot both be satisfied
+
+Stated by the manager running the live project, after it had hit the same thing
+five times: **a rule a worker must break to do the work right is a defect in the
+rule.** Four of the five instances were not one bad rule but a **pair** of rules
+that could not both hold, with no indication anywhere that they were in tension:
+
+| The pair | What the worker did |
+|---|---|
+| "one commit per step" **and** a report that must cite post-commit evidence | amended, and rewrote a concurrent task's commit |
+| "no `rm`" **and** mutation testing that runs in a scratch directory | breached the prohibition, and reported itself |
+| "no `rm`" **and** a file created in error under `devteam/` | left the tree dirty, disabling every later verification |
+| P-20's two rules under one number | conflated a flaky check with a legitimate retry |
+
+The failure is invisible to whoever wrote either rule, because **each one is
+correct in isolation and neither mentions the other.** The author of "one commit
+per step" was thinking about a legible record; the author of "the report cites
+its evidence" was thinking about P-5. Nobody wrote the sentence where they meet,
+so the worker is the first party in the system's history to hold both at once —
+and it holds them under time pressure, with no standing to change either.
+
+This is why the rules keep getting found by workers rather than by review. A
+reviewer reads rules one at a time; a worker is the only party required to
+satisfy all of them simultaneously. **So a worker reporting that it could not
+comply is a higher-grade signal than a worker reporting a bug**, and the
+instruction to report rather than work around is what converts it from a silent
+workaround into a finding. Three of the four above were self-reported breaches.
+
+The practical consequence for anyone adding a rule here: the question is not
+"is this rule right?" but **"what else must be true at the same moment, and can
+both hold?"** That question has a much better hit rate on this codebase than
+re-reading the rule you just wrote.
+
 
 ---
 
