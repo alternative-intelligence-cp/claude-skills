@@ -19,6 +19,16 @@ what proves the three still agree.
 - **A field's absence is a finding, not a default.** Every check reports
   `missing-field` rather than inventing a value. A default is a decision nobody
   made.
+- **One field is a deliberate exception, and it is named here so the rule above
+  keeps its credibility.** A task's `Kind.` defaults to `implementation` when
+  absent. The reason is compatibility and nothing grander: the field was added
+  after task files existed, and reading its absence as a finding would have
+  reported every task ever written. **The exception has the cost the rule
+  predicts** — a probe written by somebody who has not read the `Kind.` row is
+  silently treated as an implementation task — so the `unmotivated-task`
+  finding names `Kind.` in its own text, which is where a person meets the
+  problem. Any future default needs the same two things: a stated reason, and a
+  finding that points at the field.
 - **Everything is line-oriented.** No field's value spans lines except an
   explicit sub-list, so a check never needs to parse markdown properly.
 

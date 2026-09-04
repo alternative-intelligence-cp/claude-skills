@@ -148,7 +148,10 @@ def check(devteam):
         if kind == "implementation":
             if not names:
                 add("unmotivated-task", where,
-                    f"{ident} discharges no requirement — scope creep, or a requirement nobody wrote down")
+                    f"{ident} discharges no requirement — scope creep, or a "
+                    "requirement nobody wrote down. If it is a probe, a spike "
+                    "or a chore, say so with **Kind.** and give it an "
+                    "**Informs.** or a **Because.**")
         elif kind in ("probe", "spike"):
             informs = [r for r in IDS.findall(fields.get("Informs", "")) if r[0] in "RG"]
             if not informs:

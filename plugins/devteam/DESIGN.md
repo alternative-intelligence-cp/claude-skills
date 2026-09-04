@@ -229,6 +229,17 @@ The fifth gate is unscheduled and always available: **an IRREVERSIBLE or
 CHARTER question, at any moment** (P-26). Those never wait for a checkpoint and
 never auto-proceed.
 
+**And the lifecycle is a loop, not a line.** At gate 4 the client accepts,
+amends, or **iterates** — `/devteam:iterate` reopens at stage 1 with the
+charter, decisions, record and audits carried forward, re-interviewing only
+what using the thing actually taught. The second cycle is cheaper than the
+first exactly to the extent that the first one's reasoning is still on disk,
+which is why iterating must never mean starting from an empty directory.
+Requirements keep their numbers and are superseded rather than edited; the
+charter gains a version and keeps its old text; and the `proceeded-unreviewed`
+decisions are the first thing the client is shown, because this is the moment
+they were promised a look at them (P-27).
+
 ---
 
 ## 5. The two loops

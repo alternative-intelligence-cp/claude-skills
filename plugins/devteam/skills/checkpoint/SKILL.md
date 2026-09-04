@@ -123,5 +123,17 @@ At delivery, the same procedure plus:
 - total cost against the original estimate
 - what is knowingly left undone, and why
 
-Then the client accepts, or sends findings back as new requirements — which
-is a charter amendment (P-2), not a bug list.
+Then the client chooses one of three, and they are different things:
+
+- **accept** — the cycle is closed and the project is done;
+- **amend** — findings come back as new requirements under the same goals,
+  which is a charter amendment (P-2) and not a bug list;
+- **iterate** — the goals held, and using the thing taught something the
+  specification could not. `/devteam:iterate` opens the next cycle carrying
+  the charter, decisions, record and audits forward.
+
+**Offer the third explicitly.** A client who is not told iteration exists will
+either ask for a bug fix that is really a redesign, or start again from an
+empty directory and throw away every decision this cycle recorded — and the
+second cycle's whole advantage is that the first one's reasoning is still on
+disk.
