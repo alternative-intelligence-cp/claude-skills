@@ -226,6 +226,36 @@ own dispatch and checking around all of that. A task that writes forty lines
 of code is not a forty-line task. Estimate the whole loop or do not bother
 (P-41).
 
+**A per-step constant cannot carry the verification standard, because the
+standard is paid twice.** This was measured over six tasks and it is the reason
+two successive corrections to a per-step figure both came in low. The error is
+not a bias with one number to fix; it is **two factors that multiply**:
+
+| | |
+|---|---|
+| steps actually run vs steps estimated | **1.37x** |
+| cost per step run vs cost per step modelled | **1.36x** |
+| product | **1.86x** — the observed total |
+
+The second factor is the one people expect: a verifier that rebuilds a worker's
+adversary and measures it independently costs more than one re-running the
+worker's commands. The first is the same standard seen from the other side —
+**verification becoming its own steps.** One task planned four steps and ran
+eight; two of the extras were a verifier step and an auditor step. No per-step
+figure can express that, because it is not per step.
+
+So state the model in units a planner actually holds at planning time —
+**estimated** steps, not the steps that turn out to be needed — and let the
+constant absorb both factors. On the project where this was measured, moving
+from 237,500 to 260,000 per estimated unit reduced the total error from 1.86x
+to 1.70x; **440,000 brought it to 1.00x** and cut the worst single-task error
+from 148% to 42%.
+
+**And leave the argument out of the fit.** One task in that set cost 454,400
+per step against 290,905 for the other five, and it is excluded deliberately:
+it measures a *disagreement*, not a task. A model that absorbed it would be
+predicting how often the project argues with itself.
+
 **Write a probe as `Kind. probe`, not as an implementation task.** A probe
 discharges no requirement — that is what makes it a probe — so an
 implementation task with an invented `Discharges` field is the wrong shape and

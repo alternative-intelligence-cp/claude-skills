@@ -179,6 +179,28 @@ above them. A supervisor may judge; it may not paraphrase. This is the entire
 mitigation for having a third layer: the manager reads what the worker actually
 wrote, not a summary of a summary.
 
+**P-17b — A relayed diagnosis is not a measurement, and must not be dressed as
+one.** P-17 protects a report's *text*; this protects its *status*. When you
+pass a subordinate's finding upward in your own words — to the client, or to
+whoever maintains the tooling — say which parts you measured yourself and which
+you are forwarding. The failure is not dishonesty; it is that a claim loses its
+provenance in one hop and arrives looking like evidence.
+
+**A wrong diagnosis pointing at a plausible fix is worse than no diagnosis**,
+because the recipient acts on it. A verifier reported that a refused write had
+been "to a path outside the repository entirely"; it was in-tree. Relayed
+without measurement, that account would have sent the tooling's author hunting
+for an exemption that already existed — and the nearest one to hand was the
+blanket out-of-tree exemption the same message warned would make the guard stop
+meaning anything.
+
+And the tell was in the report itself: **an agent telling you it worked from
+weaker evidence is the strongest available signal to check the rest of its
+account, not the weakest.** That report opened by saying it could not build the
+mutation. A disclosure of one limitation is a reason to re-read everything
+around it, not a reason to trust the remainder more for having been honest
+about the first part.
+
 **P-18 — Reported green is not green.** Every report is verified by re-running
 its stated check against the **committed** tree, by someone who did not do the
 work:
@@ -345,6 +367,27 @@ finding class and requires exactly that class back. **More than a third of a
 guard's control cases are false-positive controls**, because a guard that
 refuses legitimate work gets disabled by whoever it obstructs — which is
 strictly worse than no guard at all.
+
+**P-35b — A probe you build to answer one question is an instrument, and it
+gets a case whose answer you already know.** P-35 governs the checks that ship.
+It has never governed the throwaway script written to investigate a finding —
+and **seven of this project's instrument failures were exactly those**, three
+of them built while investigating somebody else's report, by people who had
+just been thinking hard about instrument blindness.
+
+Two on the same day, on the same question, are the pattern in miniature: one
+probe read the exit code of a guard that denies via JSON at exit 0, so every
+case came back "allowed" — including one already proved refused. The other
+drove the same guard with a payload carrying **no session id**, the field the
+entire judgement keys on, so every scope verdict was meaningless. Neither
+errored. Both produced clean, readable, confident output.
+
+**Both are the same failure: an instrument that returns an answer for a
+question it was never wired to ask.** It cannot be caught by reading the
+output, because the output looks exactly like the real thing. It is caught in
+one step, before any of the interesting cases: **feed it something whose answer
+you already know, and check you get that answer back.** One known-deny and one
+known-allow would have caught both in seconds.
 
 **P-36 — Research has a shape.** One fetch may be inline; more is a request to
 the researcher agent, whose context is disposable and whose caller's is not. A

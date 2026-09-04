@@ -187,6 +187,17 @@ something.
   the measured figure was "7 passed, 7 xfailed". A baseline in a dispatch ages
   exactly as fast as one in a report, and the instruction to produce your own
   is what makes the check survive being wrong about it.
+- **Feed any probe you build one case whose answer you already know, before
+  you believe any case whose answer you don't (P-35b).** This applies to the
+  throwaway script you write to investigate something, not only to the checks
+  that ship — and that is where it keeps going wrong. Seven instrument failures
+  here were ad-hoc probes, three of them built while investigating somebody
+  else's finding. Two on one day drove the same guard: one read the exit code
+  of a program that denies via JSON at exit 0, the other omitted the session id
+  the whole judgement keys on. Neither errored; both printed clean, confident,
+  meaningless output. **An instrument that answers a question it was never
+  wired to ask cannot be caught by reading its output** — only by giving it a
+  case where you already know what it must say.
 - **Assert your fixture before you trust what it proves.** A negative test is
   only as good as the bad input it is given. `printf '\xff\xfe'` under `sh`
   does not expand `\x`, so the "invalid" file comes out as valid text, the
