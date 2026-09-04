@@ -30,6 +30,10 @@ Findings:
                          over the discharging tasks, so partial discharge
                          cannot defeat it -- and inert on a project whose
                          requirements cite no decisions, which is a real limit
+  re-litigated-requirement  a requirement whose Statement or Acceptance has
+                         changed three or more times since it was written or
+                         last shape-reviewed. Not a defect: a signal that it
+                         may be enumerating cases where it should state a rule
   one-sided-link         a requirement and a task that name each other only in
                          one direction. `Status.` names the task; `Discharges.`
                          names the requirements; nothing compared them, so a
@@ -246,7 +250,7 @@ def blocks_of(lines, header):
 
 
 def first_declared(devteam):
-    """{R-n: [its `Requires-write.` entries when first committed]}.
+    """({R-n: first `Requires-write.`}, {R-n: semantic amendments since review}).
 
     Walks the file's history oldest-first and records the value each
     requirement had when it first appeared. This is what makes "supersede,
@@ -261,16 +265,37 @@ def first_declared(devteam):
                              capture_output=True, text=True, check=True).stdout
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return None
-    seen = {}
+    seen, prev, churn = {}, {}, {}
     for sha in (s for s in log.split("\n") if s.strip()):
         try:
             blob = subprocess.run(["git", "-C", devteam, "show", f"{sha}:./REQUIREMENTS.md"],
                                   capture_output=True, text=True, check=True).stdout
         except (subprocess.CalledProcessError, OSError):
             continue
-        for ident, lines in blocks_of(blob.split("\n"), REQ).items():
-            seen.setdefault(ident, path_lists(lines).get("Requires-write", []))
-    return seen
+        lines = blob.split("\n")
+        for ident, block in blocks_of(lines, REQ).items():
+            seen.setdefault(ident, path_lists(block).get("Requires-write", []))
+        # SEMANTIC churn, in the same pass. Counting every edit to a
+        # requirement is useless: measured over a real project it flagged
+        # twelve of thirteen, because a status moving `open` -> `in-progress`
+        # -> `discharged` and a field added later are edits too. Counting only
+        # `Statement.` and `Acceptance.` -- what the requirement MEANS --
+        # separated re-litigation from bookkeeping on the same corpus, and a
+        # `Shape reviewed.` line resets it, or a requirement could never clear
+        # this by being rewritten, since rewriting it is another change.
+        for ident, n, _, fields in parse_blocks(lines, REQ, REQ_FIELDS):
+            now = (fields.get("Statement", ""), fields.get("Acceptance", ""),
+                   fields.get("Shape reviewed", ""))
+            was = prev.get(ident)
+            if was is not None:
+                if was[2] != now[2]:
+                    churn[ident] = 0
+                elif was[:2] != now[:2]:
+                    churn[ident] = churn.get(ident, 0) + 1
+            else:
+                churn.setdefault(ident, 0)
+            prev[ident] = now
+    return seen, churn
 
 def check(devteam):
     findings = []
@@ -297,7 +322,7 @@ def check(devteam):
     req_blocks = blocks_of(req_lines, REQ)
     must_write = {k: path_lists(v).get("Requires-write", [])
                   for k, v in req_blocks.items()}
-    original = first_declared(devteam)
+    original, churn = first_declared(devteam) or (None, {})
     for ident, n, _, fields in parse_blocks(req_lines, REQ, REQ_FIELDS):
         reqs[ident] = (f"REQUIREMENTS.md:{n}", fields)
         for f in REQ_FIELDS:
@@ -453,6 +478,35 @@ def check(devteam):
                     "with no `**Requires-write amended.**` naming the decision "
                     "(P-23). Superseding is allowed; editing the list a check "
                     "reads is not")
+
+        # A REQUIREMENT RE-LITIGATED IS PROBABLY SHAPED WRONG.
+        #
+        # The rule this enforces is stated in the onboarding skill: a
+        # requirement is a rule over a domain, and the enumerated cases belong
+        # in the acceptance criterion. A requirement written as "X, except in
+        # these cases" costs a client stop per new case, and nothing noticed.
+        #
+        # Measured on a real project: seven of twelve build-time client stops
+        # were ONE requirement, re-litigated as each new exception surfaced --
+        # a closed pipe, an interrupt, a signal-killed run, a usage error, a
+        # vendored caller. It stopped the moment the requirement was rewritten
+        # to state its preconditions instead of listing its exceptions. That
+        # requirement's semantic amendment count was 3; the next highest was 2
+        # and five requirements were at 0, so the threshold isolates it.
+        #
+        # NOT A DEFECT, and the message says so. A requirement legitimately
+        # gains detail. Three rewrites of what it MEANS is a question about its
+        # shape, and the answer may be that the cases really are irreducible --
+        # which is what `Shape reviewed.` records.
+        if churn.get(ident, 0) >= 3:
+            add("re-litigated-requirement", where,
+                f"{ident}'s Statement or Acceptance has changed "
+                f"{churn[ident]} times since it was written or last reviewed. "
+                "That is usually a requirement enumerating cases where it "
+                "should state a rule over them — each new case costs a client "
+                "stop. Restate it as a rule, or add "
+                "`- **Shape reviewed.** <date> (D-n)` recording that the cases "
+                "are genuinely irreducible")
 
         # BOTH ENDS OF THE LINK, NOT JUST ITS EXISTENCE.
         #

@@ -19,6 +19,32 @@ work that is finished makes every later reading of this file wrong.
 a requirement. "`bench/latency.py` reports p99 under 200 ms at 100 concurrent
 requests" is one, because there is no argument about whether it happened.
 
+**A requirement rewritten three times is usually shaped wrong, not merely
+incomplete.** `check_trace` reports `re-litigated-requirement` when a
+requirement's `Statement.` or `Acceptance.` has changed three or more times.
+That is a **signal, not a defect** — the usual cause is a requirement written
+as *"X, except in these cases"*, which costs the client a stop every time a new
+case surfaces. On the project where this was measured, **seven of twelve
+build-time client stops were one such requirement**, and they stopped the
+moment it was rewritten to state its preconditions instead of listing its
+exceptions.
+
+Two ways to clear it, and both are legitimate: restate the requirement as a
+rule over its domain, or add
+
+```
+- **Shape reviewed.** <date> (D-n)
+```
+
+recording that the cases really are irreducible. The marker resets the count,
+which it must — otherwise rewriting the requirement to fix it would itself be
+another change, and the finding could never clear.
+
+Only `Statement.` and `Acceptance.` count. Status moving `open` →
+`in-progress` → `discharged` is bookkeeping, and counting it flagged twelve of
+thirteen requirements on a real project — useless in exactly the way a check
+that fires on everything is useless.
+
 **`Requires-write.` is what the discharging task must be able to CHANGE for the
 criterion to pass, and it is what makes the criterion's LEVEL checkable.**
 Not what the criterion *reads*, imports or exercises — what has to be

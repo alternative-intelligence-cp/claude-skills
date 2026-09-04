@@ -270,6 +270,41 @@ CASES = [
     ("fp-requirement-citing-no-decision-is-simply-not-covered",
      {}, set()),
 
+    # --- re-litigated-requirement: a shape signal, not a defect -----------
+    # Counting EVERY edit was measured first and flagged twelve of thirteen
+    # requirements on a real project, because a status moving open ->
+    # in-progress -> discharged is an edit too. Counting only Statement and
+    # Acceptance isolated the one requirement that had actually cost seven
+    # client stops.
+    ("re-litigated-requirement",
+     {"REQUIREMENTS.md": REQS.replace("the thing works when run.", "the thing works, v4.", 1)},
+     {"re-litigated-requirement"}, [],
+     [REQS,
+      REQS.replace("the thing works when run.", "the thing works, v2.", 1),
+      REQS.replace("the thing works when run.", "the thing works, v3.", 1)]),
+    ("fp-two-semantic-amendments-is-under-the-threshold",
+     {"REQUIREMENTS.md": REQS.replace("the thing works when run.", "the thing works, v3.", 1)},
+     set(), [],
+     [REQS, REQS.replace("the thing works when run.", "the thing works, v2.", 1)]),
+    # THE CASE THAT KILLED THE NAIVE METRIC. Status churn is bookkeeping and
+    # every requirement has it; it must not count.
+    ("fp-status-churn-is-bookkeeping-not-re-litigation",
+     {"REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** discharged (T-1)", 1)},
+     set(), [],
+     [REQS,
+      REQS.replace("- **Status.** open", "- **Status.** in-progress (T-1)", 1),
+      REQS.replace("- **Status.** open", "- **Status.** in-progress (T-1, T-2)", 1)]),
+    # ...and a shape review resets it, or a requirement could never clear this
+    # by being rewritten, since rewriting it is another semantic change.
+    ("fp-shape-reviewed-resets-the-count",
+     {"REQUIREMENTS.md": REQS.replace("- **Priority.** must",
+                                      "- **Shape reviewed.** 2026-09-04 (D-9)\n- **Priority.** must", 1)
+                             .replace("the thing works when run.", "the thing works, v4.", 1)},
+     set(), [],
+     [REQS,
+      REQS.replace("the thing works when run.", "the thing works, v2.", 1),
+      REQS.replace("the thing works when run.", "the thing works, v3.", 1)]),
+
     # --- one-sided-link: both ends of the link, not just its existence -----
     # A scheduling decision reached the decision log and neither artifact:
     # three of thirteen requirements named a task that did not list them, and
@@ -454,11 +489,15 @@ def build(root, overrides, prior=None):
     # same blind spot the scope harness had, where every fixture committed
     # everything and the working-tree check could not be expressed at all.
     if prior is not None:
-        with open(os.path.join(dt, "REQUIREMENTS.md"), "w", encoding="utf-8") as fh:
-            fh.write(prior)
-        for name in files:
-            run("add", os.path.join("devteam", name))
-        run("commit", "-qm", "fixture (first)")
+        # A LIST of earlier versions, not one: `unrecorded-amendment` needs a
+        # single earlier commit, but semantic churn needs a sequence, and a
+        # harness that can only build two versions cannot express a count.
+        for i, version in enumerate([prior] if isinstance(prior, str) else prior):
+            with open(os.path.join(dt, "REQUIREMENTS.md"), "w", encoding="utf-8") as fh:
+                fh.write(version)
+            for name in files:
+                run("add", os.path.join("devteam", name))
+            run("commit", "-qm", f"fixture (v{i})")
         with open(os.path.join(dt, "REQUIREMENTS.md"), "w", encoding="utf-8") as fh:
             fh.write(files["REQUIREMENTS.md"])
 
