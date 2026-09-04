@@ -181,21 +181,51 @@ def check(project, task_id=None):
         # board's history is the designed record of who claimed what and when.
         # Prose cannot forge it: a commit merely mentioning the phrase does not
         # carry that subject.
-        rc, out = git(repo, "log", "--format=%H%x00%s", "--", "devteam/BOARD.md")
-        claim = None
+        # The OLDEST claim, and any claim-shaped verb.
+        #
+        # Two defects, both found in one run. Taking the NEWEST claim left a
+        # permanent blind spot: a write made while a task was BLOCKED was not
+        # live, so nothing flagged it — and a later re-claim moved the anchor
+        # past it, so nothing ever could. The write was never live-and-in-window
+        # at any single moment, which is worse than F-19's erased findings.
+        # These are findings that never existed.
+        #
+        # And `board: re-claim T-1` did not match a pattern expecting `claim`,
+        # so a real anchor was missed entirely. Commits belonging to other
+        # tasks are skipped by subject anyway, so widening the window to the
+        # first claim costs nothing and closes the hole.
+        # The window opens when the task FIRST EXISTED, not when a board commit
+        # happened to be made. Anchoring on the first board claim still left the
+        # blind spot whenever the only claim commit came late: a write before it
+        # sat outside the window and nothing could ever flag it.
+        #
+        # Take the oldest of every candidate — board claim commits in any
+        # claim-shaped spelling, and the first appearance of a RUNNING title in
+        # the task file — because a commit that wrote into this task's scope
+        # without naming it is misattributed regardless of which claim period
+        # it landed in. Commits belonging to other tasks are skipped by subject,
+        # so a wide window costs nothing.
+        candidates = []
+        rc, out = git(repo, "log", "--reverse", "--format=%H%x00%s", "--", "devteam/BOARD.md")
         for line in out.strip().split("\n"):
             if "\0" not in line:
                 continue
             sha, subject = line.split("\0", 1)
-            if re.match(rf"^board:\s*claim\s+{re.escape(ident)}\b", subject.strip()):
-                claim = sha
+            if re.match(rf"^board:\s*(?:re-?)?claims?\s+{re.escape(ident)}\b",
+                        subject.strip(), re.I):
+                candidates.append(sha)
                 break
-        if not claim:
-            # No board claim commit: fall back to the OLDEST introduction of a
-            # RUNNING title, which prose appearing later cannot move.
-            rc, out = git(repo, "log", "--reverse", "-S", "RUNNING (since",
-                          "--format=%H", "--", f"devteam/tasks/{ident}.md")
-            claim = out.split()[0] if rc == 0 and out.split() else None
+        rc, out = git(repo, "log", "--reverse", "-S", "RUNNING (since",
+                      "--format=%H", "--", f"devteam/tasks/{ident}.md")
+        if rc == 0 and out.split():
+            candidates.append(out.split()[0])
+        claim = None
+        if candidates:
+            # Oldest wins: `git log` lists newest first, so the last of the
+            # candidates to appear in that listing is the earliest commit.
+            rc, order = git(repo, "log", "--format=%H")
+            seq = order.split()
+            claim = max(candidates, key=lambda s: seq.index(s) if s in seq else -1)
         if not claim:
             continue
         # Strictly AFTER the claim. The claim commit itself creates or marks the

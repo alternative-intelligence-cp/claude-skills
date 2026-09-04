@@ -72,6 +72,19 @@ CASES = [
      BASE, None, [("devteam/tasks/T-1.md", BASE["T-1"] + "\nswept\n")],
      {"misattributed-write"}, "research: an unrelated backfill"),
 
+    # F-48: a write made while a task was BLOCKED was not live, so nothing
+    # flagged it — and a later re-claim moved the anchor past it, so nothing
+    # ever could. Never live-and-in-window at any single moment: a finding
+    # that could not exist rather than one that was erased.
+    ("misattribution-between-a-block-and-a-reclaim-is-still-found",
+     BASE, None, [("src/loader/a.py", "x=1\n")], {"misattributed-write"},
+     "research: an unrelated backfill",
+     [("board: re-claim T-1", [("devteam/BOARD.md", "| T-1 | CLAIMED again |\n")])]),
+    ("misattribution-found-when-the-anchor-says-re-claim",
+     BASE, None, [("devteam/BOARD.md", "| T-1 | CLAIMED |\n")], {"misattributed-write"},
+     "board: re-claim T-1",
+     [("chore: unrelated", [("src/loader/b.py", "y=2\n")])]),
+
     # --- FALSE-POSITIVE CONTROLS ------------------------------------------
     ("fp-another-tasks-file-is-the-managers-not-a-misattribution",
      BASE, None, [("devteam/RECORD.md", "- entry\n")], set(),

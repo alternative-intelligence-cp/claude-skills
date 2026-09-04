@@ -61,6 +61,7 @@ a `CHARTER` class question (P-26), which always stops for the client.>
 | Protected paths | <trees the pipeline may read but never write — vendored deps, generated output, sibling repos. The guard enforces these> |
 | Model band | <floor> .. <ceiling> |
 | Budget ceiling | <tokens, wall-clock, or `none`> |
+| Checkpoint cadence | <after how many closed tasks, plus any milestone — e.g. `every 3 tasks, and at each release`. P-30> |
 | Priority order | <what wins when two goods conflict, most important first — e.g. `safety > correctness > performance`. Every decision that trades one against another cites this row and says which it sacrificed> |
 | Client channel | <how the client is reached, and it is never assumed: `terminal` (a person at this session), `session <name>` (another session or agent, over SendMessage), `both`, or `none — proceed on recommendations and report at checkpoints`. See P-9> |
 | Escalation window | <how long a REVERSIBLE question waits before the loop proceeds on its recommendation — P-26. Default 4h> |

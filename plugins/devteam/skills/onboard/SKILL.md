@@ -156,6 +156,11 @@ Everything the charter's constraints table names, and none of it guessed:
   looks like**, because every verification in this project compares against it
 - **the protected paths** — what the pipeline may read but never write
 - **the model band**, the **escalation window**, the **budget ceiling**
+- **the checkpoint cadence** — after how many closed tasks, and at which
+  milestones. Nothing else supplies it, and a project that reaches its first
+  close with no cadence recorded has nothing to consult at exactly the moment
+  it first needs one
+- **the priority order** (P-20b) — what wins when two goods conflict
 - **licence, target platforms, whether the repository is public** — the last
   decides whether the leak check gates every push
 - **the risks the client accepts**, each with why
