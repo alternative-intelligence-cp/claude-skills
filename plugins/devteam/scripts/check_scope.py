@@ -167,14 +167,40 @@ def check(project, task_id=None):
     # containing another. Only commits since the claim are considered, so the
     # scaffold and earlier tasks are not charged to it.
     for ident in live:
-        rc, out = git(repo, "log", "-S", "RUNNING (since", "--format=%H", "--",
-                      f"devteam/tasks/{ident}.md")
-        claim = out.split()[0] if rc == 0 and out.split() else None
+        # THE CLAIM IS A COMMIT ON THE BOARD (P-11), so read it from there.
+        #
+        # This previously took the NEWEST `git log -S "RUNNING (since"` match on
+        # the task file. Any commit quoting that phrase became the anchor and
+        # collapsed the span to nothing — so a commit DESCRIBING this bug
+        # switched the check off, and the live finding disappeared. An
+        # integrity check disabled by writing about it is the worst failure
+        # available to one, because the act of documenting it is the act of
+        # hiding it.
+        #
+        # `board: claim T-n` is the subject the run skill mandates and the
+        # board's history is the designed record of who claimed what and when.
+        # Prose cannot forge it: a commit merely mentioning the phrase does not
+        # carry that subject.
+        rc, out = git(repo, "log", "--format=%H%x00%s", "--", "devteam/BOARD.md")
+        claim = None
+        for line in out.strip().split("\n"):
+            if "\0" not in line:
+                continue
+            sha, subject = line.split("\0", 1)
+            if re.match(rf"^board:\s*claim\s+{re.escape(ident)}\b", subject.strip()):
+                claim = sha
+                break
+        if not claim:
+            # No board claim commit: fall back to the OLDEST introduction of a
+            # RUNNING title, which prose appearing later cannot move.
+            rc, out = git(repo, "log", "--reverse", "-S", "RUNNING (since",
+                          "--format=%H", "--", f"devteam/tasks/{ident}.md")
+            claim = out.split()[0] if rc == 0 and out.split() else None
         if not claim:
             continue
-        rc0, _ = git(repo, "rev-parse", "--verify", f"{claim}~1")
-        span = f"{claim}~1..HEAD" if rc0 == 0 else "HEAD"
-        rc, out = git(repo, "log", span, "--format=%H%x00%s")
+        # Strictly AFTER the claim. The claim commit itself creates or marks the
+        # task file, so including it charged the task with its own creation.
+        rc, out = git(repo, "log", f"{claim}..HEAD", "--format=%H%x00%s")
         for line in out.strip().split("\n"):
             if "\0" not in line:
                 continue
@@ -189,7 +215,13 @@ def check(project, task_id=None):
             for path in (f for f in files.split("\n") if f.strip()):
                 if path.startswith("devteam/") and path != f"devteam/tasks/{ident}.md":
                     continue                      # the manager's own artifacts
-                if covers(clean[ident], path):
+                # A task's own file is implicitly its own to write, and it is
+                # never in the DECLARED scope — so routing it past the skip and
+                # then testing it against that scope meant the carve-out could
+                # not fire at all, and a manager sweeping a supervisor's task
+                # file went unreported.
+                own_file = path == f"devteam/tasks/{ident}.md"
+                if own_file or covers(clean[ident], path):
                     add("misattributed-write", tasks[ident][0],
                         f"{sha[:7]} {subject[:44]!r} committed {path}, which is "
                         f"inside {ident}'s live scope. Stage explicit paths; "

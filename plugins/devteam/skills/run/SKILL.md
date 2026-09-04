@@ -192,11 +192,16 @@ Then by status:
 
 | Status | Do |
 |---|---|
-| `DONE` | verifier PASS → close, release the scope, re-check what that unblocks. FAIL → re-dispatch, the FAIL verbatim in `NOTES:` |
+| `DONE` | verifier PASS → close, release the scope, **clear `devteam/.run/locks/<TASK>.heartbeat`**, re-check what that unblocks. FAIL → re-dispatch, the FAIL verbatim in `NOTES:` |
 | `READY-TO-AUDIT` | verifier PASS → dispatch the auditors; file their reports under `devteam/audits/`; re-dispatch the supervisor with `AUDIT:` naming them (P-31) |
 | `BLOCKED` | a dispatch error you can fix — a missing input, a claim mismatch, a tree state — fix it and re-dispatch. Otherwise the task stops and its question goes to the table |
 | `NEEDS-DECISION` | the task stops; the question and its recommendation go to the table |
 | `RED` | the task stops. **Never a retry** (P-20); the failing check goes to the table |
+
+**You clear the heartbeat, not the supervisor.** Deleting it needs `rm`, which
+the permission grant withholds from workers deliberately — a skill that tells a
+worker to delete a file is a skill instructing it to break the grant, and in a
+session where the allowlist is not consulted that instruction succeeds.
 
 `findings-for-protocol` lines go into `RECORD.md` under the report line. You
 decide whether each becomes a change to the project's documents, and **you**

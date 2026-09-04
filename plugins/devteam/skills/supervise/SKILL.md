@@ -89,7 +89,13 @@ thing is written before or with the thing, never after it "to save time".
    line is the only evidence you are waiting rather than hung, and it is what
    the manager's recovery procedure reads to tell those apart (P-14).
 
-   **Rewrite it on every dispatch and remove it at close.** It is not a
+   **Rewrite it on every dispatch. Do not remove it — the manager clears it
+   when it releases the claim.** An earlier version had the supervisor delete
+   it, which requires `rm`, which `PERMISSIONS.md` deliberately withholds. A
+   supervisor following that instruction breaks the grant, and in a session
+   where the allowlist is not consulted it succeeds — so the rule reads as
+   enforced, is not, and the only reason nobody noticed is the thing that was
+   already recorded as not enforcing anything. It is not a
    one-time marker: it is the only thing that says *which step* is in flight
    and since when. The manager's recovery reads it to tell a supervisor waiting
    on a worker from a supervisor that died — and those look identical from
@@ -113,7 +119,7 @@ thing is written before or with the thing, never after it "to save time".
 
 | Outcome | Do |
 |---|---|
-| `PASS` | tick the step, append the worker's report to the execution record, next step |
+| `PASS` | tick the step and move on. **The worker already committed its own block** — do not append it again |
 | `FAIL`, or the worker reported `RED` | re-dispatch **once**, the failure verbatim in `NOTES:` |
 | failed twice, or `BLOCKED`, or `NEEDS-DECISION` | **escalate.** Never a third attempt (P-20) |
 
@@ -175,7 +181,16 @@ verdict:
 
 --- WORKER REPORTS (verbatim, P-17) ---
 <every worker REPORT block you received, unedited, in dispatch order>
+
+--- VERIFIER VERDICTS (verbatim, P-17) ---
+<every VERIFY line and its per-step detail, unedited, in the order run>
 ```
+
+**A verdict is evidence and is reproduced, not described.** "The verifier
+FAILed on the diff count" is a summary; the verdict itself is what lets the
+manager judge whether the FAIL was right. Summaries of verdicts have already
+been wrong about their own counts in this project, which is exactly how
+evidence erodes into recollection.
 
 **Commit your own block alone** (P-16). The worker blocks already stand
 verbatim in the execution record — each worker appended its own — so

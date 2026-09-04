@@ -114,7 +114,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | question `Class.` | `REVERSIBLE` · `IRREVERSIBLE` · `CHARTER` |
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
 | REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT` |
-| board task state | `—` · `CLAIMED <label>` · `BLOCKED on T-n` · `DONE` |
+| board task state | `—` · `CLAIMED <label>` · `BLOCKED on T-n` · `BLOCKED on Q-n` · `DONE` |
 
 ---
 

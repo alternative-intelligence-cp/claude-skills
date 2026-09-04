@@ -118,6 +118,15 @@ budget: tokens=<n> minutes=<n>
 notes: none | <free text>
 ```
 
+**The short identifier prefixes are reserved, and you are not shown the file
+that says so.** `G-` `DM-` `R-` `T-` `S-` `D-` `Q-` `C-` are the project's, and
+`P-` is a protocol rule. **Anything you number yourself uses three or more
+letters** — `COR-1`, `SEC-2`, `PRB-3` — because the citation scanner matches
+`[A-Z]{1,2}-<digits>` anywhere in an artifact and cannot tell your numbering
+from a reference to the project's. A probe that labels its cases `C-1` collides
+with checkpoints; the finding describing that collision had to be reworded to
+stop it tripping the check it described.
+
 **Never propose a new requirement by number.** `R-3` written anywhere — even
 inside a recommendation saying one *should exist* — is read as a citation, and
 a citation to a requirement nobody has declared is a `cited-undefined` finding

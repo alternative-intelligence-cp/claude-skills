@@ -26,7 +26,8 @@ a session that is not you, do not write in `devteam/`. This file is exempt: it
 |---|---|
 | `—` | not started, nothing blocking it |
 | `CLAIMED <label>` | a supervisor owns this task; the in-flight table says what it is doing |
-| `BLOCKED on T-n` | cannot start until that task is `DONE`. The reason is always a named task, never "waiting" |
+| `BLOCKED on T-n` | cannot start until that task is `DONE` |
+| `BLOCKED on Q-n` | stopped on a question the client has not answered. The reason is always a **named** task or question, never "waiting" |
 | `DONE` | closed, verified, and released |
 
 ## In flight

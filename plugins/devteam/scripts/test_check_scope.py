@@ -55,7 +55,27 @@ CASES = [
      BASE, None, [("src/loader/a.py", "x=1\n")], {"misattributed-write"},
      "research: backfill sensitivity on the digests"),
 
+    # F-19: the claim anchor was the NEWEST match for a literal phrase, so a
+    # commit merely QUOTING that phrase became the anchor, collapsed the span
+    # and switched the check off. An integrity check disabled by writing about
+    # it — the act of documenting the bug was the act of hiding it.
+    ("misattribution-survives-a-commit-quoting-the-anchor-phrase",
+     BASE, None, [("src/loader/a.py", "x=1\n")], {"misattributed-write"},
+     "research: an unrelated backfill",
+     [("docs: explain that a title reads RUNNING (since <date>, <label>)", [])]),
+
+    # F-20: the task-file carve-out routed devteam/tasks/T-n.md past the skip
+    # and then tested it against a declared scope that never contains it, so
+    # it could not fire — and a manager sweeping a supervisor's task file went
+    # unreported.
+    ("misattributed-write-on-the-tasks-own-file",
+     BASE, None, [("devteam/tasks/T-1.md", BASE["T-1"] + "\nswept\n")],
+     {"misattributed-write"}, "research: an unrelated backfill"),
+
     # --- FALSE-POSITIVE CONTROLS ------------------------------------------
+    ("fp-another-tasks-file-is-the-managers-not-a-misattribution",
+     BASE, None, [("devteam/RECORD.md", "- entry\n")], set(),
+     "record: a manager entry"),
     ("fp-the-tasks-own-commit-is-not-misattributed",
      BASE, None, [("src/loader/a.py", "x=1\n")], set(), "T-1: the work"),
     ("fp-a-step-commit-is-not-misattributed",
@@ -97,7 +117,7 @@ CASES = [
 ]
 
 
-def build(root, tasks, writes, subject="T-1: the work"):
+def build(root, tasks, writes, subject="T-1: the work", later=()):
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     for ident, body in tasks.items():
@@ -117,6 +137,14 @@ def build(root, tasks, writes, subject="T-1: the work"):
                 fh.write(body)
         run("add", "-A")
         run("commit", "-qm", subject)
+    for msg, more in later:
+        for rel, body in more:
+            p = os.path.join(root, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(body)
+        run("add", "-A")
+        run("commit", "-q", "--allow-empty", "-m", msg)
     return root
 
 
@@ -125,9 +153,10 @@ def main():
     for case in CASES:
         name, tasks, task_id, writes, expected = case[:5]
         subject = case[5] if len(case) > 5 else "T-1: the work"
+        later = case[6] if len(case) > 6 else ()
         root = tempfile.mkdtemp(prefix="devteam-scope-")
         try:
-            build(root, tasks, writes, subject)
+            build(root, tasks, writes, subject, later)
             argv = [sys.executable, CHECK, root] + ([task_id] if task_id else [])
             proc = subprocess.run(argv, capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
