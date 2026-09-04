@@ -32,7 +32,25 @@ candidate protected paths, the remote — pre-filling the charter's constraints
 table where it is confident.
 
 **Everything it detected is a proposal.** Read the detection block back to the
-client and have them confirm each line. A detected command that is wrong is
+client and have them confirm each line.
+
+**Ask who else writes this tree, before anything else.** A `devteam/` directory
+makes the guard police the whole repository for **every** session, not only
+this pipeline's agents: while a task is `RUNNING`, any write outside its
+declared scope is refused, whoever is making it. That is the one-writer rule
+working exactly as intended — and if another agent system, another orchestrator
+or a colleague is working the same tree, the collision is between two *systems*
+and neither one knows about the other.
+
+So: **a devteam project should own its repository.** If something else writes
+here, say so plainly and offer the two honest options — a repository this
+pipeline owns outright, or accepting that the other worker will be refused
+while a task runs. Do not scaffold into a contested tree and let them discover
+it as a mysterious refusal an hour later.
+
+The guard is inert while no task is `RUNNING`, so the interference window is
+exactly the loop's running time. That is worth saying, because it makes the
+symptom intermittent, which is the hardest kind to diagnose. A detected command that is wrong is
 worse than one that was asked about, because nothing later will question it.
 
 ## 2. Agree the permissions (P-38)
