@@ -166,6 +166,29 @@ SPECIAL = [
      write("vendor/lib/x.c"), WRITER_SESSION, True, None, "/tmp"),
     ("fp-in-scope-write-from-a-session-elsewhere",
      write("src/loader/a.py"), WRITER_SESSION, False, None, "/tmp"),
+    # --- the pipeline polices its own agents, not the repository ----------
+    # A `devteam/` directory used to make this guard the arbiter of every
+    # write anywhere in the tree by ANY session, so a repository that already
+    # had an owner got intermittent refusals in that owner's session for
+    # reasons originating in a run it was not part of. Scopes divide the work
+    # of ONE run; they are not authority over a stranger.
+    ("fp-out-of-scope-write-from-an-unrelated-session",
+     write("src/render/b.py"), "session-Z", False, None, "/tmp"),
+    ("fp-outward-push-from-an-unrelated-session",
+     bash("git push origin main"), "session-Z", False, None, "/tmp"),
+    # ...but `devteam/` IS the run, so its lock still holds against a stranger.
+    # If these two ever flip, the widening went one step too far.
+    ("deny-devteam-write-from-an-unrelated-session-still",
+     write("devteam/RECORD.md"), "session-Z", True, None, "/tmp"),
+    # AND IT FAILS CLOSED. A payload with no session id is `unknown`, never
+    # `theirs`. Reading unknown as a stranger would silently disable the scope
+    # rule for every write that arrived without an id -- which is the exact
+    # shape of the defect that left this guard inert for a whole rehearsal,
+    # reintroduced through the door built to fix a different complaint.
+    ("deny-out-of-scope-write-when-the-session-is-unknown",
+     write("src/render/b.py"), "", True, None, "/tmp"),
+    ("deny-outward-push-when-the-session-is-unknown",
+     bash("git push origin main"), "", True, None, "/tmp"),
     # `session in writer` was a substring test: a short id matched inside an
     # ordinary word in the writer line and was handed the lock.
     ("deny-session-id-that-is-only-a-substring-of-the-writer-line",

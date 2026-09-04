@@ -289,6 +289,22 @@ def load_state(project):
     return protected, live, writer
 
 
+def lock_state(writer, session):
+    """Whose run this is: `vacant`, `mine`, `theirs`, or `unknown`.
+
+    `unknown` means the payload carried no session id, and it is deliberately
+    NOT merged into `theirs`. Every caller treats unknown the same as mine --
+    it keeps policing -- because a guard that goes quiet when it cannot
+    identify the writer is the failure this project has already had once: the
+    scope rule was inert for an entire rehearsal and nothing said so.
+    """
+    if writer is None or re.search(r"\bnone\b", writer) or PLACEHOLDER.search(writer):
+        return "vacant"
+    if not session:
+        return "unknown"
+    return "mine" if session in re.findall(r"[0-9A-Za-z_-]+", writer) else "theirs"
+
+
 def judge(target, what, session, session_project, cache, category="write"):
     """None, or a refusal reason for a target this session may not write.
 
@@ -360,18 +376,35 @@ def judge(target, what, session, session_project, cache, category="write"):
         # after setup, and taught managers that forcing a lock takeover is a
         # routine move. The same script already treats `<…>` as unfilled in
         # scope entries and protected paths.
-        if writer is None or re.search(r"\bnone\b", writer) or PLACEHOLDER.search(writer):
-            return None
+        state = lock_state(writer, session)
         # An EXACT token match. `session in writer` is a substring test, and a
         # short id matched inside an ordinary word -- "me" inside "names" --
         # handing the lock to a session that never held it.
-        if session and session in re.findall(r"[0-9A-Za-z_-]+", writer):
+        if state in ("vacant", "mine"):
             return None
         return (f"Refused: {what} into devteam/, and BOARD.md names another session "
                 f"as its writer (this session is {session or 'unknown'}). One "
                 "writer here (P-13). If that session is gone, take the lock: set "
                 "the `**Writer.**` line to this session's id — BOARD.md itself is "
                 "always writable — and record the takeover in RECORD.md.")
+
+    # THE PIPELINE POLICES ITS OWN AGENTS, IT DOES NOT CLAIM THE REPOSITORY.
+    # Everything below divides work among the agents of ONE run: declared
+    # scopes (P-12) and the outward-facing refusal (P-26) are both statements
+    # about what this run's own workers may do. They are not authority over
+    # anyone else's session. Creating a `devteam/` directory used to silently
+    # make this guard the arbiter of every write anywhere in the tree, by any
+    # session -- so a repository that already had an owner got intermittent
+    # refusals in that owner's session, for reasons originating in a run they
+    # were not part of. A real user read that in the docs and declined to
+    # trial the pipeline at all, which is the correct reading: two lock
+    # regimes over one tree is not a thing to discover at width 3.
+    #
+    # `devteam/` itself stays tree-scoped above, and so do protected paths:
+    # that directory IS the run, and its lock (P-13) is exactly the rule that
+    # has to hold against a session that is not part of it.
+    if lock_state(writer, session) == "theirs":
+        return None
 
     if category == "outward":
         return (f"Refused: `{what}` from inside a devteam project. Publishing is "

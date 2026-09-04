@@ -1128,6 +1128,65 @@ frame it judges in — the first was `2>&1`, where a file descriptor was read as
 a path. Neither was a bug in the code; both were the frame being narrower than
 the world.
 
+### The first finding that made it simpler, and it came from a refusal to use it
+
+A second team was offered the pipeline for real work and **declined at the
+door** — before running a single command — and the reason is the most useful
+report this project has received.
+
+Their tree already enforces one writer per repository, and that orchestrator
+held the lock. The briefing they were sent said, accurately, that a `devteam/`
+directory makes the guard police the entire repository: while a claim is live,
+every write landing in that tree is judged against that claim's declared
+scopes, *regardless of which session makes it*. Their reading: that is two lock
+regimes over one tree, and the collision would surface as intermittent refusals
+in their own session, mid-run, for reasons originating in a run they were not
+part of. They preferred to report it from the doorway.
+
+Their diagnosis is better than the report. **The guard's name describes one
+property and its mechanism covered a wider one, and the widening was implicit.**
+The trigger is the mere existence of a directory; the consequence is authority
+over every path in the repository. Nothing in the act of creating that
+directory says "this repository now has a second lock owner". They pointed out
+that this project has spent sixty-eight findings on the inverse shape — a check
+that quietly under-covers — and had not once looked for the same shape with the
+sign flipped.
+
+**The fix follows from what a scope is actually for.** Declared scopes divide
+the work of *one run* among *its own agents*. They were never authority over a
+stranger's session. So the scope rule and the outward-facing refusal are now
+conditioned on the writing session being part of the run — the board's writer,
+or a worker sharing its id — and a session that is positively somebody else's
+is left alone. `devteam/` itself and the charter's protected paths stay
+enforced against everyone, because those are the run rather than the product,
+and P-13's lock is exactly the rule that must hold against a session outside
+it.
+
+Two details make this a safe trim rather than a hole. It **fails closed**: a
+payload with no session id is `unknown`, never `theirs`, because reading it as
+a stranger would silently disable the scope rule for every write arriving
+without one — which is precisely the defect that left this guard inert for a
+whole rehearsal, and it would have been reintroduced through the door built to
+fix an unrelated complaint. And the F-2 regressions still deny, because a
+subagent carries its parent's session id: that was confirmed against a live
+multi-hour run at width 3, where worker subagents wrote task files under a
+board whose writer line named the manager, and were not refused.
+
+**What the trim accepts, stated plainly.** A session outside the run can now
+write the product tree during a run without being refused. Nothing catches
+that automatically; the manager finds it at verification. That is the correct
+trade — a repository with two owners is a coordination problem the pipeline
+never had standing to solve, and pretending to solve it is what turned a user
+away.
+
+**And it is the first change here that removed a rule rather than adding one.**
+Sixty-eight findings had made this pipeline stricter and none had made it
+simpler. The one that finally did could not have come from inside a run, because
+it is about the **entry condition** — the cost of adopting the thing at all,
+which is invisible to anyone already using it. That is worth remembering when
+reading §21: the missing findings are not hiding in the runs, they are in the
+people who did not start one.
+
 
 ---
 

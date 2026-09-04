@@ -36,11 +36,21 @@ rather than `/devteam:run`.** Both reconcile; resume reports what it found and
 waits for you before re-dispatching anything, because a task whose agent died
 may have left uncommitted work that re-dispatching would destroy.
 
-**Give it a repository it owns.** A `devteam/` directory makes its write guard
-police that whole tree for *every* session, not only its own agents — so if
-another agent or orchestrator writes the same repo, their writes get refused
-while a task is running. The symptom is intermittent, which makes it miserable
-to diagnose. Setup asks about this; answer it honestly.
+**It does not take over your repository.** The write guard polices *this run's
+own agents* — the session named on the board and the workers it dispatches.
+Another session writing the same tree is not its business and is not refused.
+Two things stay protected against everyone, because they are the run rather
+than the product: the `devteam/` directory itself, which is the lock, and any
+path the charter declares protected.
+
+This is worth stating because it was not always true. A `devteam/` directory
+used to make the guard the arbiter of *every* write anywhere in the tree, by
+any session, so a repository that already had an owner got intermittent write
+refusals in that owner's session for reasons originating in a run they were not
+part of. A real user read that and declined to trial the pipeline at all, which
+was the right call — two lock regimes over one tree is not something to
+discover at width 3. If you are on a version whose docs still describe the old
+behaviour, give it a repository nobody else writes.
 
 ## What it costs you
 
@@ -56,14 +66,22 @@ we are trying to find out, and **your answer is data whichever way it goes.**
 run through it produced 1,865 lines of design documents for a tool that will be
 about 200 lines of code. That may be right for something whose correctness is
 the whole point, and it is plainly wrong for a utility somebody needs this
-afternoon. Every change made to this pipeline so far has made it *stricter* and
-not one has made it *simpler* — because a defect is evidence and "that was
-tedious and bought me nothing" is a feeling, and nobody has yet been in a
-position to report one.
+afternoon. Of about seventy findings, **exactly one has made this pipeline
+simpler and the rest made it stricter** — because a defect is evidence and
+"that was tedious and bought me nothing" is a feeling, and almost nobody has
+been in a position to report one.
 
 **You are.** If a step is ceremony, name it. If you would delete a whole skill,
 say which. That is not a complaint we will tolerate; it is the finding we are
 missing, and it is worth more to us than another edge case.
+
+The one that did make it simpler is worth knowing about, because it says where
+these hide. It came from a team that **refused to run the pipeline at all** —
+they read what adopting it would cost their repository, decided the collision
+was not worth it, and said so from the doorway. Nobody inside a run could have
+found that, because it is about the entry condition. So if your answer is "I am
+not going to use this, and here is the reason", that is a finding and we want
+it in exactly those words.
 
 ## The one instruction that matters
 
@@ -74,10 +92,10 @@ This is the opposite of the usual instinct, and it is the whole point of the
 exercise. A workaround makes your afternoon better and leaves the defect in
 place for everyone after you. A report costs you three sentences.
 
-The same goes for anything that is merely *tedious*. Eighteen findings so far
-have made this pipeline stricter; **not one has made it simpler**, and that is
-a suspicious record. If a step is ceremony that buys nothing, that is the most
-useful thing you can tell us.
+The same goes for anything that is merely *tedious*. Around seventy findings
+have made this pipeline stricter and **one** has made it simpler, which is a
+suspicious ratio rather than a proud one. If a step is ceremony that buys
+nothing, that is the most useful thing you can tell us.
 
 ## When to stop using it
 
