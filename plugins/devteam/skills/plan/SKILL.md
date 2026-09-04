@@ -66,6 +66,23 @@ around. The signs: the requirement names a specific input where the goal names a
 class; the acceptance criterion tests exactly the cases the statement lists; the
 phrase "a missing X" or "an invalid Y" where the goal said "any" or "every".
 
+**An acceptance criterion is an ORACLE, and an oracle derived from the thing
+it judges is not one.** This is the principle behind the next two rules, and
+worth stating once because both are instances of it.
+
+Something independent has to say what *should* happen. Without it, whatever the
+artifact does is correct by definition — not "probably right", not "unverified",
+but **correct, because nothing exists that could disagree.** A compiler with no
+grammar to check against cannot emit wrong output; a function with no
+specification cannot behave wrongly; a test written after the code, to match
+the code, tests that the code is the code. In every case the failure is not
+that the check is weak. It is that there is no fact of the matter for it to be
+weak about.
+
+So the criterion is written **before** the work, from the requirement rather
+than from the implementation, and it survives being read by someone who has
+not seen the code.
+
 **A verification command must be able to FAIL.** This is the one that is
 easiest to get wrong and hardest to notice. A step's verify is evidence only
 if it would have come out differently before the step was done — otherwise it
