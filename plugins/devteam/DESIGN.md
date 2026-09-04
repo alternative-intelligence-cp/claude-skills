@@ -605,8 +605,8 @@ own `uncontrolled-check` scan.
 
 One task — a word counter with five tests — dispatched to a live supervisor
 which dispatched two workers. The work came back green, correct and honestly
-reported. **Six defects surfaced, and every one of them was in this design
-rather than in the agents' work.** They are recorded here because the pattern
+reported. **Eight defects surfaced, and every one of them was in this design rather
+than in the agents' work.** They are recorded here because the pattern
 matters more than the list: each was invisible on paper and obvious within
 one real run.
 
@@ -642,7 +642,32 @@ one real run.
    actual, because it counted the code to be written. Almost none of the cost
    is typing; it is reading, verifying and reporting.
 
-**A seventh finding, about watching rather than running.** A supervisor is
+**The verifier caught what the supervisor's own check missed, and said so.**
+The supervisor ran `check_scope` and `check_refs` before closing and both were
+clean, so it reported `DONE` in good faith. An independent verifier, dispatched
+by the manager with no stake in the work, ran `check_report` as well — the one
+check the supervisor had not run on itself — and returned **FAIL** on a real
+defect: its `commits:` entry for the closing commit was an explanatory
+parenthetical rather than a resolvable subject.
+
+This is the whole design working. Reported green was not green (P-18); the
+party that had spent eighteen minutes on the task was not the party that
+caught the problem; and the verifier, having no `Write` tool at all, could not
+have quietly fixed it even had it wanted to. **A `FAIL` that is correct is the
+most valuable output this system produces**, and it cost three minutes.
+
+**A seventh finding, from that same run: "byte for byte" was literally
+false.** P-19 told the verifier to compare output byte for byte, which is
+right in spirit and wrong for any command whose output embeds a duration —
+`5 passed in 0.14s` against `5 passed in 0.12s`. Taken literally it fails
+every passing task. The verifier handled it correctly anyway, but only because
+it was told to; the skill now distinguishes **claims** (counts, pass/fail
+words, exit codes — must agree exactly) from **measurements** (durations,
+timestamps, seeds, temporary paths — vary by design). A false FAIL costs
+exactly as much as a false PASS, because both teach people to stop believing
+the verifier.
+
+**An eighth finding, about watching rather than running.** A supervisor is
 blocked for the entire time its worker runs, so it emits nothing — no tokens,
 no output, no progress. From outside, a supervisor doing its job is
 indistinguishable from a hung one, and during the first dispatch that read as

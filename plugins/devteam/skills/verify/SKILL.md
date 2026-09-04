@@ -41,8 +41,19 @@ report's `checks:` lines.
 ## Re-running a check
 
 **Run the exact command string from the report.** Not a similar one, not a
-faster one, not the one you would have chosen. Then compare its summary line
-with the reported one **byte for byte**.
+faster one, not the one you would have chosen.
+
+Then compare **the claims, not the measurements.** A summary line mixes the
+two: `5 passed in 0.14s` claims *five passed* and measures *0.14 seconds*. The
+counts, the pass/fail words and the exit code are claims and must agree
+exactly. A duration, a timestamp, a memory figure, a random seed or a
+temporary path is a measurement and **varies between runs by design** — a
+difference there is not a mismatch, and failing a task over it is a false
+FAIL, which costs exactly as much as a false PASS and teaches everyone to stop
+believing you.
+
+Say in your per-step line which it was: *"count and exit code match; only the
+timing digits differ"* is a passing step, stated so nobody has to re-derive it.
 
 A verifier that re-derives what to run has become a second implementer, and
 two implementers agreeing proves nothing — they can be wrong in the same way,
