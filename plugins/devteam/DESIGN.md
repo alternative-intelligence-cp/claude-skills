@@ -1338,6 +1338,42 @@ message says the heredoc is a limit rather than permission.
 The corollary is a question worth asking of every rule here: **where will
 somebody be standing when this matters, and is the rule there?**
 
+### The class of fix that cannot be observed is the class that silently fails
+
+The manager supplied the edge and it is sharper than the incident that produced
+it. **Every plugin fix it had recorded as landed, it had recorded after
+observing an effect** — a check clearing a finding, a new check reporting three
+real ones, a probe returning four denies and four allows. When told the
+amendment-sweep rule had landed, it did not write that down, and not by luck:
+*"F-96's fix is prose in a skill. It produces no observable, so there was
+nothing to observe, and it never got written down as landed."*
+
+**A check that does not run is caught by its output being wrong. A paragraph
+that was not written is caught by nothing.** That is the shape of a mechanism
+that has never produced output, applied to the *delivery* of a rule rather than
+to the rule itself — and it is why a lost edit survived hours while every code
+change in the same period was confirmed within minutes.
+
+The mechanism that lost it was two edits to one file computed from one read, so
+the second write discarded the first. The mechanism that hid it was that prose
+has no output to be wrong.
+
+**An automatic check for this was measured and rejected.** The idea: extract
+backticked phrases from a commit message and require each to appear in the
+commit's added lines. Run against five real commits it *did* flag the false
+claim — the phrase naming the rule that never landed — but at roughly one real
+finding to two or three spurious, because separating "a phrase I am claiming to
+have added" from "a phrase I am referring to" is the English-parsing problem
+this project refuses everywhere else. Same conclusion as every other time:
+**declare, do not infer.**
+
+The viable form is therefore the declared one — a commit trailer naming
+`<path> :: <phrase>` for each claim, checked against the tree at that commit,
+which is `check_report`'s `checks:` field pointed at an author's own commit
+rather than a worker's. It is not built. It is self-declared and therefore
+skippable, and the honest first move is the practice it would automate: **when
+you claim a prose file gained something, re-read the file.**
+
 ### A second deferred mechanism: the unscoped commit
 
 Recorded with its condition, at the manager's request, so it is not re-derived

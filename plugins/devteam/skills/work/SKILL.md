@@ -187,6 +187,17 @@ something.
   the measured figure was "7 passed, 7 xfailed". A baseline in a dispatch ages
   exactly as fast as one in a report, and the instruction to produce your own
   is what makes the check survive being wrong about it.
+- **A script making two edits to one file must re-read between them.** Both
+  writes computed from one `read_text()` means the second silently discards the
+  first — the file ends up with the last edit only, no error, no warning, and a
+  diff that looks plausible because it *does* contain a change. This is not
+  hypothetical: it dropped a rule from a skill here, the commit message claimed
+  both edits, and it went undetected for hours because **prose changes produce
+  no observable**. A check that fails to run is caught by its output being
+  wrong; a paragraph that was not written is caught by nothing.
+- **So when you claim a prose file gained something, re-read the file and
+  confirm the words are there.** Not the diff — the file. It is two seconds and
+  it is the only verification that class of change has.
 - **Feed any probe you build one case whose answer you already know, before
   you believe any case whose answer you don't (P-35b).** This applies to the
   throwaway script you write to investigate something, not only to the checks
