@@ -284,6 +284,27 @@ Skip §1. Read `BOARD.md`. Handle any reports already delivered (§6). Run §4
 once. Send the batch if its conditions hold. End the turn. This is what
 `/loop /devteam:run tick` re-runs.
 
+## 9a. Restarting a task whose escalation you just answered
+
+A task that stopped on a question is restarted with the answer. **Do not ask
+its supervisor to confirm its own escalation was answered** — it raised the
+finding, so its reading of whether the answer settles it is not independent of
+the reading that produced it. That dispatch is self-certifying in form even
+when the answer is plainly right, and the supervisor is left either agreeing
+with itself or arguing with the client.
+
+**Structure the confirmation instead of inviting an objection.** The restart
+brief says what the answer was and asks the supervisor to have it **broken** —
+an auditor briefed to refute the claim that the finding is discharged, whose
+failed refutations are the evidence, not the supervisor's own reading.
+
+This is not hypothetical polish. A supervisor sent a restart of the weaker
+shape repaired the dispatch itself: it dispatched an auditor to attack the
+claim and reported twelve failed refutations rather than its own opinion. The
+manager had invited an objection; **inviting an objection is weaker than
+structuring the answer so that no objection is needed**, because the invitation
+still leaves the judgement with the party that cannot make it.
+
 ## 9b. Removing something you created in error
 
 A removal is judged by its **target**, like every write (see `setup`): the

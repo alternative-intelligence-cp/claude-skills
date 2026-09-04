@@ -239,6 +239,32 @@ CASES = [
       "tasks/T-2.md": None},
      set()),
 
+    # --- one-sided-link: both ends of the link, not just its existence -----
+    # A scheduling decision reached the decision log and neither artifact:
+    # three of thirteen requirements named a task that did not list them, and
+    # it survived four closed tasks and every clean run.
+    ("one-sided-link-from-the-requirement",
+     {"REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** in-progress (T-2)", 1)},
+     {"one-sided-link"}),
+    ("one-sided-link-from-the-task",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— RUNNING (since 2026-09-03, T1-a-1200)")},
+     {"one-sided-link"}),
+    # A PLANNED task has not started, so a requirement it will discharge is
+    # correctly still `open`. Reporting that would fire on every plan the
+    # moment it was drawn.
+    ("fp-planned-task-leaves-its-requirement-open",
+     {}, set()),
+    ("fp-both-ends-agree",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— RUNNING (since 2026-09-03, T1-a-1200)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** in-progress (T-1)", 1)},
+     set()),
+    # A struck requirement is out of the graph entirely; linking it to a task
+    # that still names it would report a decision the project already made.
+    ("fp-struck-requirement-is-not-linked",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— RUNNING (since 2026-09-03, T1-a-1200)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** struck (D-2)", 1)},
+     set()),
+
     # --- template-drift: the project against the PLUGIN --------------------
     # Every other check here diffs the project against itself, so an artifact
     # was instantiated once and diverged forever. A real charter was signed six
@@ -344,9 +370,15 @@ CASES = [
 - **Estimate.** tokens=100 minutes=5
 """},
      set()),
+    # The requirement statuses move WITH the task statuses. Leaving them `open`
+    # while their tasks were DONE and RUNNING was incoherent, and passed only
+    # because nothing compared the two ends -- which is the defect this
+    # fixture now has to avoid rather than demonstrate.
     ("fp-running-and-done-tasks-still-trace",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-03)"),
-      "tasks/T-2.md": T2.replace("— PLANNED", "— RUNNING (since 2026-09-03, T2-rm-1400)")},
+      "tasks/T-2.md": T2.replace("— PLANNED", "— RUNNING (since 2026-09-03, T2-rm-1400)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** discharged (T-1)", 1)
+                             .replace("- **Status.** open", "- **Status.** in-progress (T-2)", 1)},
      set()),
     ("fp-acceptance-that-is-an-observation-not-a-command",
      {"REQUIREMENTS.md": REQS.replace("- **Acceptance.** `test -s README.md`",

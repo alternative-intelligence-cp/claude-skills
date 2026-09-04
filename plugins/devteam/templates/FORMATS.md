@@ -145,3 +145,21 @@ and compares what it claims against the tree.
 
 All four read **git-tracked files only**, so scratch work is never a finding,
 and all four exit `0` clean · `1` findings · `2` could not run.
+
+## The identifier prefixes are reserved
+
+`G` `DM` `R` `T` `S` `D` `Q` `C` `F` are this project's namespace, and
+`check_refs` resolves every occurrence of `<prefix>-<number>` in a tracked
+artifact against a declaration. **Do not number anything else this way** —
+product test cases, fixtures, error codes, probe scenarios.
+
+The failure is delayed and therefore easy to miss. A probe script numbering its
+cases `C-1`, `C-2` is harmless right up until the project files its first
+checkpoint, at which point a document quoting `C-1` resolves it against that
+checkpoint and says nothing is wrong. A supervisor reported this one while it
+was still latent, which is the only time it is cheap: afterwards the two
+meanings are both in the record and neither can be renamed without rewriting
+history.
+
+If product code needs numbered cases, give them a prefix that is not a single
+or double capital followed by a dash — `case_1`, `FC1`, `probe-1` all avoid it.

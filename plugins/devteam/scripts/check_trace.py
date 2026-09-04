@@ -22,6 +22,11 @@ Findings:
                          that does not exist
   dependency-cycle       tasks that can never start, because they wait on
                          each other
+  one-sided-link         a requirement and a task that name each other only in
+                         one direction. `Status.` names the task; `Discharges.`
+                         names the requirements; nothing compared them, so a
+                         scheduling decision could reach one artifact and not
+                         the other
   template-drift         a charter missing a constraint row the CURRENT
                          template declares. Every other check here diffs the
                          project against itself; this one diffs it against the
@@ -98,6 +103,7 @@ DASH = r"[—–-]"
 # does.
 SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 GOAL = re.compile(r"^-\s+\*\*(G-\d+)\*\*\s*" + DASH)
+TASK_REF = re.compile(r"\bT-\d+\b")
 REQ = re.compile(r"^###\s+(R-\d+)\s*" + DASH + r"\s*(.*)$")
 TASK = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 # The hyphen is required: `Requires-write.` parsed as no field at all under
@@ -369,6 +375,22 @@ def check(devteam):
             if r not in reqs:
                 add("unknown-reference", where, f"{ident} discharges {r}, which no requirement declares")
 
+    # ...and the same disagreement seen from the task. A PLANNED task has not
+    # started, so a requirement it will discharge is correctly still `open`;
+    # once the task is RUNNING or DONE the requirement's status has to say so,
+    # or the board and the requirements disagree about what is being worked.
+    for tid, (twhere, tfields, tstatus) in sorted(tasks.items()):
+        if not tstatus.startswith(("RUNNING", "DONE")):
+            continue
+        for r in [x.strip() for x in tfields.get("Discharges", "").split(",") if x.strip()]:
+            if r not in reqs or STRUCK.match(reqs[r][1].get("Status", "")):
+                continue
+            if tid not in TASK_REF.findall(reqs[r][1].get("Status", "")):
+                add("one-sided-link", twhere,
+                    f"{tid} is {tstatus.split()[0]} and discharges {r}, but "
+                    f"{r}'s status is {reqs[r][1].get('Status', '').strip()!r} "
+                    f"and does not name {tid}")
+
     for ident, (where, fields) in sorted(reqs.items()):
         if STRUCK.match(fields.get("Status", "")):
             continue
@@ -422,6 +444,25 @@ def check(devteam):
                     "with no `**Requires-write amended.**` naming the decision "
                     "(P-23). Superseding is allowed; editing the list a check "
                     "reads is not")
+
+        # BOTH ENDS OF THE LINK, NOT JUST ITS EXISTENCE.
+        #
+        # A requirement's `Status.` names the tasks working it; a task's
+        # `Discharges.` names the requirements it closes. Every check here
+        # verified that each end pointed at something real and none compared
+        # the two. A decision that scheduled two requirements across two tasks
+        # reached the decision log and neither artifact: three of thirteen
+        # requirements named a task that did not list them, and it survived
+        # four closed tasks and every clean run. One of them was the only
+        # requirement of a signed goal, so dispatching as briefed would have
+        # left that goal half built with this whole pipeline reporting clean.
+        for tid in TASK_REF.findall(fields.get("Status", "")):
+            if tid not in tasks:
+                continue
+            if ident not in [x.strip() for x in tasks[tid][1].get("Discharges", "").split(",")]:
+                add("one-sided-link", where,
+                    f"{ident} is {fields.get('Status', '').strip()}, but {tid} "
+                    f"does not list {ident} in its `Discharges.`")
 
         want = must_write.get(ident, [])
         owners = [tid for tid, (_, tf, _) in tasks.items()
