@@ -286,8 +286,12 @@ once. Send the batch if its conditions hold. End the turn. This is what
 
 ## 9b. Removing something you created in error
 
-You may remove an **untracked** file you created under `devteam/` and nothing
-else. Record it in `RECORD.md` — what it was, why it was made, why it is going.
+A removal is judged by its **target**, like every write (see `setup`): the
+guard refuses one inside the project tree that no live scope covers, refuses
+one on a protected path, and does not police a scratch directory outside the
+tree. Inside `devteam/` the grant is narrow — an **untracked** file you created
+yourself, and nothing else. Record it in `RECORD.md`: what it was, why it was
+made, why it is going.
 
 This grant exists because the alternative is worse than the risk. A file
 created in error and impossible to remove leaves `git status` non-empty, which

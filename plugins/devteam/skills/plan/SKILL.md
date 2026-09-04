@@ -91,6 +91,43 @@ So the criterion is written **before** the work, from the requirement rather
 than from the implementation, and it survives being read by someone who has
 not seen the code.
 
+**A criterion's LEVEL must match some task's scope, and this is the defect that
+has recurred most.** Three times in one project, an acceptance criterion
+written in process language — *"exits non-zero"*, *"fails under the default and
+succeeds under `--encoding cp1252`"* — was assigned to a task scoped to a
+single module. Each time the module task did its work correctly, and each time
+the requirement was **still not discharged**, because the task could make the
+*behaviour* true and could not make the *sentence* true: the sentence describes
+a process only the wiring task can run. All three were caught late, by a
+verifier invoking the command end to end, after the module task had closed.
+
+It recurs because of *when* the two things are written. Onboarding writes
+acceptance criteria with the client, in the client's language, which is
+naturally the language of running the thing. Planning draws scopes much later,
+by module. Nobody is present at both moments, so nothing compares them.
+
+**So compare them, here, deliberately.** For each requirement, read its
+criterion and ask: *which single task's scope contains everything this sentence
+exercises?* If the honest answer is "none — it needs this module **and** the
+wiring", then the criterion belongs to the **wiring** task. The module task
+*supports* the requirement; it does not discharge it. Say so in both task
+files, because "supports" and "discharges" are different claims and only one of
+them closes a requirement.
+
+This is deliberately a rule and not a check. A script cannot reliably tell a
+process-level sentence from a module-level one, and a check that guesses would
+misfire on ordinary plans — which is how a check gets switched off by the
+person it obstructs, leaving less than none at all (P-35).
+
+**Do not test an absence by asserting nothing happened.** A contract that
+documents an absence — no exception, no warning, no rewrite — almost always
+also specifies a **positive return**, and that is the thing to assert. "Assert
+nothing was raised" passes on a function that does nothing at all, on one that
+returns the wrong value, and on one that was never called. A worker argued a
+gap could not be closed inside its task on exactly this basis; the verifier
+disproved it by writing the test in the other direction. Ask what the caller
+downstream is promised, and assert **that**.
+
 **And when you prove it by mutation, name the node id you expect to fail.**
 "The suite went red" is not evidence that the *instrument* went red. One
 deliberate mutation in this project turned three tests red and only one was

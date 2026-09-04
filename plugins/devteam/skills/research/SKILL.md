@@ -134,6 +134,28 @@ checked, the source, the decision that pins it.
 - **a task whose currency rows are stale is not ready to start**
 - **anything called "current" with no date beside it is an unverified claim**
 
+**A digest's confidence is scoped to the question it was asked, and nothing
+above catches that.** Every rule here is about *staleness* — a fact that was
+true and stopped being true. This is the other failure, and it does not age:
+a digest that is dated, sourced, primary-cited and verified by execution, and
+still wrong for a use it never anticipated.
+
+The measured case: a digest asked *"how does a byte-order mark reach the JSON
+key?"* answered correctly that `encoding='utf-8-sig'` strips it, and wrote that
+as **"the fix"**. A requirement elsewhere demanded that a decode failure report
+the byte offset. `utf-8-sig` consumes three bytes before decoding, so every
+offset it reports is three too small. An implementation following the digest
+passed **17 of 18** cases; the one that failed was the only one that could
+discriminate. The digest was never asked how the mechanism interacts with
+offsets — it answered the question it had, confidently, in language that reads
+as an answer to both.
+
+So: **when a requirement depends on a different property of a mechanism than
+the one the digest was asked about, measure it yourself.** The digest tells you
+where to look. It does not transfer its confidence to a question nobody put to
+it. The tell is a remedy phrased as *"the fix"* rather than *"the fix for X"* —
+scope it when you write one, and distrust it when you read one.
+
 ## Limits, stated
 
 A large page is truncated — fetch the section's own URL. A long PDF is read in

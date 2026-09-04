@@ -100,8 +100,24 @@ Three rules for what goes in it:
 - **Nothing outward-facing.** No `git push`, no `gh`, no publish, no deploy.
   Those are `IRREVERSIBLE` (P-26) and belong to the client, who is asked at
   the moment it matters rather than pre-authorising it in the dark.
-- **Nothing destructive.** No `rm`, no `sudo`. If the loop believes it needs
-  one, that is a stop and an escalation (P-39), never a workaround.
+- **No `sudo`, ever.** It escapes the guard entirely, so it is the one
+  destructive thing that has to be refused *by name*. If the loop believes it
+  needs it, that is a stop and an escalation (P-39), never a workaround.
+- **`rm` is judged by its target, not withheld by its name.** The guard already
+  treats a removal exactly like a write: refused inside the project tree unless
+  a live scope covers it, refused on any protected path, and none of its
+  business outside the tree. Withholding the *word* `rm` on top of that was
+  wider than the harm and duplicated a control **by command text**, which is
+  the one thing this project says never to do — a text rule is spoofable by
+  anything that spawns a shell, and the guard is not.
+
+  It was also expensive twice. A file created in error under `devteam/` could
+  not be removed, leaving `git status` non-empty and failing the first
+  precondition of every future verification. Then a worker doing mutation
+  testing in a scratch directory **outside** the tree — which is where every
+  mutation battery in this pipeline runs — had no sanctioned way to clean up
+  after itself, and breached the rule to do its job correctly. A rule that a
+  worker must break to do the work right is a defect in the rule.
 
 Then ask the client for the three dials the charter needs and nothing else can
 supply — **the escalation window** (how long a reversible question waits
