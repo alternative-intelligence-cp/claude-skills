@@ -1084,6 +1084,50 @@ case, on the grounds that an unrequested requirement is scope creep with a
 number on it — a line from this project's own onboarding skill, applied against
 its own good idea.
 
+### Then the build phase found the one that scopes cannot cover
+
+Everything above arrived before the product had a line of code. The first
+finding that came out of *building* is the most interesting one in the project,
+because it is a hazard the central safety mechanism is structurally unable to
+see.
+
+**A worker rewrote a concurrent task's commit, and the guard could not have
+stopped it.** Declared scopes (P-12) divide the working tree, and the guard
+enforces that division by target path. They do not divide the branch, the index
+or `HEAD` — those are shared by every task in flight, and no scope names them.
+The worker had committed its code, gone away to gather evidence that could only
+exist *after* that commit, and run `git commit --amend` on what it believed was
+its own commit. In the interval, a concurrent task had committed. The amend
+landed on that task's commit instead: the report text was merged into another
+task's subject and its hash was rewritten underneath it. Every path written was
+inside the amending task's declared scope, so nothing was violated in the terms
+the guard understands.
+
+The recovery was correct and is worth keeping: `git reflog` still held the
+original, and `git reset --soft` restored it — **soft, because the shared tree
+held a third task's uncommitted work that `--hard` would have destroyed.** The
+worker then reported the whole thing in its own commit message rather than
+quietly fixing it, which is the only reason this is written down.
+
+**The cause was a rule of ours, not a git accident.** "One commit per step" is
+stated everywhere; "post-commit evidence needs a second commit" was stated
+nowhere. The skill had twice noticed the *shape* of the problem — a check that
+inspects the committed diff cannot appear in a report inside that commit — and
+resolved it narrowly, for `check_scope`, by demoting it to `notes:`. That did
+not generalise to evidence the report genuinely rests on. So a worker facing
+"my report must cite mutation results, and my report must be in this commit"
+had exactly one move that satisfied both, and it was the unsafe one. **A worker
+contorting to satisfy two of our rules is a defect in the rules**, and the fix
+is P-12b plus an explicit statement that a step may take two commits.
+
+**What it says about the model of safety.** The guard was built on the
+assumption that a write is judged by where it lands. Git history is a write
+whose target is not a path, and there is no path-shaped rule that catches it.
+This is the second time the guard has been blind to something because of the
+frame it judges in — the first was `2>&1`, where a file descriptor was read as
+a path. Neither was a bug in the code; both were the frame being narrower than
+the world.
+
 
 ---
 

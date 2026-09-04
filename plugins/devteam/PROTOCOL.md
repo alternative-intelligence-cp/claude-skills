@@ -120,6 +120,21 @@ declared scopes; the manager refuses to claim a task whose scope intersects a
 live claim. This is what makes parallel work safe inside a single repository,
 and it is checked before dispatch rather than discovered afterwards.
 
+**P-12b — History is shared, and no scope covers it.** Declared scopes divide
+the *working tree*. They do not divide the branch, the index or `HEAD`, which
+every task in flight shares, and so **any git operation that rewrites or
+discards existing history is forbidden while width is greater than one** —
+`--amend`, `rebase`, `reset --hard`, `checkout` of a tracked path, `stash`.
+Each of them acts on whatever `HEAD` is at the instant it runs, and at width
+greater than one `HEAD` is not yours: it is whichever task committed most
+recently. A worker did exactly this, ran `git commit --amend` against what it
+believed was its own commit, and rewrote a concurrent task's commit — merging
+its report text into that task's subject and changing its hash underneath it.
+To correct a commit, **add another one**. If a rewrite has already happened,
+recover with `git reset --soft` to the original commit from `git reflog`, never
+`--hard`: soft leaves the index and working tree untouched, and the tree holds
+other tasks' uncommitted work.
+
 **P-13 — `devteam/` has one writer: the project manager.** Supervisors and
 workers write into the product tree and into their own task file's execution
 record, and nowhere else under `devteam/`. Findings for the charter, the

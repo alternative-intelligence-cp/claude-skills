@@ -194,9 +194,30 @@ something.
   part of that commit cannot carry its result. Run it, say in `notes:` that
   you did and what it said, and leave it out of `checks:`. This is the same
   shape as the commit-hash problem below.
-- **If your supervisor has you amend a commit, re-point any hash you cited.**
-  An amend leaves the old commit on no branch, so a hash written in your
-  `checks:` lines now names something orphaned. Re-derive it, or name `HEAD`.
+- **A step may take two commits, and post-commit evidence is why.** If the
+  evidence your report genuinely rests on — mutation testing, a check over the
+  committed diff — can only exist once the work is committed, then commit the
+  work, gather the evidence, and **append the report in a second commit**.
+  "One commit per step" is a default that keeps the record legible, not a rule
+  worth rewriting history to preserve; a worker contorted to hold that line and
+  corrupted a concurrent task's commit doing it. Both commits name the step in
+  their subject, which is all `check_report` asks for.
+- **Never `--amend` unless the board says width 1.** `--amend` acts on `HEAD`,
+  and at width greater than one `HEAD` is not yours — it is whichever task
+  committed most recently, which may have been a second ago. A worker amended
+  what it believed was its own commit and rewrote a concurrent task's: its
+  report text was merged into that task's subject, and that task's hash changed
+  underneath it. Read the board's `**Width.**` line; above 1, correct a commit
+  by **adding another one**, never by rewriting. The same goes for `rebase`,
+  `reset --hard`, `stash`, and `checkout` of a tracked path (P-12b).
+- **If you have already rewritten history, `reset --soft`, never `--hard`.**
+  Recover the original commit from `git reflog` and soft-reset to it. Soft
+  leaves the index and working tree exactly as they are, which matters because
+  the tree holds other tasks' uncommitted work and `--hard` would destroy it.
+  Then say so in `notes:` — the recovery is part of the record, not a tidy-up.
+- **If your supervisor has you amend a commit at width 1, re-point any hash you
+  cited.** An amend leaves the old commit on no branch, so a hash written in
+  your `checks:` lines now names something orphaned. Re-derive it, or `HEAD`.
 
 **Naming the commit you are inside.** Your report is committed in the same
 commit as your work (P-16), so that commit's own hash cannot appear inside it
