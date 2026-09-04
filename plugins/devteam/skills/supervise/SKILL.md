@@ -89,6 +89,12 @@ thing is written before or with the thing, never after it "to save time".
    line is the only evidence you are waiting rather than hung, and it is what
    the manager's recovery procedure reads to tell those apart (P-14).
 
+   **Rewrite it on every dispatch and remove it at close.** It is not a
+   one-time marker: it is the only thing that says *which step* is in flight
+   and since when. The manager's recovery reads it to tell a supervisor waiting
+   on a worker from a supervisor that died — and those look identical from
+   `ListAgents`, because a supervisor awaiting its child reports as completed.
+
    **It goes in `.run/`, which is untracked, and never in the task file.** A
    heartbeat written into a tracked file dirties the tree, and a verifier
    requires a clean tree — so a heartbeat left before dispatching a *verifier*

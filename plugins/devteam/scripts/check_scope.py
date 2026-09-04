@@ -156,6 +156,45 @@ def check(project, task_id=None):
             add("empty-scope", rel, f"{ident} is {status.split()[0]} and declares no scope")
 
     live = [t for t, (_, s, _) in tasks.items() if s.startswith("RUNNING")]
+
+    # A commit touching a LIVE task's scope whose subject does not name that
+    # task took the work away from it. The manager is the one party guaranteed
+    # to be writing concurrently with every worker, and `git add -A` is what
+    # anyone types by reflex -- so a worker's in-flight file lands in the
+    # manager's commit under the manager's message. The step loses its commit,
+    # scope attribution inverts (a write belonging to no task is invisible to
+    # the undeclared-write check), and the record says one thing while
+    # containing another. Only commits since the claim are considered, so the
+    # scaffold and earlier tasks are not charged to it.
+    for ident in live:
+        rc, out = git(repo, "log", "-S", "RUNNING (since", "--format=%H", "--",
+                      f"devteam/tasks/{ident}.md")
+        claim = out.split()[0] if rc == 0 and out.split() else None
+        if not claim:
+            continue
+        rc0, _ = git(repo, "rev-parse", "--verify", f"{claim}~1")
+        span = f"{claim}~1..HEAD" if rc0 == 0 else "HEAD"
+        rc, out = git(repo, "log", span, "--format=%H%x00%s")
+        for line in out.strip().split("\n"):
+            if "\0" not in line:
+                continue
+            sha, subject = line.split("\0", 1)
+            # Only commits belonging to NO task. A commit named `T-n:` that
+            # wrote outside its own scope is already `undeclared-write`, and
+            # reporting the same event twice under two names buries the cause.
+            if any(re.match(rf"^{re.escape(other)}(\.S-\d+)?\s*:", subject)
+                   for other in tasks):
+                continue
+            rc2, files = git(repo, "show", "--name-only", "--format=", sha)
+            for path in (f for f in files.split("\n") if f.strip()):
+                if path.startswith("devteam/") and path != f"devteam/tasks/{ident}.md":
+                    continue                      # the manager's own artifacts
+                if covers(clean[ident], path):
+                    add("misattributed-write", tasks[ident][0],
+                        f"{sha[:7]} {subject[:44]!r} committed {path}, which is "
+                        f"inside {ident}'s live scope. Stage explicit paths; "
+                        f"never `git add -A` while a claim is live")
+                    break
     for i, a in enumerate(sorted(live)):
         for b in sorted(live)[i + 1:]:
             hit = intersects(clean[a], clean[b])

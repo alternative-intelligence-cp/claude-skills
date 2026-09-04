@@ -69,7 +69,10 @@ ignored.
 
 ### `check_scope` — declared scopes against each other and against writes
 
-`overlapping-scope`, `undeclared-write`, `empty-scope`, `scope-escapes-tree`.
+`overlapping-scope`, `undeclared-write`, `empty-scope`, `scope-escapes-tree`,
+`misattributed-write` — the last being a commit that belongs to no task and
+touches a live task's scope, which is what `git add -A` does to a worker's
+in-flight file.
 This is what makes width greater than one safe inside a single repository
 (P-12). Commits are attributed by **subject prefix**, so the manager's own
 `board: claim T-1` is not charged to T-1.

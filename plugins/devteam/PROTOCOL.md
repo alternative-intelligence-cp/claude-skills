@@ -119,10 +119,13 @@ record, and nowhere else under `devteam/`. Findings for the charter, the
 protocol or the requirements travel upward in a report (P-17) and the manager
 lands them. The board's header names the writing session.
 
-**P-14 — A claim is recoverable.** The board's in-flight table names, for every
-claim: the task, the agent label, the start time, and the model. A claim whose
-agent is no longer live is stale, and the recovery procedure runs before any
-new dispatch. After a session restart *every* claim is stale, because agent
+**P-14 — A claim is recoverable, and liveness covers the whole subtree.** The
+board's in-flight table names, for every claim: the task, the agent label, the
+start time, and the model. A claim is stale only when **no agent under it is
+live, its heartbeat is absent or old, and its tree is not moving** — not merely
+when the agent the board names has finished. A supervisor awaiting a worker
+reports as completed, so the narrow reading declares a working claim dead and
+puts a second writer on it, which is the failure P-12 exists to prevent. After a session restart *every* claim is stale, because agent
 liveness is only visible within the session that spawned them.
 
 **P-15 — Width is an argument, and the default is one.** The number of

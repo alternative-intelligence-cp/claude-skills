@@ -47,11 +47,31 @@ CASES = [
      BASE, "T-1", [("src/loader/a.py", "x=1\n"), ("src/render/b.py", "y=2\n")],
      {"undeclared-write"}),
 
+    # F-17: the manager ran `git add -A` while a worker was mid-file, and the
+    # worker's in-flight code landed in the manager's commit under the
+    # manager's message. The step lost its commit and the write became
+    # invisible to scope attribution.
+    ("misattributed-write-steals-a-live-tasks-work",
+     BASE, None, [("src/loader/a.py", "x=1\n")], {"misattributed-write"},
+     "research: backfill sensitivity on the digests"),
+
     # --- FALSE-POSITIVE CONTROLS ------------------------------------------
+    ("fp-the-tasks-own-commit-is-not-misattributed",
+     BASE, None, [("src/loader/a.py", "x=1\n")], set(), "T-1: the work"),
+    ("fp-a-step-commit-is-not-misattributed",
+     BASE, None, [("src/loader/a.py", "x=1\n")], set(), "T-1.S-2: the step"),
+    ("fp-a-manager-commit-touching-only-devteam-is-fine",
+     BASE, None, [("devteam/RECORD.md", "- an entry\n")], set(),
+     "record: a manager entry"),
+    ("fp-a-foreign-commit-outside-every-live-scope-is-fine",
+     BASE, None, [("docs/guide.md", "hi\n")], set(), "docs: unrelated"),
     # From the first real dispatch: the manager's own board and plan commits
     # mention the task in their message, and were being charged to it.
+    # A board commit touches devteam/, not a worker's files — writing src/ in a
+    # commit called "board: claim T-1" is the F-17 misattribution, not this.
     ("fp-manager-commits-mentioning-a-task-are-not-its-writes",
-     BASE, "T-1", [("src/loader/a.py", "x=1\n")], set(), "board: claim T-1"),
+     BASE, "T-1", [("devteam/BOARD.md", "| T-1 | CLAIMED |\n")], set(),
+     "board: claim T-1"),
     ("fp-planned-tasks-may-overlap-a-running-one",
      {**BASE, "T-3": task("T-3", "PLANNED", ["src/loader/"])}, None, [], set()),
     ("fp-done-tasks-may-overlap",

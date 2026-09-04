@@ -71,9 +71,28 @@ land it. `BOARD.md` is exempt from its own rule because it is the lock.
 
 ## 3. Recovery (P-14)
 
-For each `CLAIMED` row, run `ListAgents`. A row with a live agent is fine. A
-row with none is stale — and **after a session restart every row is stale**,
-because agent liveness is only visible inside the session that spawned them.
+**Liveness is a property of the claim's whole agent subtree, not of the agent
+the board names.** A supervisor that has dispatched a worker and is awaiting it
+shows as `completed` while its worker is still writing — the board names the
+supervisor, so a manager reading "no live agent" literally would declare a
+live claim stale and dispatch a second supervisor onto a scope a worker is
+actively writing. **That is the two-writers failure this whole design exists to
+prevent, reached by following the design.** Check three things, in this order,
+and treat the claim as live if any of them says so:
+
+1. **`ListAgents`, including children.** A live worker under a completed
+   supervisor means the claim is working, not dead.
+2. **The heartbeat**, `devteam/.run/locks/<TASK>.heartbeat`. A supervisor
+   writes it before every dispatch and removes it at close, so it names the
+   step being waited on and when. A recent heartbeat with no live agent
+   anywhere is the genuinely stale case — and it tells you *where* it died.
+3. **The tree.** `git -C "$REPO" status --porcelain` and the mtimes under the
+   task's scope. Work that changed in the last few minutes is work in progress.
+
+Only when all three are silent is the row stale. **After a session restart
+every row is stale regardless**, because agent liveness is only visible inside
+the session that spawned them — and that is the case the heartbeat and the tree
+exist to make recoverable rather than merely detectable.
 
 | Task title says | `git status --porcelain` | Do |
 |---|---|---|
@@ -108,7 +127,19 @@ While tasks in flight are fewer than `width=`:
 4. **On a report**, §6.
 
 5. **Record** one line per event in `RECORD.md`, committed with the board
-   change.
+   change — **staging explicit paths, never `git add -A`.**
+
+   You are the one party guaranteed to be writing concurrently with every
+   worker, and `-A` is what anyone types by reflex. It sweeps a worker's
+   in-flight file into your commit under your message, and four things break at
+   once: the step loses the commit that is its unit of evidence, scope
+   attribution inverts because a write belonging to no task is invisible to
+   `check_scope`, the report check finds work already committed by somebody
+   else, and the record says one thing while containing another. The guard will
+   not stop you — `git add` is index-class and permitted precisely so workers
+   can commit, and that classification reasons about file safety, not
+   attribution. `check_scope` reports `misattributed-write` for it after the
+   fact; not doing it is cheaper.
 
 6. **Checkpoint** if one is due (§7).
 
