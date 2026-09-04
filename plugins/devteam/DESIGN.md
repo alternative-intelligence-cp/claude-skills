@@ -1304,6 +1304,72 @@ whoever wrote it to say why the natural path is the wrong one.
 
 ---
 
+## 20b. Guidance goes where the temptation is, not where the documentation is
+
+The single most reliable design lesson from the live run, and it was arrived at
+twice independently before anyone stated it.
+
+**The evidence.** The guard's refusal message names the interpreter heredoc that
+would get around it — a nudge, the weakest instrument here, and the only one
+with measured evidence of changing behaviour. A verifier that had never read the
+finding met the refusal and reported that the message "explicitly names and
+discourages the interpreter-based workaround, so I did not use it." The same
+rule written in a skill would have been read at dispatch time, hours before the
+moment it mattered, by an agent with no reason to remember it.
+
+Then the manager reached the same principle from the other end. Discussing a
+mechanism for recording accepted findings, it observed that the framing decides
+who reaches for it: *a manager who reads the block as **suppress** adds entries
+when the tree is annoying; a manager who reads it as **restore the zero** is
+reluctant to add any, because every entry costs them the signal they are trying
+to keep.* Same mechanism, opposite incentive — and its recommendation was to put
+that sentence **in the block's own header rather than in the skill**, because
+the header is read at the moment of temptation and the skill is not.
+
+**So: for anything meant to resist a temptation, the placement is not a
+presentation detail — it is most of whether it works.** A rule in a skill is
+read once, early, by someone who has not yet met the situation. A sentence in a
+refusal message, a check's finding text, or a file's own header is read by
+someone standing in front of the decision, which is the only moment it can
+change anything. This is why `cited-undefined` names the line that would fix it,
+why the scope refusal carries the verifier's scratch recipe, and why the guard's
+message says the heredoc is a limit rather than permission.
+
+The corollary is a question worth asking of every rule here: **where will
+somebody be standing when this matters, and is the rule there?**
+
+### The deferred mechanism, and the trigger that would justify it
+
+Recorded so it is not re-derived, and so it is not built early.
+
+Two findings on the live project may not be fixed — one names a checkpoint
+before it is filed, in an append-only record; one cites another task's step from
+inside an execution record that P-42 freezes. Both were left standing
+deliberately. The worry is that **a tree expected to be red is a tree nobody
+reads.**
+
+The manager's measurement of the actual cost is better than the worry: it reads
+`N finding(s)` first, and only reads the finding when the count differs from the
+one it remembers. **So the discriminator degrades by one bit per accepted
+finding, and it degrades silently** — the resting state was 1, then 2, and the
+next new finding arrives as 3 against a remembered 2. The cost is not the noise;
+it is that the count stops being a signal.
+
+The trigger for building it is stated as a measurement rather than a feeling:
+**the day a manager reads a count and does not read the finding under it.** Not
+before. Asked directly, the manager reported "not yet" — and reported that it
+had nearly sent an example of the rot, then checked the committed artifact and
+found the slip was in the conversational layer while the artifact was correct.
+That check is P-17b applied one message after P-17b was written.
+
+The shape, if the trigger fires: an `## Accepted findings` block in `RECORD.md`,
+each entry naming the finding kind, path, line, a reason and a decision; the
+checks downgrading exactly those to notes; and — the half that stops it rotting
+— **a stale acceptance that no longer matches anything is itself a finding**,
+because an acceptance nobody revisits is a silence nobody chose.
+
+---
+
 ## 21. The open question: how much of this is ceremony
 
 Deliberately unanswered, and recorded so it is not re-derived from scratch.
