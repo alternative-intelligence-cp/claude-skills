@@ -225,6 +225,15 @@ says the client never saw it, and **every such decision is listed at the next
 checkpoint** for cheap confirmation or reversal. Autonomy is bought by making
 the unreviewed set visible, not by pretending it is empty.
 
+**P-27b — A role that can stop owns the record of having stopped.** Whoever
+reports a stopping status sets the state that says so, before reporting, while
+it still knows why. A checklist that covers only the paths which *complete* is
+the ordinary shape of a checklist and the ordinary way a state ends up owned by
+nobody — and the cost is specific: a stopped task whose title still reads
+`RUNNING` is treated as live by every check and guard that reads it, with no
+agent working and nothing to police. Nobody downstream can repair it, because
+by then the party that knew has ended.
+
 **P-28 — A stop stops its own task and nothing else.** A blocked task does not
 idle the pipeline; the manager moves to the next task whose dependencies are
 met. Only when no task can proceed does the loop end its turn.

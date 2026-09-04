@@ -157,7 +157,25 @@ here, so the manager and the client do not have to rebuild it.
 - [ ] the title line set to `DONE (<date>)`, or `READY-TO-AUDIT` if this task
       needs an audit and `AUDIT: none`
 
-## 7. Your report
+## 7. If you stop instead of closing
+
+**Set the title before you report.** A task that reports `NEEDS-DECISION`,
+`BLOCKED` or `RED` and leaves its title saying `RUNNING` is a task that looks
+live to everything: `check_scope` treats its scope as claimed, and the guard
+polices that scope with no agent working and nothing to police for. Set it to
+`BLOCKED (<why>)` — naming the question, the missing input or the failing
+check — as the **last thing you do before reporting.**
+
+It has to be you, and it has to be then. **The manager cannot fix this
+afterwards**: the title line belongs to the supervisor, so a manager writing it
+is a `misattributed-write`, and by the time the stopped status exists you have
+reported and ended. Nobody else is in a position to know why you stopped.
+
+**This checklist previously covered only the paths that complete**, which is
+the ordinary shape of a checklist and the ordinary way a state ends up owned by
+nobody. The stopping paths are the ones where somebody is waiting.
+
+## 8. Your report
 
 ```
 REPORT supervisor T-n
