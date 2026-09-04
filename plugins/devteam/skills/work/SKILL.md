@@ -100,7 +100,8 @@ env: <the ENV pin id>
 requirements: <the R-n this served>
 scope: <the paths you actually wrote>
 commits:
-  - <hash> <subject>
+  - <hash> <subject>          earlier commits
+  - HEAD <subject>            THIS commit — see below
 checks:
   - <exact command> -> <its summary line, verbatim> [exit <n>]
 questions: none | - <question> | <recommendation> | REVERSIBLE|IRREVERSIBLE|CHARTER
@@ -108,6 +109,14 @@ findings-for-protocol: none | - <one line each>
 budget: tokens=<n> minutes=<n>
 notes: none | <free text>
 ```
+
+**Naming the commit you are inside.** Your report is committed in the same
+commit as your work (P-16), so that commit's own hash cannot appear inside it
+— the content would have to hash to a value written in the content. Write
+`- HEAD <subject>`. `HEAD` marks *this* commit and **the subject is what makes
+it resolvable afterwards**, so the subject must be the exact one you commit
+with. Never invent a placeholder that reads like a hash, and never write prose
+in `commits:` — the field is parsed.
 
 **`checks:` is the evidence and it is not optional on a `DONE`.** A
 requirement is discharged by evidence, never by assertion (P-5) — and your

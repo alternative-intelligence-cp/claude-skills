@@ -48,6 +48,10 @@ CASES = [
      {"undeclared-write"}),
 
     # --- FALSE-POSITIVE CONTROLS ------------------------------------------
+    # From the first real dispatch: the manager's own board and plan commits
+    # mention the task in their message, and were being charged to it.
+    ("fp-manager-commits-mentioning-a-task-are-not-its-writes",
+     BASE, "T-1", [("src/loader/a.py", "x=1\n")], set(), "board: claim T-1"),
     ("fp-planned-tasks-may-overlap-a-running-one",
      {**BASE, "T-3": task("T-3", "PLANNED", ["src/loader/"])}, None, [], set()),
     ("fp-done-tasks-may-overlap",
@@ -73,7 +77,7 @@ CASES = [
 ]
 
 
-def build(root, tasks, writes):
+def build(root, tasks, writes, subject="T-1: the work"):
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     for ident, body in tasks.items():
@@ -92,16 +96,18 @@ def build(root, tasks, writes):
             with open(p, "w", encoding="utf-8") as fh:
                 fh.write(body)
         run("add", "-A")
-        run("commit", "-qm", "T-1: the work")
+        run("commit", "-qm", subject)
     return root
 
 
 def main():
     passed = failed = 0
-    for name, tasks, task_id, writes, expected in CASES:
+    for case in CASES:
+        name, tasks, task_id, writes, expected = case[:5]
+        subject = case[5] if len(case) > 5 else "T-1: the work"
         root = tempfile.mkdtemp(prefix="devteam-scope-")
         try:
-            build(root, tasks, writes)
+            build(root, tasks, writes, subject)
             argv = [sys.executable, CHECK, root] + ([task_id] if task_id else [])
             proc = subprocess.run(argv, capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}

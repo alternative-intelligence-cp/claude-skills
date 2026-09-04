@@ -124,8 +124,13 @@ once.
 ## 4. Reports, and why nothing is believed
 
 **P-16 — A report has one shape, in two places.** Every worker's and every
-supervisor's final message is a `REPORT` block, and the identical block is
-committed as the last entry of the task file's execution record. One shape
+supervisor's final message is a `REPORT` block, and **that role's own block**
+is committed as the last entry of the task file's execution record. A
+supervisor commits its own block only — its workers have already appended
+theirs, and committing the message whole would leave a worker's block last,
+so the record check would validate the wrong one. A commit's own hash cannot
+appear in a block committed inside it, so `- HEAD <subject>` names it and the
+subject is what resolves it afterwards. One shape
 means a script can check it (P-32); two places means the record cannot quietly
 disagree with what was said.
 

@@ -57,6 +57,24 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" .
 3. **A task is one worker's worth of work.** If you cannot say what command
    proves it, it is too big or too vague — split it.
 
+**A tests-first step still needs something to import.** A step whose
+verification is "the tests collect" cannot pass while the module those tests
+import does not exist — collection fails before any assertion runs. So a
+tests-first step's scope includes an unimplemented stub of the module
+(`raise NotImplementedError` and nothing else), and the step after it replaces
+the stub. This was found the first time a real supervisor ran a plan that got
+it wrong: it had to widen the step's scope itself to make the step runnable,
+which is work the plan should have done.
+
+**Estimate the reading, not the typing.** The first measured task in this
+system came in at **26x its token estimate** — 8,000 estimated against roughly
+210,000 actual — because the estimate counted the code to be written. Almost
+none of the cost is typing. It is reading the charter, the requirement and the
+decisions; running the verification; writing the report; and the supervisor's
+own dispatch and checking around all of that. A task that writes forty lines
+of code is not a forty-line task. Estimate the whole loop or do not bother
+(P-41).
+
 **A probe and a spike are different things.** A probe asks *"is this even
 possible?"* and its answer changes the design. A spike asks *"how big is
 this?"* and **its thresholds are decided in advance**, so a bad number

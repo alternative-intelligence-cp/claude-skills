@@ -41,7 +41,9 @@ HEADER = re.compile(r"^REPORT\s+(\S+)\s+(T-\d+)(?:\.(S-\d+))?\s*$")
 KEY = re.compile(r"^([a-z][a-z-]*):\s*(.*)$")
 TITLE = re.compile(r"^#\s+(T-\d+)\s*" + DASH + r"\s*(.*?)\s*" + DASH + r"\s*(\S.*)$")
 RECORD_HEADING = re.compile(r"^##\s+Execution record\s*$", re.I)
-HASH = re.compile(r"^\s*-\s+([0-9a-f]{7,40}|HEAD)\b")
+# `HEAD` alone means "the commit this block is in"; `HEAD~1`, `HEAD^` and a
+# bare hash are ordinary resolvable refs and are checked as such.
+HASH = re.compile(r"^\s*-\s+([0-9a-f]{7,40}|HEAD(?:[~^]\d*)+|HEAD)\b")
 
 
 def git(root, *args):
@@ -52,12 +54,25 @@ def git(root, *args):
         return 127, ""
 
 
-def parse_report(lines):
-    """The LAST REPORT block in the file, as (role, task, step, {key: value})."""
+def parse_report(lines, task_id=None):
+    """The last REPORT block FOR THIS TASK, as (role, task, step, fields).
+
+    Not simply the last block in the file. A supervisor's record holds its
+    workers' step blocks (`T-n.S-m`) as well as its own task block (`T-n`),
+    and taking the last one meant validating a worker's step report in place
+    of the supervisor's -- so a supervisor could not satisfy P-16 and P-17 at
+    once. Prefer the last block whose id is exactly the task, and fall back to
+    the last block of any kind so a step report can still be checked directly.
+    """
     starts = [i for i, l in enumerate(lines) if HEADER.match(l)]
     if not starts:
         return None
     i = starts[-1]
+    if task_id:
+        own = [j for j in starts
+               if (m := HEADER.match(lines[j])) and m.group(2) == task_id and not m.group(3)]
+        if own:
+            i = own[-1]
     m = HEADER.match(lines[i])
     fields, key = {}, None
     for line in lines[i + 1:]:
@@ -99,7 +114,7 @@ def check(project, task_id):
     if not any(RECORD_HEADING.match(l) for l in lines):
         add("no-report", "the task file has no `## Execution record` section")
 
-    parsed = parse_report(lines)
+    parsed = parse_report(lines, task_id)
     if parsed is None:
         add("no-report", "no REPORT block in the execution record")
         return findings
@@ -136,16 +151,34 @@ def check(project, task_id):
         add("no-file", f"{repo} is not a git repository")
         return findings
 
+    # A commit may be named by hash OR by subject. A report is committed in
+    # the same commit as the work (P-16), so that commit's own hash cannot be
+    # written inside it -- the content would have to hash to a value contained
+    # in the content. Both workers in the first real dispatch hit this and
+    # refused to invent a placeholder, which was the right call.
+    rc, log = git(repo, "log", "--format=%s", "--all")
+    subjects = set(log.split("\n")) if rc == 0 else set()
+    # Only a line that STARTS a list item is a commit; anything else is a
+    # continuation of the one above it.
     for line in fields.get("commits", []):
-        m = HASH.match(line) or HASH.match("- " + line)
-        if not m:
+        if not line.strip().startswith("- "):
             continue
-        ref = m.group(1)
-        if ref == "HEAD":
+        text = line.strip()[2:].strip()
+        if not text or text == "none":
             continue
-        rc, _ = git(repo, "cat-file", "-e", f"{ref}^{{commit}}")
-        if rc != 0:
-            add("unknown-commit", f"{ref} is not a commit in this repository")
+        m = HASH.match("- " + text)
+        ref = m.group(1) if m else None
+        if ref and ref != "HEAD":            # a hash, or HEAD~1 / HEAD^
+            rc, _ = git(repo, "cat-file", "-e", f"{ref}^{{commit}}")
+            if rc != 0:
+                add("unknown-commit", f"{ref} is not a commit in this repository")
+            continue
+        # `HEAD <subject>` names the commit this block is committed in -- its
+        # own hash cannot appear inside it, so the SUBJECT is what makes it
+        # resolvable afterwards. Validate that, not the marker.
+        subject = text[len(ref):].strip() if ref else text
+        if subject and subject not in subjects:
+            add("unknown-commit", f"no commit has the subject {subject[:60]!r}")
 
     if status in CLOSING:
         rc, out = git(repo, "status", "--porcelain")

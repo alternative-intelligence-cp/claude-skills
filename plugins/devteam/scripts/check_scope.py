@@ -161,10 +161,20 @@ def check(project, task_id=None):
     if task_id:
         if task_id not in tasks:
             return [("no-file", f"tasks/{task_id}.md", "no such task")]
-        rc, out = git(repo, "log", "--format=%H", "--grep", task_id, "--all")
+        # Attribute by SUBJECT PREFIX, not by grepping the whole message.
+        # `--grep T-1` also matched the manager's own `board: claim T-1` and
+        # `plan: T-1 and T-2` commits and charged their paths to the task, so
+        # a supervisor could never close a task cleanly through no fault of
+        # its own -- found the first time this ran against a real dispatch.
+        # The work skill mandates the subject form `T-n:` / `T-n.S-m:`, so the
+        # prefix is exactly the set of commits the task actually made.
+        rc, out = git(repo, "log", "--format=%H%x00%s", "--all")
+        prefix = re.compile(rf"^{re.escape(task_id)}(\.S-\d+)?\s*:")
+        shas = [line.split("\0", 1)[0] for line in out.strip().split("\n")
+                if "\0" in line and prefix.match(line.split("\0", 1)[1])]
         allowed = clean[task_id] + [f"devteam/tasks/{task_id}.md"]
         seen = set()
-        for sha in out.split():
+        for sha in shas:
             rc, files = git(repo, "show", "--name-only", "--format=", sha)
             for path in (p for p in files.split("\n") if p.strip()):
                 if path in seen or covers(allowed, path):

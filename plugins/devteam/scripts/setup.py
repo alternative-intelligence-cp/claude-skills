@@ -90,6 +90,10 @@ def detect(project):
             found["test"] = "make test"
         if "build" in targets or "all" in targets:
             found["build"] = "make"
+        for t in ("lint", "check", "fmt", "format"):
+            if t in targets:
+                found["lint"] = f"make {t}"
+                break
 
     # Directories worth proposing as protected: not ours, not source.
     protected = [d for d in ("vendor", "third_party", "node_modules", "generated",

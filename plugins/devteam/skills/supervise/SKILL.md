@@ -2,7 +2,7 @@
 name: supervise
 description: Run one task of a devteam project — read the task and what it must satisfy, decompose it into steps, dispatch one worker per step, verify every step before accepting it, escalate what the project's documents do not settle, and report upward with every worker report appended verbatim. Used by the supervisor agent.
 argument-hint: "[task]"
-allowed-tools: Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(python3 *) Read Write Edit Grep Glob Agent
+allowed-tools: Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(python3 *) Read Write Edit Grep Glob Agent
 ---
 
 # Supervising a task
@@ -125,7 +125,8 @@ env: <pin id>
 requirements: <the R-n discharged>
 scope: <the paths this task wrote>
 commits:
-  - <hash> <subject>
+  - <hash> <subject>          earlier commits
+  - HEAD <subject>            THIS commit — see below
 checks:
   - <exact command> -> <its summary line, verbatim> [exit <n>]
 questions: none | - <question> | <recommendation> | REVERSIBLE|IRREVERSIBLE|CHARTER
@@ -139,6 +140,13 @@ verdict:
 --- WORKER REPORTS (verbatim, P-17) ---
 <every worker REPORT block you received, unedited, in dispatch order>
 ```
+
+**Commit your own block alone** (P-16). The worker blocks already stand
+verbatim in the execution record — each worker appended its own — so
+committing your final message literally would leave a worker's block last in
+the file, and the record check would then validate a worker's step report in
+place of yours. Your *message* to the manager carries them appended; the
+*commit* carries your block.
 
 **The worker reports go through you unchanged** (P-17). You may judge them —
 that is what `verdict:` is for. You may not summarise them, tidy them, or

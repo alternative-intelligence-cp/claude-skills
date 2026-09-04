@@ -102,6 +102,28 @@ CASES = [
      set()),
     ("fp-earlier-report-superseded-by-a-later-one",
      task_file(report=REPORT.replace("status: DONE", "status: RED") + "\n" + REPORT), set()),
+    # --- regressions from the first real dispatch -------------------------
+    ("fp-HEAD-names-this-commit-by-its-subject",
+     task_file(report=REPORT.replace(
+         "  - HEAD cycle T-1: the config loader",
+         "  - HEAD cycle T-1: the config loader")), set()),
+    ("commit-subject-that-does-not-exist",
+     task_file(report=REPORT.replace(
+         "  - HEAD cycle T-1: the config loader",
+         "  - HEAD T-1: a subject nobody ever committed")),
+     {"unknown-commit"}),
+    ("fp-commits-continuation-lines-are-not-commits",
+     task_file(report=REPORT.replace(
+         "  - HEAD cycle T-1: the config loader",
+         "  - HEAD cycle T-1: the config loader\n    (rewritten after review)")),
+     set()),
+    ("fp-supervisor-block-is-checked-not-its-workers",
+     task_file(report=REPORT + "\n--- WORKER REPORTS (verbatim, P-17) ---\n\n"
+               + REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1")
+                       .replace("status: DONE", "status: RED")
+                       .replace("checks:\n  - make test -> 12 passed, 0 failed [exit 0]\n",
+                                "checks: none\n")),
+     set()),
     ("fp-step-scoped-report-id",
      task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-2")),
      set()),

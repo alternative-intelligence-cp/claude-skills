@@ -584,7 +584,7 @@ riskiest unknown goes earliest and a probe that fails changes the design.
 | **1** | marketplace, plugin manifest, repository housekeeping | ✅ **done** — the plugin loads and its manifests resolve |
 | **2** | `setup`, the checks with their controls, the guard with its control | ✅ **done** — 127 control cases green, 57% of them false-positive controls; a freshly scaffolded project checks clean |
 | **3** | one path end to end: `onboard` → `plan` → one task → `supervise` → `implementer` → `verify` → `checkpoint` | ◐ **written, not yet walked.** Ten skills, five agents and both hooks exist and are internally consistent. The phase is not done until a trivial project goes from idea to verified commit with no manual intervention between gates — writing the procedure is not the same as running it |
-| **4** | rehearse on a throwaway project; fix what the rehearsal breaks | the loop survives a compaction, a killed agent, and a deliberately failing check |
+| **4** | rehearse on a throwaway project; fix what the rehearsal breaks | ◐ **first real dispatch done** — one task, two steps, two workers, green and correct. It found six defects (§15). Remaining: compaction, a killed agent, a deliberately failing check, a scope violation under a live guard |
 | **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | each dispatched and verified at least once in the rehearsal project |
 
 Phase 3 is the one that matters. Everything before it is scaffolding, and
@@ -597,3 +597,57 @@ a hook that is not there, a check with no negative control beside it. It is
 the same discipline this pipeline imposes on the projects it runs, pointed at
 itself, and it caught its own self-exemption: it had excluded itself from its
 own `uncontrolled-check` scan.
+
+
+---
+
+## 15. What the first real dispatch found
+
+One task — a word counter with five tests — dispatched to a live supervisor
+which dispatched two workers. The work came back green, correct and honestly
+reported. **Six defects surfaced, and every one of them was in this design
+rather than in the agents' work.** They are recorded here because the pattern
+matters more than the list: each was invisible on paper and obvious within
+one real run.
+
+1. **Commit attribution charged the manager's commits to the task.**
+   `check_scope` matched `git log --grep T-1`, which also matched the
+   manager's own `board: claim T-1` and `plan: T-1 and T-2`. A supervisor
+   could therefore never close a task cleanly, through no fault of its own.
+   Attribution is now by **subject prefix** — the commit form the `work`
+   skill already mandates.
+
+2. **A report cannot contain the hash of the commit it is committed in.**
+   P-16 puts the block in the same commit as the work, so the content would
+   have to hash to a value written inside the content. Both workers hit this
+   and **refused to invent a placeholder**, which was the right call. The
+   form is now `- HEAD <subject>`: `HEAD` marks this commit, and the subject
+   is what resolves it afterwards.
+
+3. **P-16, P-17 and the record check could not all hold for a supervisor.**
+   Committing the final message whole would leave a *worker's* block last in
+   the file, so the check validated a worker's step report instead of the
+   supervisor's. A supervisor now commits its own block alone; the workers'
+   blocks already stand above it, and the *message* carries them appended.
+
+4. **The supervisor had no `git add` or `git commit`**, while §6 required it
+   to close with a clean tree and a title line only it writes.
+
+5. **A tests-first step was not runnable as planned.** Its verification was
+   `pytest --collect-only`, which cannot pass while the module the tests
+   import does not exist. The supervisor widened the step's scope to include
+   a stub — work the plan should have done, now in the `plan` skill.
+
+6. **The estimate was 26x low.** 8,000 tokens estimated against ~210,000
+   actual, because it counted the code to be written. Almost none of the cost
+   is typing; it is reading, verifying and reporting.
+
+**What did not go wrong is worth as much.** The tests-first ordering survived
+— the worker wrote five genuinely failing tests before any implementation,
+rather than tests shaped around code it had already written. Both workers
+reported red honestly at the step where red was correct. The supervisor
+verified each step, accepted each after one attempt, passed both worker
+reports upward verbatim, raised two well-formed reversible questions with
+recommendations, and **reported four of the six defects above itself** rather
+than working around them silently. That is the behaviour the whole protocol
+is trying to buy.
