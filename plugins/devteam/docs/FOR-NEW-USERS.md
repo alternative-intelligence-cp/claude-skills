@@ -52,6 +52,19 @@ It is **front-loaded on purpose**. The interview and the plan will feel slow
 relative to just writing the thing. Whether that trade pays is exactly what
 we are trying to find out, and **your answer is data whichever way it goes.**
 
+**We think it is probably too heavy, and we want you to say so.** One project
+run through it produced 1,865 lines of design documents for a tool that will be
+about 200 lines of code. That may be right for something whose correctness is
+the whole point, and it is plainly wrong for a utility somebody needs this
+afternoon. Every change made to this pipeline so far has made it *stricter* and
+not one has made it *simpler* — because a defect is evidence and "that was
+tedious and bought me nothing" is a feeling, and nobody has yet been in a
+position to report one.
+
+**You are.** If a step is ceremony, name it. If you would delete a whole skill,
+say which. That is not a complaint we will tolerate; it is the finding we are
+missing, and it is worth more to us than another edge case.
+
 ## The one instruction that matters
 
 **When a skill tells you to do something impossible, wrong, or absurd — report
@@ -79,5 +92,12 @@ sentence you could send back.
 ## What to send back
 
 Problems in the shape of [`REPORTING-PROBLEMS.md`](REPORTING-PROBLEMS.md), and
-at the end, four sentences on: what it was good at, what it was bad at, whether
-you would use it again unprompted, and what you would delete.
+at the end, four sentences on:
+
+1. what it was **good** at
+2. what it was **bad** at
+3. whether you would use it again **unprompted**, on your own work, with nobody
+   watching — that is the only question whose answer cannot be polite
+4. **what you would delete** — a step, a document, a gate, a whole skill. Name
+   something. "Nothing" is an acceptable answer only if you genuinely mean it,
+   and we would rather you were blunt than generous.
