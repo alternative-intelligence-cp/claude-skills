@@ -1338,6 +1338,34 @@ message says the heredoc is a limit rather than permission.
 The corollary is a question worth asking of every rule here: **where will
 somebody be standing when this matters, and is the rule there?**
 
+### The other failure between two agents: a loop that produces genuine findings
+
+Assent is the first failure mode. This is the second, and it is harder to see
+because it does not feel like a failure at any point.
+
+The manager and the plugin's author exchanged roughly a dozen round trips, each
+one a reply to the last, **with nothing on the question table and one task
+running.** Every message contained real findings. Every reply was justified by
+the message before it. And the manager's contribution over that window was
+**zero dispatches and zero board moves** while its largest task ran unattended.
+
+Its own diagnosis: *"a loop that is producing findings is the hardest kind to
+notice, because the output is genuine and each reply is justified by the one
+before it."* The loop's own rule already covered it — the run skill says
+escalations go up as a **batch** — and a correspondence is what happens when
+one message gets one reply.
+
+**The tell is not the quality of the exchange, it is what stopped moving while
+it happened.** So the question to ask of any long exchange between two agents
+is not "is this productive?", which it plainly is, but *what has not advanced
+since this started?* Both parties here answered "nothing" and neither had
+noticed.
+
+The fix is the rule that already existed, applied to the channel rather than to
+escalations: **batch.** One dense message that closes several threads beats six
+that each close one, and the cost of the second form is invisible because every
+individual message is worth sending.
+
 ### Between two agents the failure mode is assent, and the escape is being wrong out loud
 
 Named by the manager after it happened three times in one day, and it turns out

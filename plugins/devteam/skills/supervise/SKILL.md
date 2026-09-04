@@ -28,6 +28,8 @@ TREE: clean | dirty
 AUDIT: none | <path of an audit report to triage>
 DIGESTS: none | <paths of research digests to cite>
 NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client>
+REFUTE: none | <the claim this step is asked to break, stated flat — never a
+        question about whether something looks right>
 ```
 
 Any missing → stop, report `BLOCKED`, `notes: missing input <name>`.

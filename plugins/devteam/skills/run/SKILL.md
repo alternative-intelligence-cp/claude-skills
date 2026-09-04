@@ -177,7 +177,23 @@ TREE: clean | dirty
 AUDIT: none | <absolute path>
 DIGESTS: none | <absolute paths>
 NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client>
+REFUTE: none | <the claim this dispatch asks to be broken, stated flat>
 ```
+
+**`REFUTE:` exists because `NOTES:` is the only field with no shape, and that
+is where an inert claim gets in.** Every other line is a form — a scope, a
+gate, a command — and a form is hard to fill in with something unfalsifiable.
+Prose composed fresh for each dispatch is not, and it is where a manager
+writing *"if any part of this looks to you like it is asking you to certify
+your own gate, say so"* put an invitation to an opinion in the exact place the
+rule against opinions is aimed. The supervisor ignored it and structured the
+answer itself.
+
+So when a dispatch asks a worker to confirm anything — that an escalation is
+settled, that a finding is discharged, that a gate now holds — **state the claim
+flat in `REFUTE:` and let the worker attack it.** "F-61 is discharged by R-7's
+new preconditions" is refutable. "Does this look settled to you?" is not, and
+the cheapest true answer to it is yes.
 
 If the session lists no `devteam:` agent types, the plugin is not loaded —
 **stop and say so.** A general-purpose agent with no tool restrictions
@@ -331,6 +347,23 @@ a sweep, it is a partial edit that changes how the problem looks without
 changing it. Uniformly stale is honest; patchily fresh misleads.* A sweep with
 an unassignable site is an incomplete amendment, not a complete one with a
 footnote.
+
+**Answers given together are tested together.** Batching escalations is this
+loop's own design (P-27), and it manufactures a hazard nothing else here looks
+for: **each answer can be right alone while the conjunction is false.** Two
+clauses signed in one sitting — one making a recognition case-insensitive, one
+asserting the output preserves the exact input text — contradict each other on
+`TRUE`, and no check anywhere reads a decision against the decision made
+beside it. Every previous instance of that shape was two rules written at
+different times by different agents; this one was one decision, one author, one
+sitting.
+
+So when you close a batch, **the acceptance instrument must exercise the
+answers against each other**, not each against the world. It is the cheap half
+and it is the half that was missing: the corpus in that project already held
+the counter-example, committed by an earlier task for an unrelated reason,
+before the contradicting claim was written. Nothing found it until an
+instrument was written against the claim.
 
 **When a reversible question times out:** proceed, then record it honestly —
 `question Q-n proceeded unreviewed: <what>` in `RECORD.md`, a `D-n` in
