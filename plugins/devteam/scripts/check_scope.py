@@ -18,6 +18,10 @@ Findings:
   undeclared-write    a task's commits touched a path outside its scope
   empty-scope         a task declares no scope and so cannot be claimed safely
   scope-escapes-tree  a scope entry that leaves the project root
+  foreign-write       an uncommitted path outside every live scope, while at
+                      least one task is claimed. Since the guard polices only
+                      this run's own agents, a write by anybody else is
+                      reported rather than refused
 
 Usage:  check_scope.py <project> [T-n]
         no task id: pairwise overlap among every live task
@@ -156,6 +160,65 @@ def check(project, task_id=None):
             add("empty-scope", rel, f"{ident} is {status.split()[0]} and declares no scope")
 
     live = [t for t, (_, s, _) in tasks.items() if s.startswith("RUNNING")]
+
+    # A WRITE BY SOMEBODY WHO IS NOT IN THIS RUN.
+    #
+    # The guard used to refuse every write into this tree by any session while
+    # a claim was live. That over-reached -- it made a repository with an owner
+    # unusable, and a real team declined the pipeline over it -- so the guard
+    # now polices only this run's own agents. The protection was traded for
+    # composability, and this is what replaces it: not a refusal, which was
+    # never ours to make, but a finding the manager can see.
+    #
+    # A peer asked the question that produced this, and it is the right one to
+    # ask of any mitigation offered for a removed control: does verification
+    # look where the NEW gap is, or where the old one was? It did not. The
+    # answer given -- "the manager finds it at verification" -- was false when
+    # it was written: `undeclared-write` inspects a TASK'S OWN commits, and
+    # `dirty-tree` is scoped to the task's own paths, so a stranger's writes
+    # were examined by nothing at all.
+    #
+    # Coverage now, stated exactly, because a half-covered check that sounds
+    # whole is the thing this project keeps finding:
+    #   - a stranger's COMMIT touching a live scope -- already caught, as
+    #     `misattributed-write`, since its subject names no task;
+    #   - a stranger's UNCOMMITTED write, anywhere outside every live scope --
+    #     caught here;
+    #   - a stranger's COMMIT outside every live scope -- NOT CAUGHT. It
+    #     touches nothing any task claims and names no task, so nothing in the
+    #     run has a reason to look at it. Naming this rather than implying it
+    #     is covered is the whole point of the paragraph.
+    #
+    # `devteam/` is excluded because it has its own rule: it is the run itself,
+    # the guard still refuses a stranger's write into it, and the board is
+    # deliberately always writable.
+    if live:
+        union = [e for ident in live for e in clean.get(ident, [])]
+        # `-uall`, NOT the default. Plain `--porcelain` collapses an
+        # untracked directory to its shortest prefix, so a worker creating
+        # `src/loader/new/x.py` in a tree where nothing under `src/` is tracked
+        # yet gets reported as `src/` -- which no scope covers, so the check
+        # accuses the run's own worker of being a stranger. Caught by a
+        # false-positive control on the first run, which is the only reason
+        # this is a comment rather than a defect.
+        rc, out = git(repo, "status", "--porcelain", "-uall")
+        if rc == 0:
+            for line in out.split("\n"):
+                # The status code is two columns wide and a leading space is
+                # part of it, so the path starts at column 3 and must not be
+                # lstripped off the code.
+                if len(line) < 4:
+                    continue
+                path = line[3:].strip().split(" -> ")[-1].strip('"')
+                if not path or path == "devteam" or path.startswith("devteam/"):
+                    continue
+                if covers(union, path):
+                    continue
+                add("foreign-write", "BOARD.md",
+                    f"{path} is modified and lies outside every live scope "
+                    f"({', '.join(live)}). No agent of this run should have "
+                    "written it, and the guard no longer refuses a session "
+                    "that is not part of the run")
 
     # A commit touching a LIVE task's scope whose subject does not name that
     # task took the work away from it. The manager is the one party guaranteed

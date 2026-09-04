@@ -1173,11 +1173,42 @@ multi-hour run at width 3, where worker subagents wrote task files under a
 board whose writer line named the manager, and were not refused.
 
 **What the trim accepts, stated plainly.** A session outside the run can now
-write the product tree during a run without being refused. Nothing catches
-that automatically; the manager finds it at verification. That is the correct
+write the product tree during a run without being refused. That is the correct
 trade — a repository with two owners is a coordination problem the pipeline
 never had standing to solve, and pretending to solve it is what turned a user
 away.
+
+**The mitigation offered for it was false, and the same peer caught that too.**
+The sentence originally written here was "nothing catches that automatically;
+the manager finds it at verification". Their question — *does verification look
+where the NEW gap is, or where the old one was?* — is the right one to ask of
+any mitigation offered for a removed control, and the answer was: where the old
+one was. `undeclared-write` inspects a **task's own** commits; `dirty-tree` is
+scoped to the task's own paths. A stranger's writes were examined by nothing at
+all. A claim about one's own system, written confidently, unchecked, in the
+same commit that removed the control it was excusing.
+
+So `check_scope` gained `foreign-write`, and the coverage is now worth stating
+exactly rather than summarising, because a half-covered check that sounds whole
+is this project's most repeated finding:
+
+| A stranger's… | caught? |
+|---|---|
+| commit touching a live scope | **yes**, already — `misattributed-write`, since its subject names no task |
+| uncommitted write outside every live scope | **yes** — `foreign-write` |
+| commit outside every live scope | **no.** It touches nothing any task claims and names no task, so nothing in the run has a reason to look at it |
+
+The third row is not a defect to fix later; it is the residual of the trade,
+and naming it is the point.
+
+**And the first control run caught a false positive in the new check.**
+`git status --porcelain` collapses an untracked directory to its shortest
+prefix, so a worker creating `src/loader/new/x.py` in a tree with nothing
+tracked under `src/` came back as `src/` — which no scope covers, so the check
+accused the run's own worker of being the stranger. `-uall` fixes it. This is
+the entire argument for the rule that more than a third of a guard's cases must
+be false-positive controls: the fault was in the *new* code, on its *first*
+run, and it was the kind that gets a guard switched off rather than fixed.
 
 **And it is the first change here that removed a rule rather than adding one.**
 Sixty-eight findings had made this pipeline stricter and none had made it

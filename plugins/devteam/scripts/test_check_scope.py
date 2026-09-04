@@ -27,6 +27,36 @@ BASE = {
 CASES = [
     ("clean", BASE, None, [], set()),
 
+    # --- foreign-write: a write by somebody who is not in this run ---------
+    # The guard no longer refuses a session outside the run, so this finding
+    # is what replaces that refusal. Every case below is (…, dirty=[…]) --
+    # written after the last commit and never staged.
+    ("foreign-write",
+     BASE, None, [], {"foreign-write"}, "T-1: the work", (),
+     [("other/thing.py", "written by nobody in this run\n")]),
+    ("foreign-write-untracked-file",
+     BASE, None, [], {"foreign-write"}, "T-1: the work", (),
+     [("src/other/new.py", "brand new\n")]),
+    # THE COLLAPSE HAZARD, and it fired on the first run. Plain `--porcelain`
+    # reports an untracked directory as its shortest prefix, so this new file
+    # came back as `src/` -- outside every scope -- and the check accused the
+    # run's own worker of being a stranger. `-uall` is what makes it a path.
+    ("fp-untracked-file-inside-a-live-scope-is-not-collapsed",
+     BASE, None, [], set(), "T-1: the work", (),
+     [("src/loader/new/x.py", "a worker creating a subdirectory\n")]),
+    # ...and the three ways it must stay quiet. A worker mid-step leaves its
+    # own scope dirty constantly; the run writes devteam/ constantly; and with
+    # nothing claimed there is no run to be foreign to.
+    ("fp-dirty-inside-a-live-scope-is-a-worker-mid-step",
+     BASE, None, [], set(), "T-1: the work", (),
+     [("src/loader/a.py", "half a step\n")]),
+    ("fp-dirty-inside-devteam-is-the-run-itself",
+     BASE, None, [], set(), "T-1: the work", (),
+     [("devteam/RECORD.md", "the manager writing its record\n")]),
+    ("fp-dirty-with-no-live-claim-is-not-foreign-to-anything",
+     {**BASE, "T-1": task("T-1", "DONE (2026-09-03)", ["src/loader/", "tests/loader/"]), "T-2": task("T-2", "DONE (2026-09-03)", ["src/render/"])}, None, [], set(), "T-1: the work", (),
+     [("other/thing.py", "nothing is claimed\n")]),
+
     # --- one fault per class ----------------------------------------------
     ("overlapping-scope",
      {**BASE, "T-2": task("T-2", "RUNNING (since 2026-09-03, T2-b-1210)", ["src/", "docs/"])},
@@ -130,7 +160,7 @@ CASES = [
 ]
 
 
-def build(root, tasks, writes, subject="T-1: the work", later=()):
+def build(root, tasks, writes, subject="T-1: the work", later=(), dirty=()):
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     for ident, body in tasks.items():
@@ -158,6 +188,15 @@ def build(root, tasks, writes, subject="T-1: the work", later=()):
                 fh.write(body)
         run("add", "-A")
         run("commit", "-q", "--allow-empty", "-m", msg)
+    # Written AFTER every commit and never staged. `foreign-write` is the one
+    # finding about the working tree rather than history, so it is the one
+    # thing this harness could not express -- every fixture committed
+    # everything, which is why the check passed 27 cases without once firing.
+    for rel, body in dirty:
+        f = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(f), exist_ok=True)
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write(body)
     return root
 
 
@@ -167,9 +206,10 @@ def main():
         name, tasks, task_id, writes, expected = case[:5]
         subject = case[5] if len(case) > 5 else "T-1: the work"
         later = case[6] if len(case) > 6 else ()
+        dirty = case[7] if len(case) > 7 else ()
         root = tempfile.mkdtemp(prefix="devteam-scope-")
         try:
-            build(root, tasks, writes, subject, later)
+            build(root, tasks, writes, subject, later, dirty)
             argv = [sys.executable, CHECK, root] + ([task_id] if task_id else [])
             proc = subprocess.run(argv, capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
