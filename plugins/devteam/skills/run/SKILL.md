@@ -232,6 +232,22 @@ Due after every *n* closed tasks (the charter says how many), at every
 milestone, and whenever the client asks. Run `/devteam:checkpoint`; it files a
 verdict.
 
+**And due inside a task that is large enough to hide a checkpoint's worth of
+drift.** A cadence counted in *closed tasks* silently assumes tasks are roughly
+the same size, and nothing enforces that. One project's plan grew a task
+holding **nine of thirteen requirements, six step-units and about a third of
+everything the project had spent** — legitimately, by three separate good local
+decisions — and under a three-task cadence it would have run start to finish
+with no checkpoint at all. Every step inside it is still verified, so the
+failure is not that nobody is looking; it is that **nobody is looking at the
+shape of the whole thing** while there is still a cheap moment to change it.
+
+So: **a task estimated at more than a third of the project's remaining budget,
+or at more than the cadence's task count in step-units, takes a checkpoint at
+its halfway step-unit.** Mid-task is an awkward moment for one and that is the
+point — the alternative is a checkpoint after the fact, which is a post-mortem
+with a verdict field.
+
 - `ON-COURSE` → record it and keep going. **Do not interrupt the client.**
 - `DRIFTED` → this goes to the client, with what drifted and a recommendation.
 - `BLOCKED` → to the client, with what is needed.
