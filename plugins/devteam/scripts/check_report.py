@@ -54,7 +54,7 @@ def git(root, *args):
         return 127, ""
 
 
-def parse_report(lines, task_id=None):
+def parse_report(lines, task_id=None, step_id=None):
     """The last REPORT block FOR THIS TASK, as (role, task, step, fields).
 
     Not simply the last block in the file. A supervisor's record holds its
@@ -70,7 +70,8 @@ def parse_report(lines, task_id=None):
     i = starts[-1]
     if task_id:
         own = [j for j in starts
-               if (m := HEADER.match(lines[j])) and m.group(2) == task_id and not m.group(3)]
+               if (m := HEADER.match(lines[j])) and m.group(2) == task_id
+               and (m.group(3) == step_id if step_id else not m.group(3))]
         if own:
             i = own[-1]
     m = HEADER.match(lines[i])
@@ -91,7 +92,11 @@ def parse_report(lines, task_id=None):
     return m.group(1), m.group(2), m.group(3), fields
 
 
-def check(project, task_id):
+def check(project, want_id):
+    """`want_id` is `T-n` or `T-n.S-m`. A step is checked as a step: it does
+    not own the task's title line, so its status is never compared to it."""
+    task_id, _, step_id = want_id.partition(".")
+    step_id = step_id or None
     findings = []
     add = lambda kind, detail: findings.append((kind, detail))
 
@@ -114,14 +119,24 @@ def check(project, task_id):
     if not any(RECORD_HEADING.match(l) for l in lines):
         add("no-report", "the task file has no `## Execution record` section")
 
-    parsed = parse_report(lines, task_id)
+    parsed = parse_report(lines, task_id, step_id)
     if parsed is None:
         add("no-report", "no REPORT block in the execution record")
         return findings
 
-    _role, reported_task, _step, fields = parsed
-    if reported_task != task_id:
-        add("wrong-task", f"the last block reports {reported_task}, not {task_id}")
+    _role, reported_task, reported_step, fields = parsed
+    found = f"{reported_task}.{reported_step}" if reported_step else reported_task
+    # Asking for a task and finding only one of its steps is a mid-flight
+    # state, not a wrong report: the task has simply not reported yet, and the
+    # step block is still worth checking on its own terms. Only a DIFFERENT
+    # task, or a step other than the one asked for, is wrong.
+    if reported_task != task_id or (step_id and reported_step != step_id):
+        add("wrong-task", f"the last block reports {found}, not {want_id}")
+    # A block that describes a STEP is not the task's own report. Comparing its
+    # status to the task's title produced a spurious `status-mismatch` on every
+    # mid-flight step verification, because a finished step sits under a
+    # RUNNING task by definition.
+    is_step = bool(reported_step)
 
     for key in REQUIRED:
         if key not in fields:
@@ -137,13 +152,13 @@ def check(project, task_id):
         status = ""
 
     if status in CLOSING:
-        if title_status and not title_status.startswith(("DONE", "READY-TO-AUDIT")):
+        if not is_step and title_status and not title_status.startswith(("DONE", "READY-TO-AUDIT")):
             add("status-mismatch", f"status {status} but the title says {title_status!r}")
         checks = [c for c in fields.get("checks", []) if c.strip() and c.strip() != "none"]
         if not checks:
             add("no-evidence", f"status {status} with no `checks:` lines — "
                                "a requirement is discharged by evidence, never by assertion")
-    elif status and title_status and title_status.startswith("DONE"):
+    elif status and not is_step and title_status and title_status.startswith("DONE"):
         add("status-mismatch", f"status {status} but the title says {title_status!r}")
 
     rc, _ = git(repo, "rev-parse", "--git-dir")
@@ -180,7 +195,7 @@ def check(project, task_id):
         if subject and subject not in subjects:
             add("unknown-commit", f"no commit has the subject {subject[:60]!r}")
 
-    if status in CLOSING:
+    if status in CLOSING and not is_step:
         rc, out = git(repo, "status", "--porcelain")
         if rc == 0 and out:
             add("dirty-tree", f"{len(out.splitlines())} uncommitted path(s) on status {status}")
@@ -196,8 +211,8 @@ def main(argv):
         print(__doc__.strip().split("Usage:")[-1].strip(), file=sys.stderr)
         return 2
     project, task_id = os.path.realpath(argv[1]), argv[2]
-    if not re.fullmatch(r"T-\d+", task_id):
-        print(f"check_report: {task_id!r} is not a task id", file=sys.stderr)
+    if not re.fullmatch(r"T-\d+(\.S-\d+)?", task_id):
+        print(f"check_report: {task_id!r} is not a task or step id", file=sys.stderr)
         return 2
     findings = check(project, task_id)
     if findings:

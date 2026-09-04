@@ -159,8 +159,12 @@ def check(project, task_id=None):
                     f"{hit[0]!r} / {hit[1]!r}")
 
     if task_id:
-        if task_id not in tasks:
-            return [("no-file", f"tasks/{task_id}.md", "no such task")]
+        # `T-n` or `T-n.S-m`. A step inherits its task's declared scope, so a
+        # verifier judging one step has the same check available as one
+        # judging the whole task.
+        base, _, step = task_id.partition(".")
+        if base not in tasks:
+            return [("no-file", f"tasks/{base}.md", "no such task")]
         # Attribute by SUBJECT PREFIX, not by grepping the whole message.
         # `--grep T-1` also matched the manager's own `board: claim T-1` and
         # `plan: T-1 and T-2` commits and charged their paths to the task, so
@@ -169,10 +173,11 @@ def check(project, task_id=None):
         # The work skill mandates the subject form `T-n:` / `T-n.S-m:`, so the
         # prefix is exactly the set of commits the task actually made.
         rc, out = git(repo, "log", "--format=%H%x00%s", "--all")
-        prefix = re.compile(rf"^{re.escape(task_id)}(\.S-\d+)?\s*:")
+        prefix = re.compile(rf"^{re.escape(task_id)}\s*:" if step
+                            else rf"^{re.escape(base)}(\.S-\d+)?\s*:")
         shas = [line.split("\0", 1)[0] for line in out.strip().split("\n")
                 if "\0" in line and prefix.match(line.split("\0", 1)[1])]
-        allowed = clean[task_id] + [f"devteam/tasks/{task_id}.md"]
+        allowed = clean[base] + [f"devteam/tasks/{base}.md"]
         seen = set()
         for sha in shas:
             rc, files = git(repo, "show", "--name-only", "--format=", sha)
@@ -180,7 +185,7 @@ def check(project, task_id=None):
                 if path in seen or covers(allowed, path):
                     continue
                 seen.add(path)
-                add("undeclared-write", tasks[task_id][0],
+                add("undeclared-write", tasks[base][0],
                     f"{task_id} committed {path}, which its scope does not cover")
     return findings
 
@@ -190,8 +195,8 @@ def main(argv):
         print("usage: check_scope.py <project> [T-n]", file=sys.stderr)
         return 2
     task_id = argv[2] if len(argv) > 2 else None
-    if task_id and not re.fullmatch(r"T-\d+", task_id):
-        print(f"check_scope: {task_id!r} is not a task id", file=sys.stderr)
+    if task_id and not re.fullmatch(r"T-\d+(\.S-\d+)?", task_id):
+        print(f"check_scope: {task_id!r} is not a task or step id", file=sys.stderr)
         return 2
     findings = check(os.path.realpath(argv[1]), task_id)
     if findings is None:

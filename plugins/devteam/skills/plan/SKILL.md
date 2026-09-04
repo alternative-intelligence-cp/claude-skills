@@ -57,6 +57,22 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" .
 3. **A task is one worker's worth of work.** If you cannot say what command
    proves it, it is too big or too vague — split it.
 
+**A verification command must be able to FAIL.** This is the one that is
+easiest to get wrong and hardest to notice. A step's verify is evidence only
+if it would have come out differently before the step was done — otherwise it
+is a green light wired to nothing.
+
+The test is mechanical and cheap: **run the command against the tree as it
+stood before the change** (`git archive HEAD~1` into a scratch directory) and
+confirm it *fails* there. A real supervisor found its planned command printed
+identically on the pre-change tree, rejected the step, wrote a replacement —
+and found that vacuous too, because `pytest` reports `configfile:
+pyproject.toml` whether or not the table it was checking for exists. Only the
+third command actually discriminated.
+
+A command that cannot fail is worse than no command, because it converts "we
+did not check" into "we checked and it was fine".
+
 **A tests-first step still needs something to import.** A step whose
 verification is "the tests collect" cannot pass while the module those tests
 import does not exist — collection fails before any assertion runs. So a

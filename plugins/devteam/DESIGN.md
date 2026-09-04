@@ -605,8 +605,9 @@ own `uncontrolled-check` scan.
 
 One task — a word counter with five tests — dispatched to a live supervisor
 which dispatched two workers. The work came back green, correct and honestly
-reported. **Eleven defects surfaced, and every one of them was in this design rather
-than in the agents' work.** They are recorded here because the pattern
+reported. **Eleven defects surfaced from the first task alone, and every one of them
+was in this design rather than in the agents' work.** A second task, run after
+they were fixed, found seven more (§16). They are recorded here because the pattern
 matters more than the list: each was invisible on paper and obvious within
 one real run.
 
@@ -737,3 +738,73 @@ reports upward verbatim, raised two well-formed reversible questions with
 recommendations, and **reported four of the six defects above itself** rather
 than working around them silently. That is the behaviour the whole protocol
 is trying to buy.
+
+
+---
+
+## 16. What the second dispatch found
+
+T-2 ran after every fix above, with the guard live and a real
+`devteam:supervisor`. It closed `DONE` with `check_report` clean — which was
+the point: the corrected report format works. Three steps, four workers, one
+step rejected and re-run, seven further findings.
+
+**The rejection is the most interesting thing in this project so far.** The
+supervisor refused step S-0 not because the artifact was wrong — it was
+correct at both attempts — but because **its verification command could not
+have failed.** The planned command printed identically against a tree exported
+from before the change. Its own first replacement was vacuous too, because
+`pytest` reports `configfile: pyproject.toml` whether or not the table being
+checked for exists. Only the third command discriminated, and the worker then
+demonstrated it three independent ways, including running the same command
+unmodified against a `git archive HEAD~1` export in a separate directory.
+
+This is a class of defect nothing in the design had named: **a green light
+wired to nothing**. A command that cannot fail converts "we did not check"
+into "we checked and it was fine", which is strictly worse than an admitted
+gap. Both the `plan` and `supervise` skills now require a verify command to be
+shown capable of failing, and rejecting a step for a vacuous instrument is
+stated as a legitimate FAIL even when the work is perfect.
+
+The other six:
+
+1. **The heartbeat added two commits earlier contradicted the verifier.** A
+   heartbeat in the task file dirties the tree; a verifier requires a clean
+   one. A supervisor blocked for fourteen minutes on a verifier had no
+   sanctioned way to show it was alive. The heartbeat now goes in untracked
+   `.run/locks/`.
+2. **`check_report` on a mid-flight task fell back to a step's block** and
+   compared its `DONE` to the task's `RUNNING` title — a spurious
+   `status-mismatch` on every step verification, since a finished step sits
+   under a running task by definition.
+3. **Neither check accepted a dotted id**, so a verifier judging one step had
+   no script-level check aimed at it. Both now take `T-n.S-m`.
+4. **An agent cannot propose a new requirement by number.** `R-3` written
+   inside a recommendation *arguing one should exist* is read as a citation,
+   and fails as `cited-undefined`. The system punished an agent for
+   recommending exactly the thing it should recommend. Proposals now describe
+   the requirement; the manager allocates the number on accepting it.
+5. **`python3 -m` prepends the invoking cwd** to the child's path, so a
+   subprocess test that does not pin `cwd=` can pass by shadowing the import
+   defect it exists to catch.
+6. **A relative ref in a `checks:` line is not stable** — `HEAD~1` names
+   something else once another commit lands.
+
+**And a real defect in the product, found and correctly not fixed.** Charter
+goal G-2 says the tool fails with a clear message rather than a traceback;
+requirement R-2 covers only a missing path. A file of invalid UTF-8 still
+prints a full `UnicodeDecodeError` traceback. The supervisor reproduced it,
+the verifier reproduced it independently, and **it was left unfixed** — R-2
+does not ask for it, and `REQUIREMENTS.md` is manager-owned. It came up the
+chain as a recommendation instead.
+
+That is the traceability check's real limit, worth stating plainly:
+`check_trace` proves every goal has *a* requirement, never that its
+requirements *cover* it. A goal can be fully traced and still half-built, and
+no script will say so. Only reading the goal against the work does — which is
+what a checkpoint is for.
+
+**The estimate missed again, by 7x** — 90,000 tokens against roughly 625,000,
+after already being raised 13x from T-1's measurement. Most of it went to one
+`mechanical` step, because proving an instrument discriminates costs more than
+writing the thing it measures.

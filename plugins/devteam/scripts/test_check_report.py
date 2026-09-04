@@ -124,6 +124,18 @@ CASES = [
                        .replace("checks:\n  - make test -> 12 passed, 0 failed [exit 0]\n",
                                 "checks: none\n")),
      set()),
+    # From the second real dispatch: a mid-flight task whose record holds only
+    # a finished STEP block was reporting a spurious status-mismatch, because a
+    # DONE step necessarily sits under a RUNNING task.
+    ("fp-finished-step-under-a-running-task",
+     task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1"),
+               title="RUNNING (since 2026-09-03, T1-a-1200)"), set()),
+    ("fp-step-checked-by-its-own-dotted-id",
+     task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1"),
+               title="RUNNING (since 2026-09-03, T1-a-1200)"), set(), "T-1.S-1"),
+    ("wrong-step-when-a-dotted-id-is-asked-for",
+     task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1"),
+               title="RUNNING (since 2026-09-03, T1-a-1200)"), {"wrong-task"}, "T-1.S-9"),
     ("fp-step-scoped-report-id",
      task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-2")),
      set()),
@@ -150,11 +162,13 @@ def build(root, body):
 
 def main():
     passed = failed = 0
-    for name, body, expected in CASES:
+    for case in CASES:
+        name, body, expected = case[:3]
+        want = case[3] if len(case) > 3 else "T-1"
         root = tempfile.mkdtemp(prefix="devteam-report-")
         try:
             build(root, body)
-            proc = subprocess.run([sys.executable, CHECK, root, "T-1"],
+            proc = subprocess.run([sys.executable, CHECK, root, want],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
             want_exit = 1 if expected else 0

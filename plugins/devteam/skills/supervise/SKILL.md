@@ -58,6 +58,14 @@ say what command proves it, either the step is wrong or the requirement it
 serves has no acceptance criterion — and the second is an escalation, not
 something to paper over.
 
+**And the command must be able to fail.** Before accepting a step on the
+strength of its verify, satisfy yourself the command would have come out
+differently *before* the work — `git archive HEAD~1` to a scratch tree and run
+it there. A command that passes on the pre-change tree proves nothing, and a
+step accepted on one has been waved through. Rejecting a step for a vacuous
+instrument is a legitimate FAIL even when the artifact is perfectly correct:
+what failed is the evidence, not the work, and the report should say so.
+
 Order them so instruments come before what they guard: the test that proves a
 thing is written before or with the thing, never after it "to save time".
 
@@ -65,13 +73,19 @@ thing is written before or with the thing, never after it "to save time".
 
 1. **Pick the model** for the class, inside `MODEL-BAND`. Never above the
    ceiling; never below the floor.
-2. **Leave a heartbeat, then dispatch.** Append one line to the task file's
-   execution record *before* dispatching:
+2. **Leave a heartbeat, then dispatch.** Write one line to
+   `devteam/.run/locks/<TASK>.heartbeat` *before* dispatching:
    `waiting on S-n (<role>, dispatched <time>)`. You will be blocked for the
    whole time that worker runs, and from outside a blocked supervisor is
-   indistinguishable from a dead one — no output, no tokens, no progress. The
-   line is the only evidence that you are waiting rather than hung, and it is
-   what the manager's recovery procedure reads to tell those apart (P-14).
+   indistinguishable from a dead one — no output, no tokens, no progress. That
+   line is the only evidence you are waiting rather than hung, and it is what
+   the manager's recovery procedure reads to tell those apart (P-14).
+
+   **It goes in `.run/`, which is untracked, and never in the task file.** A
+   heartbeat written into a tracked file dirties the tree, and a verifier
+   requires a clean tree — so a heartbeat left before dispatching a *verifier*
+   would fail the very check it was waiting on. That was found by a supervisor
+   that had no sanctioned way to show liveness across a fourteen-minute wait.
 
 3. **Dispatch one worker** — `devteam:implementer` unless the step's role says
    otherwise — with the step dispatch: your inputs, plus `STEP:`, `ROLE:`,

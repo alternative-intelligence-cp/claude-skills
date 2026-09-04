@@ -110,6 +110,27 @@ budget: tokens=<n> minutes=<n>
 notes: none | <free text>
 ```
 
+**Never propose a new requirement by number.** `R-3` written anywhere — even
+inside a recommendation saying one *should exist* — is read as a citation, and
+a citation to a requirement nobody has declared is a `cited-undefined` finding
+against you. Describe it instead: *"a requirement for undecodable input,
+same one-line form as R-2"*. The manager allocates the number when it accepts
+the proposal, because numbering is how a project records that it agreed to
+something.
+
+**Three traps worth knowing before you meet them.**
+
+- **`python3 -m <module>` prepends the invoking process's cwd** to the child's
+  `sys.path`. A subprocess test that does not pin `cwd=` can pass by
+  accidentally shadowing the very import defect it exists to catch.
+- **A relative ref is not stable in a report.** `HEAD~1` in a `checks:` line
+  means something different the moment another commit lands on top. Name the
+  commit, not its position.
+- **A green run on an unchanged tree is not evidence.** If your step's verify
+  passes just as happily before your work as after it, say so in your report
+  rather than banking it. That is a finding about the plan, and reporting it
+  is worth more than a clean pass.
+
 **Naming the commit you are inside.** Your report is committed in the same
 commit as your work (P-16), so that commit's own hash cannot appear inside it
 — the content would have to hash to a value written in the content. Write
