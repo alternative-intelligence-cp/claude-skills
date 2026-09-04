@@ -48,7 +48,7 @@ DECLARATIONS = (
 KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F"}
 TASK_FILE = re.compile(r"(^|/)tasks/[^/]+\.md$")
 # `T-4.S-2` -- the only form that names which task's step it means.
-QUALIFIED_STEP = re.compile(r"\bT-(\d+)\.S-(\d+)\b")
+QUALIFIED_STEP = re.compile(r"\bT-(\d+)(?:'s)?[.\s]\s*(?=S-)S-(\d+)\b")
 # A STEP TABLE DECLARES ITS STEPS, because a rich step carries a class, a role
 # and a verify command, and those are columns rather than a run-on line.
 #
@@ -74,7 +74,7 @@ TABLE_STEP = re.compile(r"^\|\s*\*{0,2}(S)-(\d+)\*{0,2}\s*\|")
 # reference fired `cited-undefined` against the task using it, unless that task
 # happened to declare the same number. Every control used the form on a task
 # that did, which is the single case where the defect is invisible.
-QUAL_TAIL = re.compile(r"\bT-\d+\.$")
+QUAL_TAIL = re.compile(r"\bT-\d+(?:'s)?[.\s]\s*$")
 # Prefixes that live outside devteam/ and are never declared here. `P-n` is a
 # protocol rule; citing one is correct and must not be reported as undefined.
 EXTERNAL = {"P"}
@@ -311,7 +311,18 @@ def scan(files, base):
                                      f"{decl} already declared at {declared[key]}"))
                 else:
                     declared[key] = f"{rel}:{n}"
-                continue
+                # A STEP LINE IS NOT ONLY A DECLARATION. The checklist form
+                # carries the step's class, role and verify command on the same
+                # line -- 900 characters of it in one real task -- so `continue`
+                # here made every identifier after `**S-1**` invisible. The two
+                # step layouts disagreed about this, and the greedier one
+                # scanned less: the table branch below deliberately does not
+                # `continue`, for exactly this reason, and the checklist branch
+                # fell into the shared path that does. A `D-n` cited only
+                # inside a step's verify command would have vanished, and the
+                # check would then have reported that decision as uncited.
+                if not decl.startswith("S-"):
+                    continue
 
             # A STEP IS NUMBERED PER TASK, so a citation of one resolves
             # against a single file rather than the whole project. Flattening

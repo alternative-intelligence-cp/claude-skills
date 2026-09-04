@@ -4,6 +4,7 @@
 to, and the place its execution record lands. One file per task; the title line
 carries the status and is the first thing recovery reads (P-14).>
 
+<!-- example:begin -->
 - **Kind.** implementation
 - **Discharges.** R-1, R-4
 - **Depends on.** none
@@ -15,6 +16,7 @@ carries the status and is the first thing recovery reads (P-14).>
 - **Verify.** `<the exact command that proves the gate, and its expected summary
   line>`
 - **Estimate.** tokens=<n> minutes=<n>
+<!-- example:end -->
 
 > **`Kind.` decides what this task owes.** `implementation` (the default) owes
 > at least one requirement. A `probe` or a `spike` owes an **Informs.** naming

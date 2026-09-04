@@ -22,6 +22,16 @@ Findings:
                          that does not exist
   dependency-cycle       tasks that can never start, because they wait on
                          each other
+  template-drift         a charter missing a constraint row the CURRENT
+                         template declares. Every other check here diffs the
+                         project against itself; this one diffs it against the
+                         plugin, so a project older than its plugin stops
+                         silently lacking what the plugin has since learned.
+                         Covers the charter's constraints and, through the
+                         derived field lists, requirements and tasks. NOT the
+                         board, decisions, questions, permissions or
+                         checkpoints -- those templates are unmarked and their
+                         drift is still invisible
   unrecorded-amendment   a requirement whose `Requires-write.` changed since it
                          was first committed, with no `Requires-write amended.`
                          naming the decision. The one list the checker's own
@@ -39,6 +49,46 @@ import os
 import re
 import subprocess
 import sys
+
+
+PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXAMPLE = re.compile(r"<!--\s*example:begin\s*-->(.*?)<!--\s*example:end\s*-->", re.S)
+TPL_FIELD = re.compile(r"^-\s+\*\*([A-Za-z][A-Za-z -]*)\.\*\*", re.M)
+TPL_ROW = re.compile(r"^\|\s*([A-Za-z][^|]*?)\s*\|", re.M)
+
+
+def template_names(rel, kind):
+    """Names the CURRENT template declares, in order, or None if unreadable.
+
+    Every other check in this project diffs the project against ITSELF --
+    citations against declarations, tasks against requirements, reports against
+    the tree. Nothing diffed it against the PLUGIN, so an artifact was
+    instantiated once and diverged forever: a template row added afterwards
+    reached nothing already created. A real project was signed six hours before
+    two constraint rows entered the template and silently lacked both for the
+    rest of its life. One of them was the checkpoint cadence, so no checkpoint
+    ever fired; the other was the priority order, so twenty-six decisions cited
+    an order that did not exist. Any project older than its plugin is missing
+    whatever the plugin has learned since, and until now nothing said so.
+    """
+    path = os.path.join(PLUGIN_ROOT, "templates", rel)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            body = fh.read()
+    except OSError:
+        return None
+    out, seen = [], set()
+    for block in EXAMPLE.findall(body):
+        pat = TPL_FIELD if kind == "field" else TPL_ROW
+        for name in pat.findall(block):
+            name = name.strip()
+            # A table's header cell and its `---` separator are not rows.
+            if kind == "row" and (name in ("Constraint", "Value") or set(name) <= set("- ")):
+                continue
+            if name not in seen:
+                seen.add(name)
+                out.append(name)
+    return out or None
 
 DASH = r"[—–-]"
 # A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
@@ -61,9 +111,19 @@ IDS = re.compile(r"\b([GRT]-\d+)\b")
 # is worse than one that fails it.
 PLACEHOLDER = re.compile(r"^\s*(<[^>]*>|_none yet_|tbd|todo|\.\.\.)?\s*$", re.I)
 
-REQ_FIELDS = ("Statement", "Satisfies", "Source", "Acceptance", "Requires-write",
-              "Priority", "Status")
-TASK_FIELDS = ("Discharges", "Depends on", "Scope", "Gate", "Verify")
+# DERIVED FROM THE TEMPLATES, not restated here. A hardcoded list is a second
+# home for the template's contract, and the two drift silently -- which is the
+# defect this whole mechanism exists to catch, so restating it here would have
+# been the check committing its own finding. The literals remain only as a
+# fallback for a plugin whose templates cannot be read, because a check that
+# silently stops checking is worse than one that is slightly out of date.
+REQ_FIELDS = tuple(template_names("REQUIREMENTS.md", "field") or
+                   ("Statement", "Satisfies", "Source", "Acceptance",
+                    "Requires-write", "Priority", "Status"))
+TASK_FIELDS = tuple(n for n in (template_names("tasks/TASK.md", "field") or
+                                ("Discharges", "Depends on", "Scope", "Gate", "Verify"))
+                    if n != "Kind")
+CHARTER_ROWS = template_names("CHARTER.md", "row") or []
 
 STRUCK = re.compile(r"^struck\b", re.I)
 
@@ -203,10 +263,20 @@ def check(devteam):
 
     goals, reqs, tasks = {}, {}, {}
 
-    for n, line in enumerate(read(devteam, "CHARTER.md"), 1):
+    charter = read(devteam, "CHARTER.md")
+    for n, line in enumerate(charter, 1):
         m = GOAL.match(line)
         if m:
             goals[m.group(1)] = f"CHARTER.md:{n}"
+
+    # THE CHARTER AGAINST THE TEMPLATE IT CAME FROM.
+    have = {m.group(1).strip() for m in (TPL_ROW.match(l) for l in charter) if m}
+    for row in CHARTER_ROWS:
+        if row not in have:
+            add("template-drift", "CHARTER.md",
+                f"the charter has no `{row}` row, which the current template "
+                "declares. A charter signed before the template gained a row "
+                "never acquires it, and nothing else would ever say so")
 
     req_lines = read(devteam, "REQUIREMENTS.md")
     req_blocks = blocks_of(req_lines, REQ)

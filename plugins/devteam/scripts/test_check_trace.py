@@ -14,12 +14,32 @@ import tempfile
 HERE = os.path.dirname(os.path.realpath(__file__))
 CHECK = os.path.join(HERE, "check_trace.py")
 
-CHARTER = """# Charter — Fixture
+def _template_rows():
+    """The constraint rows the current template declares."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import check_trace
+    return check_trace.CHARTER_ROWS
+
+
+# The constraints table is generated from the CURRENT template rather than
+# typed out, so this fixture cannot itself go stale the way the artifact it is
+# testing does. A hand-written table here would need editing every time the
+# template gained a row -- and the case that catches a missing row would be the
+# first to break, quietly, in exactly the direction that hides the defect.
+_ROWS = "\n".join(f"| {r} | fixture |" for r in _template_rows())
+
+CHARTER = f"""# Charter — Fixture
 
 ## Goals
 
 - **G-1** — the thing works
 - **G-2** — the thing is documented
+
+## Constraints
+
+| Constraint | Value |
+|---|---|
+{_ROWS}
 """
 
 REQS = """# Requirements
@@ -102,6 +122,7 @@ CASES = [
   - `src/`
 - **Gate.** it still builds.
 - **Verify.** `make`
+- **Estimate.** tokens=100 minutes=5
 """},
      {"unmotivated-task"}),
     ("unverified-requirement",
@@ -155,6 +176,7 @@ CASES = [
   - `probe/`
 - **Gate.** the question is answered either way.
 - **Verify.** `test -s probe/FINDING.md`
+- **Estimate.** tokens=100 minutes=5
 """}, set()),
     ("unjustified-probe-informs-nothing",
      {"tasks/T-3.md": """# T-3 — a probe about nothing — PLANNED
@@ -166,6 +188,7 @@ CASES = [
   - `probe/`
 - **Gate.** g
 - **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
 """}, {"unjustified-task"}),
     ("unjustified-chore-gives-no-reason",
      {"tasks/T-3.md": """# T-3 — a chore — PLANNED
@@ -178,6 +201,7 @@ CASES = [
   - `tools/`
 - **Gate.** g
 - **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
 """}, {"unjustified-task"}),
     ("bad-kind",
      {"tasks/T-3.md": """# T-3 — a task — PLANNED
@@ -189,6 +213,7 @@ CASES = [
   - `x/`
 - **Gate.** g
 - **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
 """}, {"bad-kind"}),
     ("fp-struck-requirement-needs-no-task",
      {"REQUIREMENTS.md": REQS + """
@@ -212,6 +237,26 @@ CASES = [
      {"tasks/T-1.md": T1.replace("- **Discharges.** R-1", "- **Discharges.** R-1, R-2")
                         .replace("  - `src/`", "  - `src/`\n  - `README.md`"),
       "tasks/T-2.md": None},
+     set()),
+
+    # --- template-drift: the project against the PLUGIN --------------------
+    # Every other check here diffs the project against itself, so an artifact
+    # was instantiated once and diverged forever. A real charter was signed six
+    # hours before two constraint rows entered the template and silently
+    # lacked both for the rest of its life -- one of them the checkpoint
+    # cadence, so no checkpoint ever fired.
+    ("template-drift",
+     {"CHARTER.md": CHARTER.replace("| Checkpoint cadence | fixture |\n", "")},
+     {"template-drift"}),
+    ("template-drift-several-rows",
+     {"CHARTER.md": CHARTER.replace("| Checkpoint cadence | fixture |\n", "")
+                           .replace("| Priority order | fixture |\n", "")},
+     {"template-drift"}),
+    # A row present but empty is the interview's problem, not the template's.
+    # Reporting it here would put two different faults under one finding.
+    ("fp-a-row-present-but-unfilled-is-not-drift",
+     {"CHARTER.md": CHARTER.replace("| Priority order | fixture |",
+                                    "| Priority order |  |")},
      set()),
 
     # --- unrecorded-amendment: the list a checker's author could tune -------
@@ -274,6 +319,7 @@ CASES = [
   - `dist/`
 - **Gate.** the artifact exists.
 - **Verify.** `test -e dist/out`
+- **Estimate.** tokens=100 minutes=5
 """},
      set()),
     ("fp-diamond-dependency-is-not-a-cycle",
@@ -285,6 +331,7 @@ CASES = [
   - `a/`
 - **Gate.** a
 - **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
 """,
       "tasks/T-4.md": """# T-4 — b — PLANNED
 
@@ -294,6 +341,7 @@ CASES = [
   - `b/`
 - **Gate.** b
 - **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
 """},
      set()),
     ("fp-running-and-done-tasks-still-trace",

@@ -51,6 +51,7 @@ a `CHARTER` class question (P-26), which always stops for the client.>
 
 ## Constraints
 
+<!-- example:begin -->
 | Constraint | Value |
 |---|---|
 | Language / runtime | <e.g. Python 3.12> |
@@ -68,6 +69,7 @@ a `CHARTER` class question (P-26), which always stops for the client.>
 | Licence | <e.g. Apache-2.0> |
 | Repository | <remote, or `local only`> |
 | Public? | <yes/no — decides whether the leak check gates every push> |
+<!-- example:end -->
 
 ## Risks accepted
 
