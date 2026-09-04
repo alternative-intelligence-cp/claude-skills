@@ -62,19 +62,42 @@ supply — **the escalation window** (how long a reversible question waits
 before the loop proceeds on its recommendation; four hours is the default)
 and **the model band** (a floor and a ceiling, P-40).
 
-## 3. Confirm the guard is live
+## 3. Register the guard, then prove it actually fires
 
-The guard is a `PreToolUse` hook and loads with the plugin. Confirm it is
-working rather than assuming it:
+**Two separate things, and only the second one matters.**
+
+The control proves the guard *script* is correct:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/test_guard.py
 ```
 
-Thirty-two cases, twenty of them false-positive controls. If they do not all
-pass, **say so and stop** — a guard believed to be running and not running is
-worse than no guard, because the loop will be trusted with scopes nothing
-enforces.
+It proves **nothing about whether the hook is registered.** A green control
+and an unregistered hook look identical from here, and that is exactly how
+this pipeline once ran a whole rehearsal believing it was protected while the
+guard never fired once. **Never report a guard as live on the strength of its
+control.**
+
+**Register it.** A plugin's `hooks/hooks.json` is loaded when the plugin is
+installed through the marketplace. If it was installed by symlinking into
+`~/.claude/skills/`, that loads its skills and agents but **not its hooks** —
+register the guard by hand in `~/.claude/settings.json`:
+
+```json
+{ "hooks": { "PreToolUse": [ {
+    "matcher": "Bash|Write|Edit|NotebookEdit",
+    "hooks": [ { "type": "command",
+      "command": "python3 <plugin>/scripts/guard.py", "timeout": 10 } ]
+} ] } }
+```
+
+Hooks are read at session start, so **this needs a restart.**
+
+**Then prove it, end to end.** After the restart, attempt one write the guard
+must refuse — a path outside every declared scope while a task is `RUNNING` —
+and confirm it is actually refused. That single refused write is the only
+evidence that matters. If it goes through, the guard is not protecting
+anything, however green its control is.
 
 The guard is inert until the charter names protected paths and a task is
 `RUNNING`, so it will not obstruct the client's own work before the loop

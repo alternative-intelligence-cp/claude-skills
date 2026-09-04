@@ -120,6 +120,25 @@ CASES = [
 
 # Cases needing a different fixture: (name, tool, session, deny, mutate)
 SPECIAL = [
+    # --- regressions from the live-hook test -----------------------------
+    # The guard derived the project from the SESSION, so a write into a
+    # project the session was not inside went unjudged. That is every
+    # subagent, which inherits the parent's project directory -- the guard
+    # was inert for an entire rehearsal before a deliberate violation went
+    # through unrefused.
+    ("deny-out-of-scope-write-from-a-session-elsewhere",
+     write("src/render/b.py"), WRITER_SESSION, True, None, "/tmp"),
+    ("deny-protected-write-from-a-session-elsewhere",
+     write("vendor/lib/x.c"), WRITER_SESSION, True, None, "/tmp"),
+    ("fp-in-scope-write-from-a-session-elsewhere",
+     write("src/loader/a.py"), WRITER_SESSION, False, None, "/tmp"),
+    # `session in writer` was a substring test: a short id matched inside an
+    # ordinary word in the writer line and was handed the lock.
+    ("deny-session-id-that-is-only-a-substring-of-the-writer-line",
+     write("devteam/RECORD.md"), "sion", True, None, None),
+    ("fp-exact-session-id-still-holds-the-lock",
+     write("devteam/RECORD.md"), WRITER_SESSION, False, None, None),
+
     ("fp-no-live-task-means-no-scope-enforcement",
      write("docs/guide.md"), WRITER_SESSION, False,
      lambda dt: open(os.path.join(dt, "tasks", "T-1.md"), "w").write(
@@ -154,14 +173,14 @@ def build(mutate=None):
     return root
 
 
-def run(root, tool, session):
+def run(root, tool, session, project_dir=None):
     name, ti = tool
     if name in ("Write", "Edit") and not os.path.isabs(ti.get("file_path", "")):
         ti = {**ti, "file_path": os.path.join(root, ti["file_path"])}
     payload = {"tool_name": name, "cwd": root, "session_id": session, "tool_input": ti}
     proc = subprocess.run(
         [sys.executable, GUARD], input=json.dumps(payload), capture_output=True, text=True,
-        env={**os.environ, "CLAUDE_PROJECT_DIR": root})
+        env={**os.environ, "CLAUDE_PROJECT_DIR": project_dir or root})
     out = proc.stdout.strip()
     if not out:
         return False, ""
@@ -175,11 +194,12 @@ def run(root, tool, session):
 
 def main():
     passed = failed = 0
-    all_cases = [(n, t, s, d, None) for n, t, s, d in CASES] + SPECIAL
-    for name, tool, session, expect_deny, mutate in all_cases:
+    all_cases = [(n, t, s, d, None, None) for n, t, s, d in CASES] + [
+        (c + (None,) * (6 - len(c))) for c in SPECIAL]
+    for name, tool, session, expect_deny, mutate, project_dir in all_cases:
         root = build(mutate)
         try:
-            denied, reason = run(root, tool, session)
+            denied, reason = run(root, tool, session, project_dir)
             if denied == expect_deny:
                 passed += 1
             else:

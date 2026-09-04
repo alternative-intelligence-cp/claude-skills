@@ -605,7 +605,7 @@ own `uncontrolled-check` scan.
 
 One task — a word counter with five tests — dispatched to a live supervisor
 which dispatched two workers. The work came back green, correct and honestly
-reported. **Eight defects surfaced, and every one of them was in this design rather
+reported. **Eleven defects surfaced, and every one of them was in this design rather
 than in the agents' work.** They are recorded here because the pattern
 matters more than the list: each was invisible on paper and obvious within
 one real run.
@@ -667,7 +667,40 @@ timestamps, seeds, temporary paths — vary by design). A false FAIL costs
 exactly as much as a false PASS, because both teach people to stop believing
 the verifier.
 
-**An eighth finding, about watching rather than running.** A supervisor is
+**Three findings about the guard, from installing it and then trying to walk
+through it.** These are the worst of the eleven, because for the whole first
+dispatch the guard was believed to be protecting the work and was not.
+
+**Ninth: the guard derived the project from the session, not the target.** Its
+own docstring says a write is judged by its target — and then `find_project()`
+walked up from `CLAUDE_PROJECT_DIR`, so a write into any project the session
+was not inside went unjudged. That is *every subagent*, which inherits the
+parent's project directory. The rule was right and was broken one level above
+where it was written down. The project is now discovered from the target path.
+
+**Tenth: the writer lock used a substring test.** `session in writer` matched
+a short session id inside an ordinary word — `me` inside `names` — and handed
+the lock to a session that never held it. It is now an exact token match.
+
+**Eleventh, and the one worth remembering: a plugin installed by symlinking
+into `~/.claude/skills/` loads its skills and agents but not its
+`hooks/hooks.json`.** The skills and agents appeared after a restart, which
+made the install look complete. The hook never ran. The prior art registers
+its guard explicitly in `~/.claude/settings.json` rather than relying on its
+own hooks file; that duplication was visible from the start, was assumed to be
+historical, and was not checked.
+
+**The lesson underneath all three is one error, and it is the error this whole
+pipeline exists to prevent.** Thirty-two control cases proved the guard
+*script* behaved correctly. Not one of them proved the guard was *running*.
+The artifact was verified and the deployment was reported — which is precisely
+"reported green is not green" (P-18), committed by the author of P-18, against
+his own guard, while writing a system whose central claim is that nobody
+should be trusted to verify their own work. The `setup` skill now says that a
+green control is not evidence the hook fires, and requires one deliberately
+refused write as the only acceptable proof.
+
+**A twelfth finding, about watching rather than running.** A supervisor is
 blocked for the entire time its worker runs, so it emits nothing — no tokens,
 no output, no progress. From outside, a supervisor doing its job is
 indistinguishable from a hung one, and during the first dispatch that read as

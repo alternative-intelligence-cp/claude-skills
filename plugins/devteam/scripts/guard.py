@@ -249,11 +249,28 @@ def load_state(project):
     return protected, live, writer
 
 
-def judge(target, what, project, session, state):
-    """None, or a refusal reason for a target this session may not write."""
+def judge(target, what, session, session_project, cache):
+    """None, or a refusal reason for a target this session may not write.
+
+    The project is discovered by walking up from the TARGET, not from the
+    session's own directory. The guard's own rule is that a write is judged by
+    its target; deriving the project from the session broke that rule one
+    level up, and made the guard silently inert for every write into a project
+    the session did not happen to be inside -- which is every subagent, since
+    they inherit the parent's project directory. It was disabled for an entire
+    rehearsal before a deliberate violation went through unrefused.
+    """
     if target is None:
         return None
-    protected, live, writer = state
+    project = find_project(os.path.dirname(target) or target)
+    if project is None:
+        return None                           # not inside any devteam project
+    if project not in cache:
+        try:
+            cache[project] = load_state(project)
+        except OSError:
+            return None
+    protected, live, writer = cache[project]
     devteam = os.path.join(project, "devteam")
     board = os.path.join(devteam, "BOARD.md")
 
@@ -271,7 +288,10 @@ def judge(target, what, project, session, state):
             return None                       # the board IS the lock
         if writer is None or re.search(r"\bnone\b", writer):
             return None
-        if session and session in writer:
+        # An EXACT token match. `session in writer` is a substring test, and a
+        # short id matched inside an ordinary word -- "me" inside "names" --
+        # handing the lock to a session that never held it.
+        if session and session in re.findall(r"[0-9A-Za-z_-]+", writer):
             return None
         return (f"Refused: {what} into devteam/, and BOARD.md names another session "
                 f"as its writer (this session is {session or 'unknown'}). One "
@@ -279,8 +299,10 @@ def judge(target, what, project, session, state):
                 "the `**Writer.**` line to this session's id — BOARD.md itself is "
                 "always writable — and record the takeover in RECORD.md.")
 
-    if not live or not inside(target, project):
-        return None                           # loop not running, or outside the project
+    if inside(session_project, project) and not live:
+        return None                           # the author's own project, loop idle
+    if not live:
+        return None                           # no claim is in flight; nothing to police
 
     for paths in live.values():
         for p in paths:
@@ -306,15 +328,8 @@ def main():
         return 0
 
     cwd = os.path.realpath(data.get("cwd") or os.getcwd())
-    project_dir = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or cwd)
-    project = find_project(project_dir)
-    if project is None:
-        return 0                              # not a devteam project: inert
-
-    try:
-        state = load_state(project)
-    except OSError:
-        return 0
+    session_project = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or cwd)
+    cache = {}
     session = str(data.get("session_id") or "")
     ti = data.get("tool_input") or {}
 
@@ -324,12 +339,13 @@ def main():
         # after a heredoc is swallowed into the interpreter's segment.
         cmd = strip_heredocs(ti.get("command") or "").replace("\n", " ; ")
         for target, what in targets(cmd, cwd):
-            reason = judge(target, what, project, session, state)
+            reason = judge(target, what, session, session_project, cache)
             if reason:
                 break
     else:
         path = ti.get("file_path") or ti.get("notebook_path") or ""
-        reason = judge(resolve(path, cwd), "a direct write", project, session, state)
+        reason = judge(resolve(path, cwd), "a direct write", session,
+                       session_project, cache)
 
     if reason is None:
         return 0
