@@ -117,6 +117,15 @@ finding on a small project** — it is a question about whether the bar has been
 tested, and the answer may honestly be "not yet". Treat it as one number that
 must be looked at, not as a threshold to pass.
 
+**This step can only count what the briefs asked for, and that is not a
+caveat — it is the thing most likely to make it lie.** A clean §3c produced by
+verifier briefs that never invited disclosure looks exactly like a clean §3c
+produced by verifiers with nothing to disclose. The count is not a measurement
+of the verification layer; it is a measurement of the layer *as the briefs
+shaped it*. So read one dispatch before you believe the number, and if the
+briefs did not ask for gaps as a result, say so here instead of reporting a
+ratio.
+
 **Then ask what the verifiers could not do.** A verifier that quietly downgrades
 an independent rebuild to an independent reading and reports PASS is
 indistinguishable from one that rebuilt, and nothing downstream can tell them
