@@ -682,23 +682,41 @@ where it was written down. The project is now discovered from the target path.
 a short session id inside an ordinary word — `me` inside `names` — and handed
 the lock to a session that never held it. It is now an exact token match.
 
-**Eleventh, and the one worth remembering: a plugin installed by symlinking
-into `~/.claude/skills/` loads its skills and agents but not its
-`hooks/hooks.json`.** The skills and agents appeared after a restart, which
-made the install look complete. The hook never ran. The prior art registers
-its guard explicitly in `~/.claude/settings.json` rather than relying on its
-own hooks file; that duplication was visible from the start, was assumed to be
-historical, and was not checked.
+**Eleventh — and this one is a finding about how the guard is tested, not
+about the guard.** Four consecutive live attempts to walk through it appeared
+to succeed, and were reported as "the hook is not firing". They were invalid
+tests. Every one wrote to `$R/devteam/RECORD.md` — a shell variable — and the
+guard's own docstring states that **a target containing an unexpanded variable
+cannot be resolved and is not judged.** It declined to judge, exactly as
+documented. Repeating the attempt with a literal absolute path was refused
+immediately, as was the same write through the `Write` tool.
 
-**The lesson underneath all three is one error, and it is the error this whole
-pipeline exists to prevent.** Thirty-two control cases proved the guard
-*script* behaved correctly. Not one of them proved the guard was *running*.
-The artifact was verified and the deployment was reported — which is precisely
-"reported green is not green" (P-18), committed by the author of P-18, against
-his own guard, while writing a system whose central claim is that nobody
-should be trusted to verify their own work. The `setup` skill now says that a
-green control is not evidence the hook fires, and requires one deliberately
-refused write as the only acceptable proof.
+This is worth more than an ordinary bug, because it is a trap the guard sets
+for anyone who tests it the obvious way. A shell variable in the path is the
+natural way to write a test, it produces a silent pass, and a silent pass
+reads as a broken guard. **A live guard test must use a literal absolute
+path**, and that is now what the `setup` skill requires.
+
+It also produced a false claim that was committed before it was checked: that
+a plugin symlinked into `~/.claude/skills/` does not load its
+`hooks/hooks.json`. **That remains unproven.** The guard was registered in
+`settings.json` at the same time, so the two cannot be told apart from here,
+and the prior art's identical duplication is not evidence either way. It is
+recorded as unknown rather than quietly dropped, and the honest test is to
+remove the `settings.json` entry at some future restart and see whether a
+literal-path write is still refused.
+
+**The lesson underneath all of it is one error, made twice, and it is the
+error this whole pipeline exists to prevent.** First: thirty-two control cases
+proved the guard *script* behaved correctly, and not one proved the guard was
+*running* — the artifact was verified and the deployment was reported. Then,
+correcting that, a broken test was trusted over a working mechanism and a
+conclusion was published from four runs of it. Both are "reported green is not
+green" (P-18), committed by the author of P-18, against his own guard, while
+building a system whose central claim is that nobody may verify their own
+work. The `setup` skill now separates registering the guard from proving it
+fires, says a green control is evidence of neither, and requires one
+deliberately refused write **with a literal path** as the only proof.
 
 **A twelfth finding, about watching rather than running.** A supervisor is
 blocked for the entire time its worker runs, so it emits nothing — no tokens,

@@ -96,8 +96,14 @@ Hooks are read at session start, so **this needs a restart.**
 **Then prove it, end to end.** After the restart, attempt one write the guard
 must refuse — a path outside every declared scope while a task is `RUNNING` —
 and confirm it is actually refused. That single refused write is the only
-evidence that matters. If it goes through, the guard is not protecting
-anything, however green its control is.
+evidence that matters.
+
+**Use a literal absolute path in that test.** Not `$REPO/...`, not any shell
+variable. The guard cannot resolve a target containing an unexpanded variable
+and does not judge it, so a test written the natural way **passes silently and
+looks exactly like a guard that is not installed.** This trap has already
+been walked into once, and it produced four consecutive false negatives and a
+published claim that had to be retracted.
 
 The guard is inert until the charter names protected paths and a task is
 `RUNNING`, so it will not obstruct the client's own work before the loop
