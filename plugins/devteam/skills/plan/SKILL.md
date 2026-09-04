@@ -108,7 +108,7 @@ by module. Nobody is present at both moments, so nothing compares them.
 
 **So compare them, here, deliberately.** For each requirement, read its
 criterion and ask: *which single task's scope contains everything this sentence
-exercises?* If the honest answer is "none — it needs this module **and** the
+write to?* If the honest answer is "none — it needs this module **and** the
 wiring", then the criterion belongs to the **wiring** task. The module task
 *supports* the requirement; it does not discharge it. Say so in both task
 files, because "supports" and "discharges" are different claims and only one of
@@ -119,19 +119,20 @@ A script cannot reliably tell a process-level sentence from a module-level one,
 and a heuristic that guessed would misfire on ordinary plans — which is how a
 check gets switched off by whoever it obstructs, leaving less than none at all
 (P-35). But it does not have to infer anything. Each requirement declares
-`Exercises.`, the paths its criterion touches; each task declares `Scope.`; and
+`Requires-write.`, the paths its criterion touches; each task declares `Scope.`; and
 `check_trace` reports **`unreachable-acceptance`** when no single task
 discharging the requirement has all of them in scope. Set containment over two
 declared lists, no English parsed.
 
 It fails in the safe direction, which is the property that makes it worth
-adding: an understated `Exercises.` makes the check **miss** a real mismatch
+adding: an understated `Requires-write.` makes the check **miss** a real mismatch
 and never invent one. The residual failure is a criterion whose author did not
-understand what it exercises — and that at least leaves a declaration somebody
+understand what their criterion must write — and that at least leaves a
+declaration somebody
 can read and dispute, instead of a silence.
 
 **You may not quietly widen either list to make it pass.** You draw the scopes,
-so you could make any `Exercises.` fit by editing one or the other, and the
+so you could make any `Requires-write.` fit by editing one or the other, and the
 check would go green having measured nothing — a judge trying his own case. If
 the list is wrong, supersede it as a recorded amendment (P-23) and say which
 you changed and why.

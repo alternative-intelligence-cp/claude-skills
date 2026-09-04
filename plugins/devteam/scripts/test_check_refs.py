@@ -134,6 +134,18 @@ CASES = [
      [replace("QUESTIONS.md", "- **Status.** open", "- **Status.** answered D-1")], set()),
     ("fp-running-task-title",
      [replace("tasks/T-1.md", "— PLANNED", "— RUNNING (since 2026-09-03, T1-mk-1200)")], set()),
+    # The title vocabulary and the REPORT vocabulary overlap in meaning and not
+    # in spelling. `BLOCKED (<why>)` means "waiting on a named task" by design,
+    # so a task stopped on a question for the client had no title state at all
+    # -- while the report status the supervisor had just written has exactly
+    # the right word. One reached for `NEEDS-DECISION` and was told it was a
+    # bad status for using the correct term for its situation.
+    ("fp-needs-decision-task-title",
+     [replace("tasks/T-1.md", "— PLANNED", "— NEEDS-DECISION (R-7 narrows G-3; charter-adjacent)")], set()),
+    # ...and it still needs its parenthetical, like BLOCKED and DONE. A bare
+    # state that cannot say WHY is the "waiting" the board legend forbids.
+    ("bad-status-needs-decision-without-a-reason",
+     [replace("tasks/T-1.md", "— PLANNED", "— NEEDS-DECISION")], {"bad-status"}),
     ("fp-done-task-title",
      [replace("tasks/T-1.md", "— PLANNED", "— DONE (2026-09-03)")], set()),
     ("fp-valid-relative-link",

@@ -89,10 +89,20 @@ VOCAB = (
      re.compile(r"(^|/)QUESTIONS\.md$"),
      re.compile(r"^-\s+\*\*Status\.\*\*\s+(.+?)\s*$"),
      re.compile(r"^(open|answered D-\d+|proceeded-unreviewed D-\d+|withdrawn)$")),
+    # NEEDS-DECISION is here because the two vocabularies OVERLAP IN MEANING
+    # AND NOT IN SPELLING. `BLOCKED (<why>)` means "waiting on a named task",
+    # deliberately -- the board legend forbids a bare "waiting". So a task
+    # stopped on a question for the client had no title state at all, while
+    # the REPORT vocabulary it had just used has exactly the right word. A
+    # supervisor reached for `NEEDS-DECISION` and got `bad-status` for using
+    # the correct term for its actual situation. That is the same gap as the
+    # board once having no state for a task stopped on a question: the fix is
+    # to add the state, not to police the word.
     ("task-title",
      re.compile(r"(^|/)tasks/[^/]+\.md$"),
      re.compile(r"^#\s+T-\d+" + SEP + r".*?" + SEP + r"(.+?)\s*$"),
-     re.compile(r"^(PLANNED|RUNNING \(.+\)|READY-TO-AUDIT|BLOCKED \(.+\)|DONE \(.+\))$")),
+     re.compile(r"^(PLANNED|RUNNING \(.+\)|READY-TO-AUDIT|NEEDS-DECISION \(.+\)"
+                r"|BLOCKED \(.+\)|DONE \(.+\))$")),
     ("checkpoint-verdict",
      re.compile(r"(^|/)checkpoints/[^/]+\.md$"),
      re.compile(r"^#\s+C-\d+" + SEP + r".*?" + SEP + r"(.+?)\s*$"),

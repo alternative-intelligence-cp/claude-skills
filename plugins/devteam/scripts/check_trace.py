@@ -22,11 +22,11 @@ Findings:
                          that does not exist
   dependency-cycle       tasks that can never start, because they wait on
                          each other
-  unreachable-acceptance a requirement whose `Exercises.` set is not contained
+  unreachable-acceptance a requirement whose `Requires-write.` set is not contained
                          in the `Scope.` of any single task that discharges it.
                          The task can make the BEHAVIOUR true and cannot make
-                         the SENTENCE true, because the criterion exercises
-                         something the task does not own
+                         the SENTENCE true, because the criterion needs a
+                         write to something the task does not own
 
 Exit 0 clean, 1 findings, 2 could not run. Grammar: templates/FORMATS.md.
 Control: test_check_trace.py (P-35).
@@ -46,7 +46,10 @@ SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 GOAL = re.compile(r"^-\s+\*\*(G-\d+)\*\*\s*" + DASH)
 REQ = re.compile(r"^###\s+(R-\d+)\s*" + DASH + r"\s*(.*)$")
 TASK = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
-FIELD = re.compile(r"^-\s+\*\*([A-Za-z][A-Za-z ]*)\.\*\*\s*(.*)$")
+# The hyphen is required: `Requires-write.` parsed as no field at all under
+# `[A-Za-z ]`, so `missing-field` fired on every requirement that HAD it --
+# a check reporting the absence of the thing in front of it.
+FIELD = re.compile(r"^-\s+\*\*([A-Za-z][A-Za-z -]*)\.\*\*\s*(.*)$")
 IDS = re.compile(r"\b([GRT]-\d+)\b")
 
 # A value the interview has not filled in yet. Reported as its own finding
@@ -54,7 +57,7 @@ IDS = re.compile(r"\b([GRT]-\d+)\b")
 # is worse than one that fails it.
 PLACEHOLDER = re.compile(r"^\s*(<[^>]*>|_none yet_|tbd|todo|\.\.\.)?\s*$", re.I)
 
-REQ_FIELDS = ("Statement", "Satisfies", "Source", "Acceptance", "Exercises",
+REQ_FIELDS = ("Statement", "Satisfies", "Source", "Acceptance", "Requires-write",
               "Priority", "Status")
 TASK_FIELDS = ("Discharges", "Depends on", "Scope", "Gate", "Verify")
 
@@ -63,17 +66,17 @@ STRUCK = re.compile(r"^struck\b", re.I)
 
 
 # A path list is written ONE WAY everywhere: the field, then indented backticked
-# items under it. `Scope.` on a task and `Exercises.` on a requirement are the
+# items under it. `Scope.` on a task and `Requires-write.` on a requirement are the
 # same shape deliberately -- this project has already paid for a record with two
 # grammars for one thing, where an author used one, forgot the other, and shipped
 # a red tree that cost somebody else's agents time.
-LIST_FIELD = re.compile(r"^-\s+\*\*(Scope|Exercises)\.\*\*\s*(.*)$")
+LIST_FIELD = re.compile(r"^-\s+\*\*(Scope|Requires-write)\.\*\*\s*(.*)$")
 LIST_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
 NEXT_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]|^#")
 
 
 def path_lists(lines):
-    """{field name: [entries]} for every `Scope.`/`Exercises.` list in a block."""
+    """{field name: [entries]} for every `Scope.`/`Requires-write.` list in a block."""
     out, collecting = {}, None
     for line in lines:
         m = LIST_FIELD.match(line)
@@ -88,7 +91,7 @@ def path_lists(lines):
             item = LIST_ITEM.match(line)
             if item:
                 # An UNFILLED item is not a path. `<paths>` under a template's
-                # `Exercises.` was collected as a literal filename, so every
+                # `Requires-write.` was collected as a literal filename, so every
                 # freshly scaffolded requirement reported `unreachable-
                 # acceptance` against a file called `<paths>` -- a new project
                 # meeting a wall of findings about its own blank form. The
@@ -174,7 +177,7 @@ def check(devteam):
             goals[m.group(1)] = f"CHARTER.md:{n}"
 
     req_lines = read(devteam, "REQUIREMENTS.md")
-    exercises = {k: path_lists(v).get("Exercises", [])
+    must_write = {k: path_lists(v).get("Requires-write", [])
                  for k, v in blocks_of(req_lines, REQ).items()}
     for ident, n, _, fields in parse_blocks(req_lines, REQ, REQ_FIELDS):
         reqs[ident] = (f"REQUIREMENTS.md:{n}", fields)
@@ -290,12 +293,12 @@ def check(devteam):
         # it obstructs. Set containment over two declared lists needs no
         # English at all.
         #
-        # It fails in the safe direction: an understated `Exercises.` makes
+        # It fails in the safe direction: an understated `Requires-write.` makes
         # this MISS a real mismatch and never invent one. So the residual
         # failure is a criterion whose author did not understand what it
-        # exercises -- and that at least leaves a declaration somebody can
+        # must write -- and that at least leaves a declaration somebody can
         # read and dispute, rather than a silence.
-        want = exercises.get(ident, [])
+        want = must_write.get(ident, [])
         owners = [tid for tid, (_, tf, _) in tasks.items()
                   if ident in [x.strip() for x in tf.get("Discharges", "").split(",")]]
         if want and owners and not any(
@@ -304,7 +307,7 @@ def check(devteam):
             missing = {path for tid in owners for path in want
                        if not contains(scopes.get(tid, []), path)}
             add("unreachable-acceptance", where,
-                f"{ident} exercises {', '.join(sorted(missing))}, which no task "
+                f"{ident} needs a write to {', '.join(sorted(missing))}, which no task "
                 f"discharging it ({', '.join(sorted(owners))}) has in scope — "
                 "the criterion cannot be run to green by any single one of them")
 

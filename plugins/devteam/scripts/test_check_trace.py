@@ -30,7 +30,7 @@ REQS = """# Requirements
 - **Satisfies.** G-1
 - **Source.** interview 2026-09-03
 - **Acceptance.** `make test` → `ok`
-- **Exercises.**
+- **Requires-write.**
   - `src/`
 - **Priority.** must
 - **Status.** open
@@ -41,7 +41,7 @@ REQS = """# Requirements
 - **Satisfies.** G-2
 - **Source.** interview 2026-09-03
 - **Acceptance.** `test -s README.md`
-- **Exercises.**
+- **Requires-write.**
   - `README.md`
 - **Priority.** should
 - **Status.** open
@@ -87,7 +87,7 @@ CASES = [
 - **Satisfies.** G-1
 - **Source.** interview
 - **Acceptance.** `bench.py`
-- **Exercises.**
+- **Requires-write.**
   - `src/`
 - **Priority.** should
 - **Status.** open
@@ -198,7 +198,7 @@ CASES = [
 - **Satisfies.** G-1
 - **Source.** interview
 - **Acceptance.** n/a
-- **Exercises.**
+- **Requires-write.**
   - `src/`
 - **Priority.** may
 - **Status.** struck (D-2)
@@ -218,23 +218,23 @@ CASES = [
     # Three measured instances, all late-caught by a verifier running the
     # command end to end after the module task had closed.
     ("unreachable-acceptance",
-     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `src/`",
-                                      "- **Exercises.**\n  - `src/`\n  - `bin/cli.py`", 1)},
+     {"REQUIREMENTS.md": REQS.replace("- **Requires-write.**\n  - `src/`",
+                                      "- **Requires-write.**\n  - `src/`\n  - `bin/cli.py`", 1)},
      {"unreachable-acceptance"}),
     # ...and the ways it must stay quiet.
-    ("fp-exercises-exactly-equal-to-the-scope",
-     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `README.md`",
-                                      "- **Exercises.**\n  - `README.md`", 1)},
+    ("fp-requires-write-exactly-equal-to-the-scope",
+     {"REQUIREMENTS.md": REQS.replace("- **Requires-write.**\n  - `README.md`",
+                                      "- **Requires-write.**\n  - `README.md`", 1)},
      set()),
-    ("fp-exercises-a-file-inside-a-declared-directory",
-     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `src/`",
-                                      "- **Exercises.**\n  - `src/deep/nested/a.py`", 1)},
+    ("fp-requires-write-a-file-inside-a-declared-directory",
+     {"REQUIREMENTS.md": REQS.replace("- **Requires-write.**\n  - `src/`",
+                                      "- **Requires-write.**\n  - `src/deep/nested/a.py`", 1)},
      set()),
     # An UNDERSTATED set must MISS, never invent. This is the property that
     # makes the check safe to add at all: it cannot misfire on an ordinary plan.
-    ("fp-empty-exercises-checks-nothing-rather-than-guessing",
-     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `src/`",
-                                      "- **Exercises.**\n  - `<paths>`", 1)},
+    ("fp-empty-requires-write-checks-nothing-rather-than-guessing",
+     {"REQUIREMENTS.md": REQS.replace("- **Requires-write.**\n  - `src/`",
+                                      "- **Requires-write.**\n  - `<paths>`", 1)},
      set()),
     ("fp-one-requirement-satisfies-several-goals",
      {"REQUIREMENTS.md": REQS.replace("- **Satisfies.** G-1\n", "- **Satisfies.** G-1, G-2\n")},

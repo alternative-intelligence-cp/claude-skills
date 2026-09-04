@@ -179,7 +179,7 @@ whole pipeline is created or lost.
 > "`bench/latency.py` reports p99 under 200 ms at 100 concurrent requests" →
 > a requirement, because there is no argument later about whether it happened.
 
-**Write `Exercises.` in the same breath as the criterion** — every path the
+**Write `Requires-write.` in the same breath as the criterion** — every path the
 criterion touches. It takes a line and it is the only moment anyone is in a
 position to write it: you have just decided what the sentence means, and the
 paths follow from that. Planning happens much later and draws scopes by module;
