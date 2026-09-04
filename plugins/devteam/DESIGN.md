@@ -1338,6 +1338,37 @@ message says the heredoc is a limit rather than permission.
 The corollary is a question worth asking of every rule here: **where will
 somebody be standing when this matters, and is the rule there?**
 
+### A second deferred mechanism: the unscoped commit
+
+Recorded with its condition, at the manager's request, so it is not re-derived
+the day the near-miss becomes a hit.
+
+An unscoped `git commit` takes whatever is in the shared index, which is the
+F-66 case exactly. It is **not** refused, and the evidence for that decision was
+looked for rather than assumed: the one real bad commit used `git add -A`, which
+is now refused outright, and the unscoped case was a near-miss that *"did not
+land only because T-2 committed first."* One near-miss avoided by ordering, and
+no instance of the unscoped form actually producing a bad commit. Against that,
+a wrongly-refused commit is the worst false positive available in this system —
+a worker unable to land finished work.
+
+With `add -A` refused the blast radius is smaller but the shape is unchanged:
+another agent can still stage its own files, and an unscoped commit still takes
+them.
+
+**The narrow form, if the trigger fires:** on an unscoped `git commit`, read
+`git diff --cached --name-only` and refuse **only if a staged path lies outside
+the caller's live scope.** That is F-66's condition precisely, it permits every
+legitimate "commit what I staged", and it costs one git call at hook time. Its
+limits, stated because they are real and would otherwise be discovered: it
+**races** — another agent can stage between the check and the commit — and it
+needs the caller's scope, which resolves for a manager (`devteam/`) but would
+refuse everything for an agent holding no claim, the same blind spot that
+stopped a verifier building a mutation.
+
+The trigger is an instance, not an argument: **an unscoped commit that actually
+carries another task's staged work.**
+
 ### The deferred mechanism, and the trigger that would justify it
 
 Recorded so it is not re-derived, and so it is not built early.

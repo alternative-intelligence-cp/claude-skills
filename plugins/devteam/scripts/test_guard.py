@@ -121,6 +121,15 @@ CASES = [
      bash("touch src/render/b.py 2>/dev/null"), WRITER_SESSION, True),
     ("deny-out-of-scope-rm-survives-a-redirect",
      bash("rm -rf docs 2>&1"), WRITER_SESSION, True),
+    # A DELIBERATE RESIDUAL, not an unexamined allow, and the distinction is
+    # the point: an unscoped `git commit` takes whatever is in the shared
+    # index, which is F-66's case exactly. It stays allowed because the
+    # evidence for refusing it does not exist -- the one real bad commit used
+    # `git add -A`, now refused, and the unscoped case was a near-miss avoided
+    # only by commit ordering -- and because a wrongly-refused commit is the
+    # worst false positive available here: a worker unable to land finished
+    # work. If this control ever reads as "unscoped commits are fine", it is
+    # asserting more than the decision behind it.
     ("fp-git-commit-at-the-project-root", bash("git commit -m x"), WRITER_SESSION, False),
     # `git add -A` USED to be a false-positive control here, from the fix that
     # split git by destructiveness and made `add` an index operation so workers

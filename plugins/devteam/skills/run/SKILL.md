@@ -263,6 +263,45 @@ that decides whether the loop may proceed without an answer (P-26):
 | `CHARTER` | **blocks, always.** Changes what is being built, what done means, or what is out of scope (P-2) |
 | `REVERSIBLE` | goes on the table with its recommendation. When the charter's escalation window expires, **proceed on the recommendation** |
 
+**An amendment that supersedes a rule carries a sweep list, generated when it
+is made.** A `CHARTER` answer usually retires some wording, and the retired
+wording is quoted in places the amendment never looks: other requirements, the
+risks section, module docstrings, a README. One real amendment touched four
+documents and left about fifteen sites still asserting the rule it had
+replaced. So before closing the question, generate the list:
+
+```bash
+git grep -n "D-11\|D-13\|carve-out" -- . ':!devteam/RECORD.md'
+```
+
+— the superseded decision ids and any distinctive phrase the old rule used,
+across the **whole repository including code**, excluding the record, which is
+append-only and correctly frozen.
+
+**Sweep the tests too, and treat them as the harder half.** A stale sentence is
+inert; **a stale test is not.** It does not fail — it passes, and its passing
+becomes an argument for the very thing the amendment retired. A control in this
+pipeline asserted that `git add -A` must be allowed, and outlived by hours the
+finding that condemned that form, quietly defending it because nothing anywhere
+asks whether a control's premise still holds. That is worse than a broken
+instrument: a broken instrument is silent, and this one testifies.
+
+So: **a decision that supersedes another names the instruments written against
+the superseded one.** Grep the tests for the retired *behaviour*, not only the
+retired words, and say for each whether it still asserts something the project
+still believes.
+
+**Then assign every site to a task's scope, and check that one exists.** This is
+the half that fails silently. The single most important site in that real
+amendment — the module the requirement points a vendorer at — was **in no
+task's scope**, so the task that discovered the sweep was needed could not
+perform it. Its supervisor declined the part it *could* reach, and the reasoning
+is worth keeping: *a sweep that cannot include the site that matters most is not
+a sweep, it is a partial edit that changes how the problem looks without
+changing it. Uniformly stale is honest; patchily fresh misleads.* A sweep with
+an unassignable site is an incomplete amendment, not a complete one with a
+footnote.
+
 **When a reversible question times out:** proceed, then record it honestly —
 `question Q-n proceeded unreviewed: <what>` in `RECORD.md`, a `D-n` in
 `DECISIONS.md` whose `Reviewed.` line says `proceeded-unreviewed (Q-n)`, and a
