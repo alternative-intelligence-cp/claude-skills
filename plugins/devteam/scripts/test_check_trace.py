@@ -128,6 +128,16 @@ CASES = [
     # F-14: the plan skill demands the riskiest unknown as "task one, and it is
     # small", and a probe discharges nothing by definition — so the check made
     # the thing the skill demands unexpressible.
+    # Same class as the research index's silent skip: a task file whose title
+    # will not parse is invisible, and its requirements read as uncovered with
+    # nothing naming the file.
+    # T-2 is dropped so the case isolates ONE fault. Left in, its dependency on
+    # the now-invisible T-1 correctly reports unknown-reference too — accurate,
+    # but a consequence rather than a second fault.
+    ("unparseable-task",
+     {"tasks/T-1.md": "# T-1 the word counter (no separators)\n\n- **Discharges.** R-1\n",
+      "tasks/T-2.md": None},
+     {"unparseable-task", "uncovered-requirement"}),
     ("fp-a-probe-discharges-nothing-and-is-fine",
      {"tasks/T-3.md": """# T-3 — is R-1 even achievable? — PLANNED
 

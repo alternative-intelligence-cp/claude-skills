@@ -46,14 +46,31 @@ SHELF = {"security": 90, "routine": 180}
 
 
 def parse(path):
+    """(entry, None) for a digest, or (None, reason) for anything else.
+
+    The reason is returned rather than discarded because a silent skip here is
+    a FALSE NEGATIVE on the one lookup meant to prevent duplicate work: the
+    searcher is told nothing exists and pays again for research filed one
+    directory away. A project with three digests and one title typo used to be
+    indistinguishable from a project with two.
+    """
     try:
         body = open(path, encoding="utf-8").read()
-    except OSError:
-        return None
+    except OSError as exc:
+        return None, f"unreadable: {exc}"
     title = TITLE.search(body)
     asof = ASOF.search(body)
-    if not title or not asof:
-        return None                       # not a digest in the skill's shape
+    # A NEAR MISS carries one of the two markers: somebody was writing a digest
+    # and got the shape wrong. A file with neither was never trying to be one.
+    # The distinction decides whether it is named or merely counted -- listing
+    # every markdown file in every research directory on a machine is a report
+    # nobody reads, which is the same failure as saying nothing.
+    if not title and not asof:
+        return None, None
+    if not title:
+        return None, "has an `As of` line but no `# <topic> — research digest` heading"
+    if not asof:
+        return None, "is titled as a digest but has no `**As of <date>.**` line, so it cannot be aged"
     sens = SENSITIVITY.search(body)
     q = QUESTION.search(body)
     return {
@@ -63,7 +80,7 @@ def parse(path):
         "sensitivity": (sens.group(1).lower() if sens else "unstated"),
         "sources": sorted(set(URL.findall(body)))[:8],
         "path": path,
-    }
+    }, None
 
 
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__",
@@ -93,12 +110,16 @@ def scan(roots):
     wherever it lives, because a digest that cannot be dated cannot be aged,
     and an entry that cannot be aged is worse than an absent one.
     """
-    out, seen = [], set()
+    out, skipped, seen, ignored = [], [], set(), 0
     for root in roots:
         root = os.path.realpath(os.path.expanduser(root))
         for base, dirs, files in os.walk(root):
             dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
             if os.path.basename(base) != "research":
+                continue
+            # A `research/` directory holding a SKILL.md is a skill, not a
+            # corpus -- the widened path match found the research SKILL itself.
+            if "SKILL.md" in files:
                 continue
             project = owning_project(base)
             for f in sorted(files):
@@ -107,12 +128,16 @@ def scan(roots):
                 path = os.path.realpath(os.path.join(base, f))
                 if path in seen:
                     continue
-                d = parse(path)
+                d, why = parse(path)
+                seen.add(path)
                 if d:
-                    seen.add(path)
                     d["project"] = os.path.basename(project)
                     out.append(d)
-    return out
+                elif why:
+                    skipped.append((path, why))
+                else:
+                    ignored += 1
+    return out, skipped, ignored
 
 
 def age(entry):
@@ -168,11 +193,26 @@ def main(argv):
         if not roots:
             print("research_index: no roots given and none remembered", file=sys.stderr)
             return 2
-        digests = scan(roots)
+        digests, skipped, ignored = scan(roots)
         os.makedirs(os.path.dirname(DEFAULT), exist_ok=True)
         json.dump({"roots": roots, "built": date.today().isoformat(),
                    "digests": digests}, open(DEFAULT, "w", encoding="utf-8"), indent=2)
         print(f"indexed {len(digests)} digest(s) from {len(roots)} root(s) -> {DEFAULT}")
+        if ignored:
+            print(f"({ignored} other file(s) in research/ directories are not "
+                  "digests and were not trying to be)")
+        if skipped:
+            # Named, not counted. A skipped digest is invisible to the lookup
+            # that exists to stop the next project paying for it again, so the
+            # report says WHAT was ignored and WHY -- not merely how many
+            # succeeded.
+            print(f"\nNEAR MISSES — {len(skipped)} file(s) that look like an "
+                  "attempted digest and did not parse:")
+            for path, why in skipped:
+                print(f"  {path}\n      {why}")
+            print("\n  If one of these was meant to be a digest, it is currently "
+                  "invisible to `query`\n  and the next project will pay for it "
+                  "again.")
         return 0
 
     idx = load()

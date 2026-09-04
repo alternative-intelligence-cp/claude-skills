@@ -112,11 +112,22 @@ def check(devteam):
         return None
     for rel in task_files:
         lines = read(devteam, rel)
+        parsed_any = False
         for ident, n, extra, fields in parse_blocks(lines, TASK, TASK_FIELDS):
+            parsed_any = True
             tasks[ident] = (f"{rel}:{n}", fields, extra[1] if len(extra) > 1 else "")
             for f in TASK_FIELDS:
                 if f not in fields:
                     add("missing-field", f"{rel}:{n}", f"{ident} has no **{f}.**")
+        # A task file whose title will not parse yields no block at all, so the
+        # task is INVISIBLE: the requirements it discharges read as uncovered
+        # and the file itself is never mentioned. Same class as a research
+        # digest skipped for a title typo -- a failure whose only symptom is a
+        # number nobody cross-checks.
+        if not parsed_any and os.path.basename(rel).startswith("T-"):
+            add("unparseable-task", f"{rel}:1",
+                "no `# T-n — <title> — <status>` title line, so this file is "
+                "invisible to every check and its requirements read as uncovered")
 
     # --- goal -> requirement ------------------------------------------------
     satisfied = set()

@@ -71,6 +71,12 @@ def main():
             "proj-b/devteam/research/CURRENCY.md": "| Depends on | Pinned |\n|---|---|\n",
             "proj-b/devteam/research/README.md": "# Digests live here\n",
             "proj-b/devteam/research/notes.md": "# just some notes\n\nNot a digest.\n",
+            # a NEAR MISS: right content, wrong title -- the exact real case
+            "proj-b/devteam/research/nearmiss.md":
+                digest("X", 5).replace("# X — research digest", "# X: documented limits"),
+            # right title, no date -- cannot be aged, so must not be indexed
+            "proj-b/devteam/research/undated.md":
+                re.sub(r"\*\*As of [^*]*\*\*", "", digest("Y", 5)),
             "proj-c/notes/stray.md": digest("Not in a research dir", 5),
             "proj-d/meta/research/other-convention.md": digest("Other layout", 5),
         })
@@ -97,6 +103,23 @@ def main():
               "the answer text leaked into the index")
         check("index holds no quoted evidence", "the answering line" not in blob)
         check("index does hold the path", all(os.path.isfile(d["path"]) for d in idx["digests"]))
+
+        # F-16: a near-miss digest must be NAMED, not silently dropped. The
+        # index is consulted before searching, so a silent skip is a false
+        # negative on the one lookup that exists to prevent duplicate work.
+        rc, out2 = run(index, "build", tmp)
+        check("near miss with a wrong title is NAMED",
+              "nearmiss.md" in out2, "a file with an As-of line was not named")
+        check("near miss with no date is NAMED",
+              "undated.md" in out2, "a file titled as a digest was not named")
+        check("a file that was never a digest is COUNTED, not named",
+              "notes.md" not in out2 and "not trying to be" in out2,
+              "listing every markdown file is a report nobody reads")
+        check("near-miss report gives a reason", "cannot be aged" in out2)
+        check("near-miss report warns it is invisible to query",
+              "invisible to `query`" in out2)
+        check("success count is still reported", "indexed 4 digest(s)" in out2,
+              out2.splitlines()[0] if out2 else "")
 
         rc, out = run(index, "query", "toml")
         check("query finds by topic", rc == 0 and "TOML spec" in out)
