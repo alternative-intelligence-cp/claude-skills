@@ -42,6 +42,9 @@ TEMPLATE = """# {id} — <the rule, as a claim, in one line>
 
 - **Applies to.** <path globs and/or tags, comma separated — e.g. `~/work/proj*`, tag `alpha`>
 - **Kind.** requirement | prohibition | resource | standard
+- **Priority.** <safety | correctness | performance | none — from the family's
+  priority order. A `safety` convention cannot be declined casually: doing so
+  is a CHARTER question and the reason goes on the record>
 - **Rule.** <what must or must not be true, stated normatively>
 - **Because.** <the reason. A convention without one gets declined by whoever
   meets it and cannot argue with it>
@@ -65,6 +68,7 @@ def parse(path):
     return {
         "id": m.group(1), "title": m.group(2),
         "kind": fields.get("Kind", "unstated"),
+        "priority": fields.get("Priority", "unstated").strip().lower(),
         "rule": fields.get("Rule", ""),
         "because": fields.get("Because", ""),
         "stated": fields.get("Stated", ""),
@@ -102,8 +106,9 @@ def show(cs):
         print("no conventions match")
         return
     for c in cs:
-        print(f"\n  {c['id']} — {c['title']}")
-        print(f"    kind: {c['kind']}   stated: {c['stated']}")
+        flag = "  ** SAFETY **" if c["priority"].startswith("safety") else ""
+        print(f"\n  {c['id']} — {c['title']}{flag}")
+        print(f"    kind: {c['kind']}   priority: {c['priority']}   stated: {c['stated']}")
         if c["rule"]:
             print(f"    rule: {c['rule'][:150]}")
         if c["because"]:
@@ -112,6 +117,11 @@ def show(cs):
     print("\n  These are QUESTIONS, not defaults. Put each to the client and record")
     print("  the answer either way — a declined convention is a decision, and an")
     print("  unnoticed one is an omission.")
+    if any(c["priority"].startswith("safety") for c in cs):
+        print("\n  One or more is a SAFETY convention. Declining one is a CHARTER")
+        print("  question (P-26): it stops for the client, it needs a stated reason")
+        print("  naming what makes THIS project different, and the reason goes on")
+        print("  the record. Do not let it pass as an ordinary preference.")
 
 
 def main(argv):

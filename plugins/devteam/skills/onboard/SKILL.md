@@ -48,6 +48,21 @@ budget you are actually spending.
      unnoticed omission is not, and is indistinguishable from an oversight six
      months later.
 
+   **A `safety` convention is not declined casually.** Declining one is a
+   `CHARTER` question (P-26): it stops, it needs the client to state **what
+   makes this project different**, and that reason is recorded. A convention
+   marked `safety` exists because somewhere in this family a wrong answer hurts
+   somebody, and the most likely reason it is being declined here is not that
+   the project is genuinely exempt — it is that nobody remembered to mention
+   it, and the client is agreeing with an agent who sounded confident.
+
+   **This is the case the whole feature is for.** A client onboarding one
+   library out of many will not restate the family's safety constraints every
+   time; they have said them once and reasonably believe that is enough. The
+   agent noticing that strict constraints hold across the rest of the family
+   and *asking whether they hold here too* is worth more than every other use
+   of this registry combined — and it costs one question.
+
    The point is **recognition rather than recall**. The client already knows
    these; what costs them is having to remember to say so at the right moment,
    every time. A list they can confirm or reject in seconds is a different
