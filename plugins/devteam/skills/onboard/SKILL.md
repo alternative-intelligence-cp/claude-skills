@@ -179,6 +179,19 @@ whole pipeline is created or lost.
 > "`bench/latency.py` reports p99 under 200 ms at 100 concurrent requests" →
 > a requirement, because there is no argument later about whether it happened.
 
+**Write `Exercises.` in the same breath as the criterion** — every path the
+criterion touches. It takes a line and it is the only moment anyone is in a
+position to write it: you have just decided what the sentence means, and the
+paths follow from that. Planning happens much later and draws scopes by module;
+nobody is present at both moments, which is exactly why the mismatch kept
+surviving to a verifier. `check_trace` compares the two lists so that neither
+party has to.
+
+If the tree does not exist yet, name the paths the plan will create. Guessing
+slightly wrong is fine — the check misses rather than misfires on an understated
+list, and a wrong guess is a declaration somebody can dispute. Writing nothing
+is the only answer that buys nothing.
+
 An observation is allowed where a command is not honest — *"a new user follows
 the README and gets a running server without asking anyone"* is checkable by a
 person even though no script can run it. What is **not** allowed is an

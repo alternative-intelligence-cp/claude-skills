@@ -22,6 +22,11 @@ Findings:
                          that does not exist
   dependency-cycle       tasks that can never start, because they wait on
                          each other
+  unreachable-acceptance a requirement whose `Exercises.` set is not contained
+                         in the `Scope.` of any single task that discharges it.
+                         The task can make the BEHAVIOUR true and cannot make
+                         the SENTENCE true, because the criterion exercises
+                         something the task does not own
 
 Exit 0 clean, 1 findings, 2 could not run. Grammar: templates/FORMATS.md.
 Control: test_check_trace.py (P-35).
@@ -49,11 +54,64 @@ IDS = re.compile(r"\b([GRT]-\d+)\b")
 # is worse than one that fails it.
 PLACEHOLDER = re.compile(r"^\s*(<[^>]*>|_none yet_|tbd|todo|\.\.\.)?\s*$", re.I)
 
-REQ_FIELDS = ("Statement", "Satisfies", "Source", "Acceptance", "Priority", "Status")
+REQ_FIELDS = ("Statement", "Satisfies", "Source", "Acceptance", "Exercises",
+              "Priority", "Status")
 TASK_FIELDS = ("Discharges", "Depends on", "Scope", "Gate", "Verify")
 
 STRUCK = re.compile(r"^struck\b", re.I)
 
+
+
+# A path list is written ONE WAY everywhere: the field, then indented backticked
+# items under it. `Scope.` on a task and `Exercises.` on a requirement are the
+# same shape deliberately -- this project has already paid for a record with two
+# grammars for one thing, where an author used one, forgot the other, and shipped
+# a red tree that cost somebody else's agents time.
+LIST_FIELD = re.compile(r"^-\s+\*\*(Scope|Exercises)\.\*\*\s*(.*)$")
+LIST_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
+NEXT_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]|^#")
+
+
+def path_lists(lines):
+    """{field name: [entries]} for every `Scope.`/`Exercises.` list in a block."""
+    out, collecting = {}, None
+    for line in lines:
+        m = LIST_FIELD.match(line)
+        if m:
+            collecting = m.group(1)
+            out.setdefault(collecting, [])
+            inline = m.group(2).strip()
+            if inline and not PLACEHOLDER.search(inline):
+                out[collecting] += [x.strip().strip("`") for x in inline.split(",") if x.strip()]
+            continue
+        if collecting:
+            item = LIST_ITEM.match(line)
+            if item:
+                # An UNFILLED item is not a path. `<paths>` under a template's
+                # `Exercises.` was collected as a literal filename, so every
+                # freshly scaffolded requirement reported `unreachable-
+                # acceptance` against a file called `<paths>` -- a new project
+                # meeting a wall of findings about its own blank form. The
+                # inline branch above already dropped these; the item branch
+                # did not, which is the same field with two behaviours.
+                if not PLACEHOLDER.search(item.group(1)):
+                    out[collecting].append(item.group(1))
+                continue
+            if line.strip() and NEXT_FIELD.match(line):
+                collecting = None
+    return out
+
+
+def contains(scope, path):
+    """Does a declared scope entry cover this path? Prefix match on segments."""
+    path = path.strip().strip("`").rstrip("/")
+    for entry in scope:
+        e = entry.strip().strip("`").rstrip("/")
+        if not e:
+            continue
+        if path == e or path.startswith(e + "/"):
+            return True
+    return False
 
 def tracked(root, pattern):
     try:
@@ -90,6 +148,20 @@ def parse_blocks(lines, header, fields_for):
         yield cur
 
 
+def blocks_of(lines, header):
+    """{identifier: [its lines]} -- `parse_blocks` keeps fields, not ranges."""
+    out, cur = {}, None
+    for line in lines:
+        m = header.match(line)
+        if m:
+            cur = m.group(1)
+            out[cur] = []
+            continue
+        if cur is not None:
+            out[cur].append(line)
+    return out
+
+
 def check(devteam):
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
@@ -101,7 +173,10 @@ def check(devteam):
         if m:
             goals[m.group(1)] = f"CHARTER.md:{n}"
 
-    for ident, n, _, fields in parse_blocks(read(devteam, "REQUIREMENTS.md"), REQ, REQ_FIELDS):
+    req_lines = read(devteam, "REQUIREMENTS.md")
+    exercises = {k: path_lists(v).get("Exercises", [])
+                 for k, v in blocks_of(req_lines, REQ).items()}
+    for ident, n, _, fields in parse_blocks(req_lines, REQ, REQ_FIELDS):
         reqs[ident] = (f"REQUIREMENTS.md:{n}", fields)
         for f in REQ_FIELDS:
             if f not in fields:
@@ -110,8 +185,11 @@ def check(devteam):
     task_files = tracked(devteam, "tasks/*.md")
     if task_files is None:
         return None
+    scopes = {}
     for rel in task_files:
         lines = read(devteam, rel)
+        for k, v in blocks_of(lines, TASK).items():
+            scopes[k] = path_lists(v).get("Scope", [])
         parsed_any = False
         for ident, n, extra, fields in parse_blocks(lines, TASK, TASK_FIELDS):
             parsed_any = True
@@ -193,6 +271,42 @@ def check(devteam):
         if "Acceptance" in fields and PLACEHOLDER.match(acc):
             add("unverified-requirement", where,
                 f"{ident} has no runnable acceptance criterion — it will be declared done by opinion")
+
+        # THE CRITERION'S LEVEL AGAINST THE TASK'S SCOPE.
+        #
+        # Three times in one project an acceptance criterion written in process
+        # language -- "exits non-zero", "fails under the default and succeeds
+        # under --encoding" -- was discharged by a task scoped to one module.
+        # Each time the task worked correctly and the requirement was still not
+        # discharged: it could make the BEHAVIOUR true and not the SENTENCE
+        # true, because the sentence describes a process only the wiring task
+        # can run. All three surfaced late, from a verifier invoking the
+        # command end to end after the module task had closed.
+        #
+        # It is checkable only because the level is DECLARED rather than
+        # inferred. No script can reliably tell a process-level sentence from a
+        # module-level one, and a heuristic that guessed would misfire on
+        # ordinary plans -- which is how a check gets switched off by whoever
+        # it obstructs. Set containment over two declared lists needs no
+        # English at all.
+        #
+        # It fails in the safe direction: an understated `Exercises.` makes
+        # this MISS a real mismatch and never invent one. So the residual
+        # failure is a criterion whose author did not understand what it
+        # exercises -- and that at least leaves a declaration somebody can
+        # read and dispute, rather than a silence.
+        want = exercises.get(ident, [])
+        owners = [tid for tid, (_, tf, _) in tasks.items()
+                  if ident in [x.strip() for x in tf.get("Discharges", "").split(",")]]
+        if want and owners and not any(
+                all(contains(scopes.get(tid, []), path) for path in want)
+                for tid in owners):
+            missing = {path for tid in owners for path in want
+                       if not contains(scopes.get(tid, []), path)}
+            add("unreachable-acceptance", where,
+                f"{ident} exercises {', '.join(sorted(missing))}, which no task "
+                f"discharging it ({', '.join(sorted(owners))}) has in scope — "
+                "the criterion cannot be run to green by any single one of them")
 
     # --- the task graph -----------------------------------------------------
     graph = {}

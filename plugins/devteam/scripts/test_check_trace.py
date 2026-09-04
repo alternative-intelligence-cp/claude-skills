@@ -30,6 +30,8 @@ REQS = """# Requirements
 - **Satisfies.** G-1
 - **Source.** interview 2026-09-03
 - **Acceptance.** `make test` → `ok`
+- **Exercises.**
+  - `src/`
 - **Priority.** must
 - **Status.** open
 
@@ -39,6 +41,8 @@ REQS = """# Requirements
 - **Satisfies.** G-2
 - **Source.** interview 2026-09-03
 - **Acceptance.** `test -s README.md`
+- **Exercises.**
+  - `README.md`
 - **Priority.** should
 - **Status.** open
 """
@@ -83,6 +87,8 @@ CASES = [
 - **Satisfies.** G-1
 - **Source.** interview
 - **Acceptance.** `bench.py`
+- **Exercises.**
+  - `src/`
 - **Priority.** should
 - **Status.** open
 """},
@@ -192,13 +198,43 @@ CASES = [
 - **Satisfies.** G-1
 - **Source.** interview
 - **Acceptance.** n/a
+- **Exercises.**
+  - `src/`
 - **Priority.** may
 - **Status.** struck (D-2)
 """},
      set()),
+    # A task discharging several requirements must own every path they
+    # exercise. The scope widens with the Discharges line -- it was not
+    # widened here at first, and `unreachable-acceptance` caught the fixture
+    # on its first run: T-1 claimed R-2 while owning only `src/`.
     ("fp-one-task-discharges-several",
-     {"tasks/T-1.md": T1.replace("- **Discharges.** R-1", "- **Discharges.** R-1, R-2"),
+     {"tasks/T-1.md": T1.replace("- **Discharges.** R-1", "- **Discharges.** R-1, R-2")
+                        .replace("  - `src/`", "  - `src/`\n  - `README.md`"),
       "tasks/T-2.md": None},
+     set()),
+
+    # --- unreachable-acceptance: the criterion's level vs the task's scope --
+    # Three measured instances, all late-caught by a verifier running the
+    # command end to end after the module task had closed.
+    ("unreachable-acceptance",
+     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `src/`",
+                                      "- **Exercises.**\n  - `src/`\n  - `bin/cli.py`", 1)},
+     {"unreachable-acceptance"}),
+    # ...and the ways it must stay quiet.
+    ("fp-exercises-exactly-equal-to-the-scope",
+     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `README.md`",
+                                      "- **Exercises.**\n  - `README.md`", 1)},
+     set()),
+    ("fp-exercises-a-file-inside-a-declared-directory",
+     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `src/`",
+                                      "- **Exercises.**\n  - `src/deep/nested/a.py`", 1)},
+     set()),
+    # An UNDERSTATED set must MISS, never invent. This is the property that
+    # makes the check safe to add at all: it cannot misfire on an ordinary plan.
+    ("fp-empty-exercises-checks-nothing-rather-than-guessing",
+     {"REQUIREMENTS.md": REQS.replace("- **Exercises.**\n  - `src/`",
+                                      "- **Exercises.**\n  - `<paths>`", 1)},
      set()),
     ("fp-one-requirement-satisfies-several-goals",
      {"REQUIREMENTS.md": REQS.replace("- **Satisfies.** G-1\n", "- **Satisfies.** G-1, G-2\n")},
