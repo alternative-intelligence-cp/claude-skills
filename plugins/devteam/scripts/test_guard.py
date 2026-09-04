@@ -189,6 +189,21 @@ SPECIAL = [
      write("src/render/b.py"), "", True, None, "/tmp"),
     ("deny-outward-push-when-the-session-is-unknown",
      bash("git push origin main"), "", True, None, "/tmp"),
+
+    # --- a git-tree subcommand's EXPLICIT pathspec is its target -----------
+    # The target was always the `-C` directory, so `git reset -- <in-scope
+    # file>` -- unstaging one file -- was judged as though it were
+    # `git reset --hard` over the whole repository and refused.
+    ("fp-git-reset-of-an-in-scope-path",
+     bash("git reset -- src/loader/a.py"), WRITER_SESSION, False, None, None),
+    ("deny-git-reset-of-an-out-of-scope-path",
+     bash("git reset -- src/render/b.py"), WRITER_SESSION, True, None, None),
+    # ...and WITHOUT a pathspec it still touches everything, so the root
+    # stays the target. If this flips, the precision went too far.
+    ("deny-git-reset-hard-with-no-pathspec",
+     bash("git reset --hard HEAD~1"), WRITER_SESSION, True, None, None),
+    ("deny-git-clean-with-no-pathspec",
+     bash("git clean -fd"), WRITER_SESSION, True, None, None),
     # `session in writer` was a substring test: a short id matched inside an
     # ordinary word in the writer line and was handed the lock.
     ("deny-session-id-that-is-only-a-substring-of-the-writer-line",

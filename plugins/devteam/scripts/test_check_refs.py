@@ -98,6 +98,10 @@ def append(name, text):
     return ("append", name, text)
 
 
+def create(name, text):
+    return ("create", name, text)
+
+
 def replace(name, old, new):
     return ("replace", name, old, new)
 
@@ -140,6 +144,64 @@ CASES = [
     # -- while the report status the supervisor had just written has exactly
     # the right word. One reached for `NEEDS-DECISION` and was told it was a
     # bad status for using the correct term for its situation.
+    # --- steps are numbered PER TASK -------------------------------------
+    # Flattening the namespace made an `S-n` resolve against ANY task that
+    # declared that number, so a task whose steps were written in an
+    # unrecognised form declared none of its own and passed on other tasks'
+    # declarations. Only the first number nobody had ever used reported.
+    ("cited-undefined-step-declared-only-in-another-task",
+     [create("tasks/T-2.md", """# T-2 — a second task — PLANNED
+
+- **Discharges.** R-1
+- **Depends on.** T-1
+- **Scope.**
+  - `docs/`
+- **Gate.** it is written.
+- **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
+
+## Steps
+
+This task cites `S-1` in prose and declares no step in any form, so the
+identifier resolves nowhere in this file — it used to resolve against T-1's.
+""")],
+     {"cited-undefined"}),
+    # The table form DOES declare. Three tasks in one project wrote their
+    # steps this way rather than as a checklist, because a rich step carries a
+    # class, a role and a verify command and those are columns.
+    ("fp-table-form-step-declares-its-own-number",
+     [create("tasks/T-2.md", """# T-2 — a second task — PLANNED
+
+- **Discharges.** R-1
+- **Depends on.** T-1
+- **Scope.**
+  - `docs/`
+- **Gate.** it is written.
+- **Verify.** `true`
+- **Estimate.** tokens=100 minutes=5
+
+## Steps
+
+| Step | What | Verify |
+|---|---|---|
+| S-1 | write the thing, discharging R-1 | `true` |
+
+S-1 is the only step.
+""")],
+     set()),
+    ("fp-step-cited-inside-the-task-that-declares-it",
+     [append("tasks/T-1.md", "\n`S-1` is the step above.\n")], set()),
+    # The record legitimately discusses steps in prose. A bare `S-2` there
+    # names no task and cannot be resolved -- firing on it would be firing on
+    # prose, and a check that does that gets turned off.
+    ("fp-bare-step-in-prose-outside-a-task-file",
+     [append("RECORD.md", "\n- S-2 was the tricky one\n")], set()),
+    # ...but the QUALIFIED form names its task, so it resolves, and must.
+    ("fp-qualified-step-that-exists",
+     [append("RECORD.md", "\n- T-1.S-1 landed clean\n")], set()),
+    ("cited-undefined-qualified-step-that-does-not-exist",
+     [append("RECORD.md", "\n- T-1.S-9 landed clean\n")], {"cited-undefined"}),
+
     ("fp-needs-decision-task-title",
      [replace("tasks/T-1.md", "— PLANNED", "— NEEDS-DECISION (R-7 narrows G-3; charter-adjacent)")], set()),
     # ...and it still needs its parenthetical, like BLOCKED and DONE. A bare
@@ -276,6 +338,15 @@ def build(root, mutations):
             continue
         name = mut[1]
         p = os.path.join(dt, name)
+        if mut[0] == "create":
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(mut[2])
+            # Staged, or `check_refs` never sees it: the scan is over TRACKED
+            # files, so an untracked fixture is silently absent and the case
+            # passes by measuring nothing.
+            extra_tracked.append(name)
+            continue
         with open(p, encoding="utf-8") as fh:
             body = fh.read()
         if mut[0] == "append":

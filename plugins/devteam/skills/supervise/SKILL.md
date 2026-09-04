@@ -183,7 +183,10 @@ here, so the manager and the client do not have to rebuild it.
 - [ ] `AUDIT` triaged if one was given: every finding fixed, or declined with
       a reason in the record
 - [ ] `check_scope.py "$REPO" T-n` and `check_refs.py "$REPO"` clean
-- [ ] committed; `git -C "$REPO" status --porcelain` empty
+- [ ] committed; `git -C "$REPO" status --porcelain -- <this task's scope>`
+      empty. **Scoped.** Unqualified, it is a statement about other tasks'
+      in-flight work: unsatisfiable at width above one, and every literal way
+      to satisfy it is forbidden by P-12b
 - [ ] the title line set to `DONE (<date>)`, or `READY-TO-AUDIT` if this task
       needs an audit and `AUDIT: none`
 

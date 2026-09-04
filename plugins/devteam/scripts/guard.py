@@ -208,7 +208,21 @@ def targets(cmd, cwd):
                 elif sub in GIT_INDEX:
                     yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "index"
                 elif sub in GIT_TREE:
-                    yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "tree"
+                    # An EXPLICIT `-- <paths>` names what this touches, and is
+                    # far more precise than the repository root. `git reset --
+                    # src/a.py` unstages one file and was judged as though it
+                    # were `git reset --hard` over the whole tree, because the
+                    # pathspec was never read. Only the `--` form is trusted:
+                    # without it, `git checkout <branch>` and `git clean -fd`
+                    # touch everything, so the root stays the target.
+                    paths = rest[rest.index("--") + 1:] if "--" in rest else []
+                    if paths:
+                        for a in paths:
+                            r = resolve(a, eff)
+                            if r:
+                                yield r, f"git {sub} -- {a}", "tree"
+                    else:
+                        yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "tree"
 
 
 def find_project(start):
@@ -436,7 +450,17 @@ def judge(target, what, session, session_project, cache, category="write"):
             f"is running. A task declares the paths it writes and a worker stays "
             "inside them (P-10, P-12) — that is what keeps two agents out of one "
             "file. If this task genuinely needs this path, that is an escalation "
-            "to widen its scope, not a write outside it.")
+            "to widen its scope, not a write outside it.\n\n"
+            "Do not reach for an interpreter to do the same write. A heredoc "
+            "like `python3 - <<PY` cannot be classified from the command text, "
+            "so it is not refused — that is a known limit of this guard, not "
+            "permission. It is the first thing anyone finds after this message "
+            "and it does not feel like evasion, which is exactly why it is "
+            "named here. The write still lands outside your scope, and "
+            "`check_scope` reports it as `undeclared-write` against your task "
+            "the moment you commit, or as `foreign-write` before that. You "
+            "would be trading a refusal you can escalate for a finding with "
+            "your name on it.")
 
 
 def main():

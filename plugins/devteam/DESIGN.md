@@ -1251,6 +1251,39 @@ The practical consequence for anyone adding a rule here: the question is not
 both hold?"** That question has a much better hit rate on this codebase than
 re-reading the rule you just wrote.
 
+### And the detector for it: count how many people found the same workaround
+
+The manager supplied the method, from watching six workers on one task:
+**four of six independently wrote near-identical paragraphs** about a check
+that inspects a commit which cannot yet exist. Not four confusions —
+*repeated independent discovery of the same workaround is evidence about the
+rules, not about the workers.*
+
+This is worth more than the finding it produced, because it is **cheap and
+mechanical where the pairs problem is neither.** You cannot review a rulebook
+for the pairs that cannot both hold; the space is quadratic and each rule reads
+fine alone. But you can notice when several agents who never spoke to each
+other arrive at the same departure, and that noticing needs no cleverness — it
+needs someone reading more than one report at a time, which is exactly what a
+supervisor and a manager already do.
+
+It was applied twice within an hour of being stated, both times against this
+project's own grammar:
+
+- **Three tasks wrote their steps as a table** rather than the checklist form
+  `check_refs` recognised. The natural reading is that three supervisors got
+  the format wrong. The correct reading is that a rich step carries a class, a
+  role and a verify command, and those are *columns* — the grammar was too
+  narrow, and the table form is now recognised.
+- **Four workers hit the post-commit-evidence contradiction.** That one was
+  resolved upstream while the task was still running, which is why it stopped
+  at four rather than reaching every worker in the project.
+
+The distinction that makes this usable: one agent departing from a rule is a
+mistake, and the rule usually stands. **Several agents departing the same way,
+independently, is a measurement of the rule** — and the burden shifts to
+whoever wrote it to say why the natural path is the wrong one.
+
 
 ---
 

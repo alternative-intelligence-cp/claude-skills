@@ -34,10 +34,19 @@ NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client
 
 ## 2. Before touching anything
 
-1. **The tree.** `git -C "$REPO" status --porcelain`. `TREE: clean` was
-   promised and it is not → `BLOCKED`. `TREE: dirty` → read
-   `git -C "$REPO" diff` and the task's execution record first: a predecessor
-   died here. Continue its work or stash it, and say which in your report.
+1. **The tree, inside your scope.** `git -C "$REPO" status --porcelain --
+   $SCOPE`. `TREE: clean` was promised and it is not → `BLOCKED`.
+   `TREE: dirty` → read `git -C "$REPO" diff -- $SCOPE` and the task's
+   execution record first: a predecessor died here. **Continue its work** and
+   say so in your report.
+
+   **Scoped, because unqualified it reports other tasks' work in progress**,
+   which at width above one is always non-empty and never yours. And the old
+   instruction here said "continue its work *or stash it*" — **stashing is now
+   forbidden** (P-12b): `git stash` takes the whole tree, including files two
+   other tasks have open, and hands you a clean tree by taking theirs away.
+   That instruction was written when width was one and became a corruption the
+   moment it was not.
 2. **Your scope.** You may write under `SCOPE` and nowhere else (P-10). The
    guard enforces it. **Needing a path you were not given is an escalation,
    not a wider write** — report `BLOCKED` with the path and why.
@@ -202,6 +211,11 @@ something.
   worth rewriting history to preserve; a worker contorted to hold that line and
   corrupted a concurrent task's commit doing it. Both commits name the step in
   their subject, which is all `check_report` asks for.
+- **`git commit --amend -- <paths>` is not the safe version.** The pathspec
+  limits which *content* is taken; it does nothing about *which commit* is
+  amended, which is always `HEAD`. A worker reaching for the careful-looking
+  form still rewrites whoever is at `HEAD`. There is no pathspec, flag or
+  ordering that makes an amend safe in a shared tree — only not doing it.
 - **Never `--amend` unless the board says width 1.** `--amend` acts on `HEAD`,
   and at width greater than one `HEAD` is not yours — it is whichever task
   committed most recently, which may have been a second ago. A worker amended

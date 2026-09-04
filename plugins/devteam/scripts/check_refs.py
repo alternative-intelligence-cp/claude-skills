@@ -46,6 +46,17 @@ DECLARATIONS = (
 )
 
 KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F"}
+TASK_FILE = re.compile(r"(^|/)tasks/[^/]+\.md$")
+# `T-4.S-2` -- the only form that names which task's step it means.
+QUALIFIED_STEP = re.compile(r"\bT-(\d+)\.S-(\d+)\b")
+# A STEP TABLE DECLARES ITS STEPS. The checklist form was the only recognised
+# one, and three tasks in one project independently wrote a table instead --
+# because a rich step carries a class, a role and a verify command, and those
+# are columns, not a run-on line. Repeated independent discovery of the same
+# departure is evidence about the grammar, not about the authors. This is one
+# declaration in two layouts, not two homes for one fact: nobody writes both,
+# and a task that does gets `duplicate-id`, correctly.
+TABLE_STEP = re.compile(r"^\|\s*\*{0,2}(S)-(\d+)\*{0,2}\s*\|")
 # Prefixes that live outside devteam/ and are never declared here. `P-n` is a
 # protocol rule; citing one is correct and must not be reported as undefined.
 EXTERNAL = {"P"}
@@ -181,6 +192,7 @@ def tracked_markdown(root: str):
 
 def scan(files, base):
     declared, cited, findings = {}, {}, []
+    step_cited = {}
 
     for path in files:
         rel = os.path.relpath(path, base)
@@ -251,6 +263,20 @@ def scan(files, base):
                     findings.append(("bad-status", rel, n,
                                      f"{name}: {m.group(1)!r} is not in the vocabulary"))
 
+            # Recorded WITHOUT `continue`, unlike every other declaration,
+            # because a step row's remaining cells carry real citations -- the
+            # requirements it discharges, the decision its verify proves. The
+            # step's own `S-n` then resolves against the declaration this line
+            # just made, which is harmless: only decisions must be cited.
+            tab = TABLE_STEP.match(line)
+            if tab:
+                key = f"{rel}:{tab.group(1)}-{tab.group(2)}"
+                if key in declared:
+                    findings.append(("duplicate-id", rel, n,
+                                     f"S-{tab.group(2)} already declared at {declared[key]}"))
+                else:
+                    declared[key] = f"{rel}:{n}"
+
             # A declaration line declares; it does not also cite itself.
             decl = None
             for pat in DECLARATIONS:
@@ -269,14 +295,43 @@ def scan(files, base):
                     declared[key] = f"{rel}:{n}"
                 continue
 
+            # A STEP IS NUMBERED PER TASK, so a citation of one resolves
+            # against a single file rather than the whole project. Flattening
+            # the namespace made every `S-n` resolve against any task that
+            # happened to declare that number: a task whose steps were written
+            # in a form the grammar does not recognise declared NONE of its
+            # own, and its S-1..S-5 passed anyway on other tasks' declarations.
+            # Only S-6 -- the first number no task had ever used -- reported.
+            # The check was measuring whether a number had ever been used
+            # anywhere, which is not what it is for.
+            owner = rel if TASK_FILE.search(rel) else None
+            for m in QUALIFIED_STEP.finditer(line):
+                step_cited.setdefault((f"tasks/T-{m.group(1)}.md", f"S-{m.group(2)}"),
+                                      f"{rel}:{n}")
             for pre, num in CITATION.findall(line):
                 if pre in EXTERNAL or pre not in KNOWN:
+                    continue
+                if pre == "S":
+                    # Bare `S-n` outside a task file names no task and cannot
+                    # be resolved -- `T-4.S-2` is the form that can. Skipping
+                    # it beats guessing: the record legitimately discusses
+                    # steps in prose, and a check that fires on prose is one
+                    # somebody turns off.
+                    if owner:
+                        step_cited.setdefault((owner, f"S-{num}"), f"{rel}:{n}")
                     continue
                 cited.setdefault(f"{pre}-{num}", []).append(f"{rel}:{n}")
 
 
-    bare = {k.split(":", 1)[1] if ":" in k and k.split(":", 1)[1].startswith("S-") else k
-            for k in declared}
+    for (owner, ident), where in sorted(step_cited.items()):
+        if f"{owner}:{ident}" not in declared:
+            f, n = where.rsplit(":", 1)
+            findings.append(("cited-undefined", f, int(n),
+                             f"{ident} is cited but {owner} declares no such step "
+                             "— steps are numbered per task, so a declaration in "
+                             "another task file does not resolve this one"))
+
+    bare = {k for k in declared if not k.startswith("tasks/")}
     for ident, where in sorted(cited.items()):
         if ident not in bare:
             findings.append(("cited-undefined", where[0].split(":")[0],

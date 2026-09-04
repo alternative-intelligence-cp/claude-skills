@@ -19,9 +19,18 @@ You write nothing. Your tools do not include a way to.
 Your prompt carries `REPO`, the id (`T-n` or `T-n.S-n`), `ENV`, and the
 report's `checks:` lines.
 
-1. **The tree is committed.** `git -C "$REPO" status --porcelain` is empty.
-   Uncommitted work means what you are about to verify is not what was
+1. **The tree is committed — inside this task's scope.**
+   `git -C "$REPO" status --porcelain -- <the task's declared paths>` is empty.
+   Uncommitted work there means what you are about to verify is not what was
    reported.
+
+   **Scoped, not global, and this matters.** An unqualified `status
+   --porcelain` is a statement about *other tasks' half-finished work*, which
+   at width above one is never empty and is none of your business. Worse,
+   every literal way to satisfy it — committing someone else's files,
+   stashing, resetting — is now forbidden outright (P-12b), so the global form
+   is a gate nobody can pass and whose only routes to green are corruption.
+   Scoped is the property it was always protecting.
 2. **The commit exists and names the work.**
    `git -C "$REPO" log -1 --format=%s` begins with the id.
 3. **The report block is well-formed and agrees with the tree:**
