@@ -40,12 +40,12 @@ SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 
 DECLARATIONS = (
     re.compile(r"^###\s+(R|D|Q)-(\d+)\s*" + DASH),          # REQUIREMENTS/DECISIONS/QUESTIONS
-    re.compile(r"^-\s+\*\*(G|DM)-(\d+)\*\*\s*" + DASH),      # CHARTER goals / done-means
+    re.compile(r"^-\s+\*\*(G|DM|F)-(\d+)\*\*\s*" + DASH),    # goals, done-means, findings
     re.compile(r"^#\s+(T|C)-(\d+)\s*" + DASH),               # a task or checkpoint title
     re.compile(r"^-\s+\[[ x~]\]\s+\*\*(S)-(\d+)\*\*"),       # a step inside a task
 )
 
-KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C"}
+KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F"}
 # Prefixes that live outside devteam/ and are never declared here. `P-n` is a
 # protocol rule; citing one is correct and must not be reported as undefined.
 EXTERNAL = {"P"}

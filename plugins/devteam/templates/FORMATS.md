@@ -45,6 +45,7 @@ what proves the three still agree.
 | decision | an `###` heading in `DECISIONS.md` | `### D-1 — TOML over YAML` |
 | question | an `###` heading in `QUESTIONS.md` | `### Q-1 — which config format?` |
 | checkpoint | the `#` title of `checkpoints/C-1-<date>.md` | `# C-1 — 2026-09-03 — ON-COURSE` |
+| finding | a bullet in `RECORD.md` | `- **F-9** — a client is not an operator` |
 
 **A citation is the bare identifier in prose or in a field value** — `R-3`,
 `D-1`, `T-2`. `check_refs.py` diffs declarations against citations in both
@@ -66,6 +67,7 @@ directions (P-22).
 | `D-` | a decision | `DECISIONS.md` |
 | `Q-` | an open question | `QUESTIONS.md` |
 | `C-` | a checkpoint | `checkpoints/` |
+| `F-` | a finding against the pipeline or the project | `RECORD.md`, as `- **F-n** — <one line>` |
 | `P-` | a protocol rule | the plugin's `PROTOCOL.md` — **external**, cited here, never declared here |
 
 **The rule: anything else that numbers something uses a prefix of three or

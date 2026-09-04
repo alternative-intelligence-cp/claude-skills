@@ -39,7 +39,8 @@ The record is what somebody meant to be true. These are facts:
 ```bash
 git -C "$REPO" status --porcelain
 git -C "$REPO" log --oneline -15
-ls -la devteam/.run/locks/            # heartbeats: which step, since when
+ls -la devteam/.run/locks/            # heartbeats: which step since when,
+                                      # or `closed <date>, verified PASS`
 ls -la devteam/.run/session/          # which session believed it held the lock
 ```
 
@@ -65,6 +66,7 @@ a finished one or the reverse:
 | the work was lost — `RUNNING`, clean tree | committed under **somebody else's message** (F-17) | `check_scope` reporting `misattributed-write`; `git log` for the scope's paths |
 | a finished task — title `DONE` | never verified; the verifier ran and FAILed, or never ran | `RECORD.md` has no `verify … PASS` line for it |
 | nothing in flight — no heartbeat | a supervisor that died **before** its first dispatch | the task file is dirty but no commit exists |
+| a task still working — heartbeat says `waiting on S-n` | a task that closed, whose heartbeat was never retired | the board and the task title say `DONE`; a heartbeat is retired to `closed <date>` at close, never deleted, so a live-looking one after a close is a lie told to this procedure |
 | a live claim | a task stopped for a question, whose title was never updated | `QUESTIONS.md` has an open item naming it (P-27b) |
 | a stale claim | a live worker under a completed supervisor | a live child in `ListAgents` (P-14) |
 

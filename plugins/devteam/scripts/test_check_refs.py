@@ -65,6 +65,14 @@ FIXTURE = {
 - **Raised.** 2026-09-03 by T-1
 - **Status.** open
 """,
+    "RECORD.md": """# The record
+
+Append-only. Findings are declared here as `- **F-n** — <one line>`.
+
+## 2026-09-04
+
+- first entry
+""",
     "tasks/T-1.md": """# T-1 — make it work — PLANNED
 
 - **Discharges.** R-1
@@ -159,6 +167,18 @@ CASES = [
       replace("REQUIREMENTS.md", "- **Status.** open",
               "- **Status.** nearly (T-2, T-5)")],
      {"bad-status"}),
+    # F-55: findings are the largest numbered set a project accumulates and had
+    # no integrity check at all — a signed charter cited a finding that was
+    # never declared anywhere, and the tree reported clean.
+    ("cited-undefined-finding",
+     [append("CHARTER.md", "\nThe reasoning for this is F-9 in the record.\n")],
+     {"cited-undefined"}),
+    ("fp-declared-finding-may-be-cited",
+     [append("RECORD.md", "\n- **F-9** — a client is not an operator\n"),
+      append("CHARTER.md", "\nThe reasoning for this is F-9 in the record.\n")],
+     set()),
+    ("fp-a-finding-need-not-be-cited-by-anything",
+     [append("RECORD.md", "\n- **F-9** — a client is not an operator\n")], set()),
     ("fp-in-progress-status",
      [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** in-progress (T-1)")], set()),
     ("fp-struck-question-keeps-its-decision",
