@@ -101,7 +101,75 @@ here were written before most of what the run taught.
 
 ---
 
-## 5. Two mechanisms deferred with their triggers
+## 5. Wrappers for irreversible operations
+
+**The idea:** rather than hoping an agent remembers the rules, wrap the tools
+that can cause unrecoverable loss so the wrapper enforces them — a `git` wrapper
+that requires an absolute path and refuses a relative one, and similar for
+anything else destructive.
+
+**The hard part, and the author named it when proposing it:** *provided we can
+get the agents to use them with consistency.* A wrapper an agent can bypass by
+calling the real tool is a rule, not a mechanism — the same class of failure as
+the interpreter heredoc, where the safe path exists and the ergonomic path goes
+around it.
+
+**There is an answer and the pipeline already owns it: the permission
+allowlist.** Setup writes it. An allowlist that grants `Bash(devteam-git:*)` and
+does *not* grant `Bash(git:*)` makes the bare call require a prompt, which is
+enforcement at the harness rather than convention in a document. The cost is
+real and has to be priced: every uncovered subcommand becomes a stop, which
+fights the unattended-operation goal. PATH shadowing is the other option and is
+worse — invisible, and its failure is silent.
+
+**Where a wrapper genuinely beats the guard, and it is not "safer".** The guard
+*refuses*. A wrapper can make a dangerous thing **deliberate rather than
+forbidden** — an explicit flag, a required reason, a logged justification. That
+matters because outright refusal is what produced several of this run's worst
+findings: a rule a worker must break to do the work right, met three times, each
+time because the only options were comply-and-fail or breach-and-report. A
+wrapper offers a third: do it, on the record, having said why.
+
+So the shape worth exploring is not "wrap git to be safe". It is **wrap the
+operations whose refusal currently creates a rule conflict**, and let them
+through under a signature.
+
+---
+
+## 6. Keeping a long-lived role's context fresh
+
+**The idea:** long-lived roles periodically re-read the important material, so
+it stays in the attended part of the context rather than drifting into the
+middle. Since context usage is not measurable from inside, some external trigger
+— time, or a count.
+
+**What exists already:** a `SessionStart` hook re-injects a manager's bearings
+after a **compaction or a resume**. That covers the discontinuous cases. It does
+nothing for **slow drift**, where nothing has been compacted and the charter is
+simply two hundred thousand tokens back.
+
+**The correction worth making before building anything.** A periodic refresh is
+the *fallback*, not the primary. The stronger form is **re-read at the point of
+use**: a manager about to answer a charter-class question re-opens the charter
+*then*; a supervisor about to close re-reads the gate *then*. That puts the text
+immediately before the decision instead of hoping it is still attended, and it
+costs nothing when the decision is not being made.
+
+**So the split is by what the material constrains.** Anything governing one
+decision is re-read at that decision. Only what constrains **every** decision —
+the priority order, the protected paths, the width, the current claims — is
+worth a periodic refresh, and that set is small enough to be cheap. Re-reading a
+34 KB charter and a 27 KB requirements file on a timer is not affordable and not
+what makes the difference.
+
+**The open question is the trigger**, and time is the weakest of the candidates
+because it is uncorrelated with how much has happened. Better: a count of
+reports handled, or board moves made, since both track actual context growth.
+Worth measuring against a real run before choosing.
+
+---
+
+## 7. Two mechanisms deferred with their triggers
 
 Neither is a good idea yet. Both are recorded so they are not re-derived from
 scratch, and neither should be built before its trigger fires.
@@ -121,7 +189,7 @@ work. The evidence for building it does not exist — it was looked for.
 
 ---
 
-## 6. The ceremony question, narrowed
+## 8. The ceremony question, narrowed
 
 Not *"is this too heavy?"* — it is, for small work, deliberately, and a
 simplification argued from small-project ergonomics is out of scope by
