@@ -3,6 +3,14 @@
 **/.run/
 *.log
 
+# A Python script at the repository root is a stray. Temporary scripts,
+# probes and experiments belong in .internal/scratch/ (or the session's
+# scratchpad), and the root tree stays short enough that the README is
+# reached on GitHub without scrolling past them. This keeps a stray off the
+# remote; it does not stop one being created, and `git status` will not show
+# it, so the local tree still wants an occasional look.
+/*.py
+
 # Python
 __pycache__/
 *.py[cod]
