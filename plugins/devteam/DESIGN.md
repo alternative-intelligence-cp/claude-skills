@@ -1218,6 +1218,37 @@ which is invisible to anyone already using it. That is worth remembering when
 reading §21: the missing findings are not hiding in the runs, they are in the
 people who did not start one.
 
+### A sentence written to justify a measurement does not itself get measured
+
+Three false sentences reached signed text on this project in one night, from an
+author who was measuring everything else carefully. Their shapes differ and the
+pattern underneath is the same one:
+
+| | |
+|---|---|
+| a constraint row promising a bound | **stale** — true when written, falsified by a decline |
+| "`repr()` enforces exact representability" | **never true** — a claim about floats, written while reasoning about integers |
+| "not escapable by choosing a reader" | **true in conclusion, false in reason** — a reader exists that separates the texts, just not as numbers |
+
+The author's own diagnosis is the finding: *"a sentence written to justify a
+conclusion I had already measured does not itself get measured. The measurement
+licenses the paragraph, and the paragraph then acquires claims the measurement
+never covered."*
+
+That is why haste does not explain it. Two of the three were written **inside
+messages that were otherwise careful**, by someone actively measuring something
+adjacent — integers while claiming something about floats, number-readers while
+claiming something about readers. **The care was real and it was pointed one
+clause away from the error.**
+
+The practical form: when a measured result gets written up, the measurement
+covers the *result*. Every supporting sentence in the same paragraph is
+unmeasured prose that has borrowed the result's authority, and the borrowing is
+invisible because the paragraph reads as one thing. Underline the claims that
+are not the measurement, and check whether any of them is doing load-bearing
+work — a criterion, a justification, a scope. Those are the ones that reach
+signed text and stay wrong.
+
 ### Malicious compliance is a diagnostic, and it points at the rule
 
 A rule this project follows without having stated it, from the author: *"if you

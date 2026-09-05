@@ -146,8 +146,20 @@ While tasks in flight are fewer than `width=`:
    the manager's own bookkeeping rather than a worker's — which is the shape a
    checkpoint was once filed for. It is one commit, so make it one instruction.
 
-3. **Dispatch** `devteam:supervisor` with §5's template, `description` = the
-   label. It runs in the background; you are woken when it reports.
+3. **Commit every edit you have made to the task file, then dispatch**
+   `devteam:supervisor` with §5's template, `description` = the label.
+
+   **The commit is not tidiness, it removes a defect a worker cannot avoid.**
+   A worker appending its REPORT block commits the task file, and
+   `git commit -- <path>` takes **file content, not hunks** — so anything you
+   left uncommitted in that file goes into the worker's commit under the
+   worker's message. Interactive staging is outside the grant, so there is no
+   move available to the worker that avoids it. It is reported afterwards as a
+   `misattributed-write` against *you*, and the finding's own remedy — "stage
+   explicit paths" — does not address it, because the worker did stage explicit
+   paths. **Manager and supervisor share one file and the commit primitive
+   cannot split it**, so the only place to fix it is here, before the file is
+   shared. It runs in the background; you are woken when it reports.
 
 4. **On a report**, §6.
 

@@ -128,6 +128,26 @@ is reported rather than silently resolved.** A worker that quietly follows the
 ambient instruction leaves no trace that the guard was not watching, and
 whoever reads the record afterwards will believe it was.
 
+**The rule is about writes the guard would judge, and only those.** It was
+written without that qualifier and was immediately unobeyable by the roles that
+mutate most: a verifier and an auditor are given `Read` and `Bash` and **no
+`Write` or `Edit` at all** — that is the point of them. Told to use `Write`,
+they can comply with nothing. And their mutation work happens in a scratch
+directory **outside the repository**, which the guard does not police in the
+first place, so there is nothing there for a heredoc to evade.
+
+So: inside the project tree, `Write` or `Edit`. Outside it, any tool, because no
+judgement was available either way. Both verifiers that met this used Bash only
+outside the repository and said so, rather than deciding the scratchpad was
+exempt and not mentioning it — which is how the gap was found rather than
+assumed.
+
+**Two hours between writing this rule and a role reporting it could not be
+followed.** That is the pairs shape again and this time in a rule written *by*
+the person who keeps cataloguing it, which is worth recording rather than
+quietly patching: knowing the failure mode does not confer immunity, and the
+tell was available — the rule named a tool without checking which roles have it.
+
 The general form is worth stating because it will recur with some other
 setting: **this design's coverage can depend on an external variable nobody
 inside it can see.** When a rule here assumes a mechanism is watching, say what

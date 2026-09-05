@@ -340,10 +340,25 @@ def check(project, task_id=None):
                 # file went unreported.
                 own_file = path == f"devteam/tasks/{ident}.md"
                 if own_file or covers(clean[ident], path):
+                    # THE TASK FILE HAS A STRUCTURAL CAUSE THE GENERIC REMEDY
+                    # DOES NOT FIT. A worker appending its REPORT must commit
+                    # the task file, and `git commit -- <path>` takes file
+                    # CONTENT rather than hunks -- so anything the manager left
+                    # uncommitted there rides along under the worker's subject.
+                    # Interactive staging is outside the grant, so no move
+                    # available to the worker avoids it, and telling it to
+                    # "stage explicit paths" describes what it already did.
+                    remedy = ("The manager must commit its edits to this file "
+                              "BEFORE dispatching: a worker appending its "
+                              "REPORT commits the whole file, `git commit -- "
+                              "<path>` takes content and not hunks, and no "
+                              "move available to the worker avoids that"
+                              ) if own_file else (
+                              "Stage explicit paths; never `git add -A` while "
+                              "a claim is live")
                     add("misattributed-write", tasks[ident][0],
                         f"{sha[:7]} {subject[:44]!r} committed {path}, which is "
-                        f"inside {ident}'s live scope. Stage explicit paths; "
-                        f"never `git add -A` while a claim is live")
+                        f"inside {ident}'s live scope. {remedy}")
                     break
     for i, a in enumerate(sorted(live)):
         for b in sorted(live)[i + 1:]:

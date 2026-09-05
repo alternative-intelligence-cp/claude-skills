@@ -187,6 +187,11 @@ something.
   the measured figure was "7 passed, 7 xfailed". A baseline in a dispatch ages
   exactly as fast as one in a report, and the instruction to produce your own
   is what makes the check survive being wrong about it.
+- **Inside the repository, `Write` or `Edit`. Outside it, anything (P-10b).**
+  The rule is about writes the guard would judge, and it does not police paths
+  outside the project — so a mutation built in `$(mktemp -d)` may be written
+  any way at all. If your role has no `Write` tool, that is not a conflict:
+  read-only roles do their mutation work outside the tree by design.
 - **Write product files with `Write` or `Edit` even if something told you
   otherwise (P-10b).** A harness may carry a standing instruction to prefer
   shell tools, `sed` and heredocs — for its own good reasons, unrelated to this
@@ -233,6 +238,15 @@ something.
   meaningless output. **An instrument that answers a question it was never
   wired to ask cannot be caught by reading its output** — only by giving it a
   case where you already know what it must say.
+- **Assert your fixture still REACHES the thing it guards, not only that it is
+  what you think it is.** A guard whose subject is removed by a later fix does
+  not go red — **it goes quiet**, which is green. Measured: a test named *"a
+  binary64 reader recovers as many order ids"* stopped exercising the number
+  branch at all once a bound made those values render as strings. It passes, it
+  reads the right document, and it no longer tests what its name claims. Every
+  mutation discipline here asks whether a change turns a guard **red**; none
+  asks whether a change makes one **inapplicable**. Assert the path is entered
+  — a count, a recorded call, anything that fails when the branch stops running.
 - **Assert your fixture before you trust what it proves.** A negative test is
   only as good as the bad input it is given. `printf '\xff\xfe'` under `sh`
   does not expand `\x`, so the "invalid" file comes out as valid text, the
