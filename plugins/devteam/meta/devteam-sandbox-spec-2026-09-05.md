@@ -4,6 +4,17 @@
 > Nothing under this line was edited. The source it names — the owner's
 > original idea, fleshed out by Gemini — stays private on the owner's machine;
 > the plan that builds on this spec is [`roadmap/`](roadmap/README.md).*
+>
+> *The primary sources that idea drew on, listed here so the provenance does
+> not end in a private file. They are the report's citations, not this
+> project's research: four answered a plain HTTP request on 2026-09-05; the
+> Reddit thread refused a non-browser client (`403`) and was not checked.*
+>
+> 1. [Easy Sandboxing on Linux with Bubblewrap](https://bxt.rs/blog/easy-sandboxing-on-linux-with-bubblewrap/)
+> 2. [Coding Agents V: Why Bubblewrap Wraps Agents — Palaimon GmbH](https://palaimon.io/blog/coding-agents-bubblewrap-deep-dive/)
+> 3. [Easy Sandboxing on Linux with Bubblewrap | daily.dev](https://daily.dev/posts/easy-sandboxing-on-linux-with-bubblewrap-b5wpu6gga)
+> 4. [Sandboxing Applications with Bubblewrap: Desktop Applications](https://www.reddit.com/r/linux/comments/1j7vhec/sandboxing_applications_with_bubblewrap_desktop/)
+> 5. [Sandboxing Applications with Bubblewrap: Securing a Basic Shell](https://sloonz.github.io/posts/sandboxing-1/)
 
 **For the implementing agent.** Written 2026-09-05 by `nitpick-libs-42`.
 Distilled; no preamble. Every number below was measured on the target machine
