@@ -336,6 +336,32 @@ def lock_state(writer, session):
     return "mine" if session in re.findall(r"[0-9A-Za-z_-]+", writer) else "theirs"
 
 
+def history_refusal(what, live):
+    """Why a history rewrite is refused, for both the stranger and the run."""
+    return (f"Refused: `{what}` while {', '.join(sorted(live))} "
+            f"{'is' if len(live) == 1 else 'are'} claimed. Declared scopes "
+            "divide the working tree; they do not divide the branch, the "
+            "index or HEAD, which every task in flight shares \u2014 and the "
+            "manager is committing to the same tree as every worker, so "
+            "HEAD is not yours even at width 1 (P-12b).\n\n"
+            "A worker ran `git commit --amend` on what it believed was its "
+            "own commit, landed on a concurrent task's, merged its report "
+            "into that task's subject and rewrote its hash. Another agent's "
+            "`git add -A` swept a worker's in-flight files into the "
+            "manager's commit. Neither violated any scope.\n\n"
+            "If this repository is not the one you meant, that is the more "
+            "likely explanation: a shell left in another project's directory "
+            "is how this is usually reached. Use `git -C <repo>` rather than "
+            "relying on the working directory.\n\n"
+            "To correct a commit, ADD ANOTHER ONE \u2014 a step may take two, "
+            "and post-commit evidence is why. To stage, name the paths: "
+            "`git commit -F \"$msgfile\" -- <paths>`. If a rewrite has "
+            "already happened, recover with `git reset --soft` to the "
+            "original from `git reflog`, never `--hard`: soft leaves the "
+            "index and working tree untouched, and the tree holds other "
+            "tasks' uncommitted work.")
+
+
 def judge(target, what, session, session_project, cache, category="write"):
     """None, or a refusal reason for a target this session may not write.
 
@@ -434,6 +460,24 @@ def judge(target, what, session, session_project, cache, category="write"):
     # `devteam/` itself stays tree-scoped above, and so do protected paths:
     # that directory IS the run, and its lock (P-13) is exactly the rule that
     # has to hold against a session that is not part of it.
+    # HISTORY IS THE RUN, LIKE `devteam/` IS, SO IT IS DEFENDED AGAINST A
+    # STRANGER TOO -- and this check therefore sits ABOVE the stranger exit
+    # below rather than with the scope rules.
+    #
+    # The distinction that keeps this from being the over-reach that turned a
+    # real team away: we do not police a stranger's WRITES to the product tree,
+    # because those are theirs. We refuse operations on THIS RUN'S shared index
+    # and history while a claim is live, for exactly the reason `devteam/` is
+    # refused -- P-12b says no scope covers history, so nothing else can.
+    #
+    # Found by nearly doing it: a session with a shell left in another
+    # project's directory ran `git add -A && git commit` against a live run's
+    # repository. It short-circuited on an unrelated error, which is luck
+    # rather than a control. Expecting anyone -- person or agent -- to
+    # remember `git -C` every time is not a mechanism.
+    if category == "history" and live:
+        return history_refusal(what, live)
+
     if lock_state(writer, session) == "theirs":
         return None
 
@@ -450,24 +494,7 @@ def judge(target, what, session, session_project, cache, category="write"):
         return None                           # no claim is in flight; nothing to police
 
     if category == "history":
-        return (f"Refused: `{what}` while {', '.join(sorted(live))} "
-                f"{'is' if len(live) == 1 else 'are'} claimed. Declared scopes "
-                "divide the working tree; they do not divide the branch, the "
-                "index or HEAD, which every task in flight shares — and the "
-                "manager is committing to the same tree as every worker, so "
-                "HEAD is not yours even at width 1 (P-12b).\n\n"
-                "A worker ran `git commit --amend` on what it believed was its "
-                "own commit, landed on a concurrent task's, merged its report "
-                "into that task's subject and rewrote its hash. Another agent's "
-                "`git add -A` swept a worker's in-flight files into the "
-                "manager's commit. Neither violated any scope.\n\n"
-                "To correct a commit, ADD ANOTHER ONE — a step may take two, "
-                "and post-commit evidence is why. To stage, name the paths: "
-                "`git commit -F \"$msgfile\" -- <paths>`. If a rewrite has "
-                "already happened, recover with `git reset --soft` to the "
-                "original from `git reflog`, never `--hard`: soft leaves the "
-                "index and working tree untouched, and the tree holds other "
-                "tasks' uncommitted work.")
+        return history_refusal(what, live)
 
     if category == "index":
         # Staging and committing touch the index and refs. They cannot write a

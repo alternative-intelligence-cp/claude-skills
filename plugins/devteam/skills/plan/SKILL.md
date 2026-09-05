@@ -288,7 +288,7 @@ if it would have come out differently before the step was done — otherwise it
 is a green light wired to nothing.
 
 The test is mechanical and cheap: **run the command against the tree as it
-stood before the change** (`git archive HEAD~1` into a scratch directory) and
+stood before the change** (`git -C "$REPO" archive HEAD~1` into a scratch directory) and
 confirm it *fails* there. A real supervisor found its planned command printed
 identically on the pre-change tree, rejected the step, wrote a replacement —
 and found that vacuous too, because `pytest` reports `configfile:

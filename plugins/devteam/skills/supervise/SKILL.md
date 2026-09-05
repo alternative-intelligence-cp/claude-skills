@@ -92,7 +92,7 @@ about, and a green result from it means nothing at all.
 
 **And the command must be able to fail.** Before accepting a step on the
 strength of its verify, satisfy yourself the command would have come out
-differently *before* the work — `git archive HEAD~1` to a scratch tree and run
+differently *before* the work — `git -C "$REPO" archive HEAD~1` to a scratch tree and run
 it there. A command that passes on the pre-change tree proves nothing, and a
 step accepted on one has been waved through. Rejecting a step for a vacuous
 instrument is a legitimate FAIL even when the artifact is perfectly correct:

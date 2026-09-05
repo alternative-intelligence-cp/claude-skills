@@ -36,7 +36,7 @@ tests, checks, audits. What you check is the part no script can:
 gh pr view <n>                 # what it claims
 gh pr checks <n>               # what CI says, if there is any
 gh pr diff <n>                 # what it actually does
-git log --oneline <base>..<head>
+git -C "$REPO" log --oneline <base>..<head>
 ```
 
 Then the project's own state: the task file, the requirement, the decisions

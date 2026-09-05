@@ -1338,6 +1338,44 @@ message says the heredoc is a limit rather than permission.
 The corollary is a question worth asking of every rule here: **where will
 somebody be standing when this matters, and is the rule there?**
 
+### The working directory is not a mechanism, and a lint for it is not either
+
+A session with a shell left in another project's directory ran
+`git add -A && git commit` against a **live run's repository**. It did not fire
+— an earlier command in the same `&&` chain failed on a path that did not exist
+there — and the tree was verified untouched afterwards. **That is luck, not a
+control**, and expecting anyone, person or agent, to remember `git -C` every
+time is not a mechanism.
+
+**The structural fix was to move an existing rule, not to add one.** The history
+category — `--amend`, `add -A`, `reset --hard`, `rebase`, `stash` — sat *below*
+the exit that stops policing a session which is not part of the run. So a
+stranger could sweep a live run's index or rewrite its history, which is exactly
+the case that nearly happened. It now sits **above** that exit, beside the
+`devteam/` lock, on the same reasoning: **history is the run, in the same sense
+that directory is, and P-12b says no scope covers it.**
+
+The line that keeps this from being the over-reach that once turned a team away
+is narrow and worth stating: **a stranger's writes to the product tree are still
+their own business.** What is refused is an operation on *this run's shared
+index and history* while a claim is live. Controls assert both halves.
+
+The refusal message also names the likely cause, because the placement principle
+applies here more than anywhere: somebody meeting it is standing in a directory
+they did not mean to be in.
+
+**And the lint was probed and rejected**, which is the part worth keeping. The
+obvious follow-up is a check for bare `git` commands in the skills. Run over the
+corpus it reported **24 hits across 9 skills** — and nearly all of them are
+*prose discussing* git commands: "`git add -A` must be allowed", "never
+`git add` followed by a bare `git commit`". Telling a command from a discussion
+of a command is the semantic reading this project refuses everywhere, and the
+signal-to-noise was the familiar 1-in-14 shape.
+
+So four genuinely runnable commands were fixed by hand, and **no check was
+built.** The guard covers the case that matters regardless of what any document
+says, which is the better place for it anyway.
+
 ### The worst kind of check defect: one that fires on mandated behaviour
 
 `check_refs` read a quoted finding as a citation. A supervisor had written its

@@ -365,7 +365,7 @@ replaced. Generate the list **before asking**, so it can be priced into the ques
 and use it again before closing:
 
 ```bash
-git grep -n "D-11\|D-13\|carve-out" -- . ':!devteam/RECORD.md'
+git -C "$REPO" grep -n "D-11\|D-13\|carve-out" -- . ':!devteam/RECORD.md'
 ```
 
 — the superseded decision ids and any distinctive phrase the old rule used,

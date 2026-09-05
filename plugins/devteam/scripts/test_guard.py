@@ -232,6 +232,26 @@ SPECIAL = [
     ("deny-git-clean-with-no-pathspec",
      bash("git clean -fd"), WRITER_SESSION, True, None, None),
 
+    # --- a stranger may not rewrite a live run's history ------------------
+    # The session-scoping change deliberately stopped policing a stranger's
+    # WRITES to the product tree -- those are theirs. History is not: it is the
+    # run, in the same sense `devteam/` is, and P-12b says no scope covers it.
+    # Found by nearly doing it: a shell left in another project's directory ran
+    # `git add -A && git commit` against a live run, and short-circuited on an
+    # unrelated error. Luck, not a control.
+    ("deny-stranger-git-add-all-in-a-live-run",
+     bash("git add -A"), "session-Z", True, None, None, "P-12b"),
+    ("deny-stranger-amend-in-a-live-run",
+     bash("git commit --amend --no-edit"), "session-Z", True, None, None, "P-12b"),
+    ("deny-stranger-reset-hard-in-a-live-run",
+     bash("git reset --hard HEAD~1"), "session-Z", True, None, None, "P-12b"),
+    # ...and a stranger's ordinary writes stay their own business, which is the
+    # line that keeps this from being the over-reach that turned a team away.
+    ("fp-stranger-product-write-is-still-not-policed",
+     write("src/render/b.py"), "session-Z", False, None, "/tmp"),
+    ("fp-stranger-path-scoped-commit-is-not-history",
+     bash('git commit -F msg.txt -- src/loader/a.py'), "session-Z", False, None, "/tmp"),
+
     # --- the verifier's mutation recipe, which is now documented ----------
     # A verifier holds no task claim, so every in-tree write it makes is "a
     # path no live task has claimed" BY CONSTRUCTION. One concluded from that
