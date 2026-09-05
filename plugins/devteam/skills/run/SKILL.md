@@ -131,10 +131,20 @@ While tasks in flight are fewer than `width=`:
    ```
    Nothing available → say why and go to §8.
 
-2. **Claim.** The board's task row to `CLAIMED <label>`; an in-flight row with
-   the task, the label `T<n>-<slug>-<HHMM>`, the time, the model and the
-   scope. One commit: `board: claim T-n`. **A claim is a commit** — this
-   file's history is the record of who worked what and when (P-11).
+2. **Claim, and move the requirement statuses in the same commit.** The
+   board's task row to `CLAIMED <label>`; an in-flight row with the task, the
+   label `T<n>-<slug>-<HHMM>`, the time, the model and the scope; **and every
+   requirement the task discharges to `in-progress (T-n)` in
+   `REQUIREMENTS.md`.** One commit: `board: claim T-n`. **A claim is a commit**
+   — this file's history is the record of who worked what and when (P-11).
+
+   **The requirement half is written into this step because it is the half
+   that gets forgotten.** Claiming a task and moving its requirements are two
+   acts, and a manager doing the first and not the second leaves the board
+   saying a task is working a requirement while the requirement says nobody
+   is. `one-sided-link` caught exactly that twice on one project, both times
+   the manager's own bookkeeping rather than a worker's — which is the shape a
+   checkpoint was once filed for. It is one commit, so make it one instruction.
 
 3. **Dispatch** `devteam:supervisor` with §5's template, `description` = the
    label. It runs in the background; you are woken when it reports.

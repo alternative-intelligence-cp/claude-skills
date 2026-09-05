@@ -1338,6 +1338,31 @@ message says the heredoc is a limit rather than permission.
 The corollary is a question worth asking of every rule here: **where will
 somebody be standing when this matters, and is the rule there?**
 
+### The worst kind of check defect: one that fires on mandated behaviour
+
+`check_refs` read a quoted finding as a citation. A supervisor had written its
+check output verbatim into its report — which P-16 and P-17 require, and which
+is the single behaviour this whole design leans on hardest — and the check
+reported a new finding **against the file that quoted it.** The project's one
+permanent agreed finding began spawning a second in every task file that
+mentioned it.
+
+The manager's statement of why this is the worst category is better than mine:
+**a check that fires on the behaviour the protocol mandates puts the correct
+response and the safe response in opposite directions.** Every other defect
+here costs somebody time. This one teaches an agent that reporting honestly is
+punished, and the lesson it teaches is learned quietly, by paraphrasing next
+time.
+
+It is also a mechanism by which a finding count grows **with nobody having
+accepted a finding** — which the trigger written down for that problem does not
+cover, because it assumed the count only grows when somebody decides to let it.
+
+The check to apply, and it is cheap: **for each finding a check can emit, ask
+what a correct report of it looks like, and run the check over that report.**
+Fenced output was already skipped here; inline output was not, and every report
+in the project quotes inline.
+
 ### The other failure between two agents: a loop that produces genuine findings
 
 Assent is the first failure mode. This is the second, and it is harder to see
