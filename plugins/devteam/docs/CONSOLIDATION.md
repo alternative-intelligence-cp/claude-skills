@@ -194,6 +194,19 @@ two-letter prefixes, so `COR-n`, `SEC-n` and `HYG-n` are invisible to
 three-letter prefixes need no reserving. Worth doing deliberately rather than in
 passing.
 
+**And the reason to do it eventually, stated plainly.** The three-letter prefix
+was chosen *because* the scanner cannot mistake it for a citation — which is the
+same fact as the scanner being unable to check it. **The audit namespace has no
+citation integrity in either direction**: a report may cite `COR-99`, which
+exists nowhere, and nothing says so. `Disposition.` is now the only thing
+watching that namespace, and one field carrying a whole namespace's integrity is
+a thin arrangement.
+
+The general form is worth carrying past this instance: **a thing exempted from a
+check for its own protection is a thing the check cannot see.** Whenever
+something is carved out, name what watches it instead — or record that nothing
+does, which is a legitimate answer and a very different one from "it is safe".
+
 ---
 
 ## 8. Two mechanisms deferred with their triggers

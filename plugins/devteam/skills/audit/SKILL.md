@@ -178,8 +178,21 @@ closes is one nobody decided about.
 
 ```
 - **COR-6.** <one line: what is wrong>
+  - **Needs.** `csv2json/reader.py`, `tests/test_headers.py`
   - **Disposition.** open
 ```
+
+**`Needs.` is what makes `routed T-n` mean something**, and without it the word
+degrades to "mentioned". Measured, immediately: a finding was reported as
+*"routed as a lead into T-10's brief"* when it had been **named as background
+for a task whose scope never reached the files the finding needs changed.**
+**Naming a finding in a brief is not routing it**, and the error was made in the
+same message that reported this class of error.
+
+So `routed T-n` requires **T-n's declared `Scope.` to cover the finding's
+`Needs.`** — the same containment `unreachable-acceptance` applies to a
+requirement's criterion. A finding routed to a task that cannot touch what it
+needs is filed, not routed, and it will read as handled to everyone afterwards.
 
 **This exists because a finding filed is not a finding routed, and nothing
 distinguished them.** One project's two audits produced fifteen findings: three

@@ -82,6 +82,24 @@ from a citation* — there is no syntax that says "this is my own numbering, not
 a reference to yours". A three-letter prefix cannot match, so it is safe
 without any further agreement.
 
+**And "safe from collision" also means "unseen", which is the half this said
+nothing about.** The scanner that cannot mistake `COR-6` for a citation also
+cannot check it. So a three-letter namespace has **no citation integrity at
+all, in either direction**: an audit may cite `COR-99`, which exists nowhere,
+and nothing reports it; an audit finding may be declared and referenced by
+nobody, and nothing reports that either. The exemption that protects the
+namespace is the same fact that blinds every tool to it.
+
+That is a fair trade only if something else watches the namespace. For audit
+findings that is now the `Disposition.` field, and it is the **only** thing
+watching — so treat a namespace exemption as a debt rather than a solution, and
+say what is covering it.
+
+**The general form, because it will recur:** a thing exempted from a checker
+for its own protection is a thing the checker cannot see. Whenever you carve
+something out of a check, name what watches it instead, or record that nothing
+does.
+
 **Why it matters, from experience.** This has now bitten three times, in three
 different disguises, and each time it cost a real finding:
 
