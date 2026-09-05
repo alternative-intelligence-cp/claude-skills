@@ -221,6 +221,21 @@ NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client
 REFUTE: none | <the claim this dispatch asks to be broken, stated flat>
 ```
 
+**A brief states the rule's domain, never the instance that prompted it.** This
+is the enumeration defect addressed to one worker, and it costs the same thing.
+Measured: a mid-flight brief opened *"one edit to make in `tests/test_docs.py`
+while it is still yours"* — naming **the file where the instance was found**
+rather than the rule's scope. The supervisor did exactly what it was asked and
+swept that instrument. The task's **deliverable**, which did not exist when the
+brief was written, was never swept at all — and it is the stronger candidate,
+because a stale claim in a delivered document reaches a *user* while one in a
+test file reaches a maintainer.
+
+The form it needed: **"apply this rule to every artifact this task writes,
+including the ones that do not exist yet."** A requirement enumerating cases
+looks, to every check here, like complete coverage of a goal that quantifies —
+and a brief is a requirement with an audience of one.
+
 **`REFUTE:` exists because `NOTES:` is the only field with no shape, and that
 is where an inert claim gets in.** Every other line is a form — a scope, a
 gate, a command — and a form is hard to fill in with something unfalsifiable.
