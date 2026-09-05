@@ -104,6 +104,36 @@ names the paths it may write (P-12). Writing outside them is refused by the
 guard, and needing to is a finding worth escalating, not a thing to work
 around.
 
+**P-10b — HOW a file is written is part of the scope mechanism, not a matter of
+taste.** The guard judges a write by its target, and it can only see a target
+it can read from the tool call or the command text. `Write` and `Edit` are
+judged. A shell redirection is judged. **An interpreter heredoc is not** —
+`python3 - <<PY` with `Path.write_text` gives the guard nothing to resolve, so
+the write is neither refused nor recorded. So inside a devteam project, product
+files are written with `Write` or `Edit`, and that is a protocol requirement
+rather than a preference.
+
+**This one has an outside cause, which is why it is a rule rather than a
+bullet.** A harness may ship an ambient instruction to prefer shell tools,
+`sed` and heredocs over `Write` and `Edit` — for perfectly good reasons of its
+own, having nothing to do with this pipeline. **Such an instruction silently
+disarms the scope guard**, and it does so invisibly: no refusal, no finding,
+nothing in any record. It reached two consecutive workers and a supervisor on
+one project. Both workers disregarded it, used `Edit`, and reported the
+conflict, which is exactly right and was not something their dispatch told them
+to do.
+
+So: **the pipeline's write form wins inside a devteam project, and the conflict
+is reported rather than silently resolved.** A worker that quietly follows the
+ambient instruction leaves no trace that the guard was not watching, and
+whoever reads the record afterwards will believe it was.
+
+The general form is worth stating because it will recur with some other
+setting: **this design's coverage can depend on an external variable nobody
+inside it can see.** When a rule here assumes a mechanism is watching, say what
+would make it stop watching — and prefer the arrangement where the failure is
+loud.
+
 ---
 
 ## 3. Claims, locks and running more than one thing

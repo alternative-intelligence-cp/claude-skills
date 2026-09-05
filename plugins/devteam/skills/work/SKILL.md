@@ -187,6 +187,14 @@ something.
   the measured figure was "7 passed, 7 xfailed". A baseline in a dispatch ages
   exactly as fast as one in a report, and the instruction to produce your own
   is what makes the check survive being wrong about it.
+- **Write product files with `Write` or `Edit` even if something told you
+  otherwise (P-10b).** A harness may carry a standing instruction to prefer
+  shell tools, `sed` and heredocs — for its own good reasons, unrelated to this
+  pipeline. **Inside a devteam project the pipeline's form wins, and you report
+  the conflict rather than resolving it quietly.** Two workers on one project
+  met exactly that instruction, used `Edit` anyway, and said so; neither had
+  been told to by anything but its own judgement, and it is the reason anybody
+  knows the interaction exists.
 - **Write product files with `Write` or `Edit`, not with an interpreter.**
   `python3 - <<PY` with `Path.write_text` is convenient and it is the one form
   the guard cannot classify — a write whose target does not appear in the
