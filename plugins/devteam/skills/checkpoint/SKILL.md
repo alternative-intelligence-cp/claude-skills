@@ -174,6 +174,39 @@ what was believed after the fact. If it was wrong, the next one says so.
 
 ## The final checkpoint (GATE 4)
 
+**Four rules on how this document is written, before anything about what it
+contains.** GATE 4 requires **five count-and-enumeration pairs in one
+document** — every done-means with its evidence, every requirement discharged
+or struck, every decision the client never reviewed, cost against estimate, and
+what is knowingly left undone. That is the shape of the worst writing failure
+this project has recorded, five times over, in the document written *last* —
+by whoever has just spent a run cataloguing that failure and is therefore most
+likely to believe they are immune to it.
+
+1. **Every count is produced by a command run at the moment of writing, with
+   the command named beside the number.** Never a figure carried down from
+   earlier in the record: every one of those was true when it was written.
+2. **Every enumeration is read off the same output as its count.** One run, one
+   command, one sitting. A total and its members are two claims, and the second
+   is the one nobody re-derives — because the first one's provenance launders
+   it.
+3. **No completeness claim unless the full set is printed above it.** "And
+   nothing else" is a statement about a set, writable only by somebody who has
+   just read the set.
+4. **Name the commit this was written against, and re-run the checks at
+   signing** with their output pasted rather than summarised.
+
+**None of these asks you to be careful, and that is the point.** They ask for a
+command on the same line as its number — which is **visible in the finished
+document whether or not you were careful**, so a reader can check compliance
+without re-running anything. That is the only property that survives the fact
+that attention does not: five times here somebody committed a failure in the
+same artifact where they had just documented it.
+
+They are written down rather than remembered because a mechanism that depends
+on an agent recalling it at the moment of writing is not a mechanism.
+
+
 **Walk the run's lessons backwards over the documents written before them.**
 This is the only moment every requirement, goal and criterion is read at once,
 and it is the last one — there will not be another pass over the artifacts this

@@ -1276,6 +1276,24 @@ present and pointed at the right subject and it did not help — which is why th
 standard cannot be *"be true when written"* but **"must not be able to become
 false."**
 
+**And "care" is the wrong target anyway, because it names a state rather than an
+action.** The five split into four *writing* failures — a description drifting
+from its subject while the author looks at the description — and one *design*
+failure, a claim about a system made without querying the system. Different
+animals. **The shared half is that in every case the checkable fact was one
+command away and nobody ran it.**
+
+That is a better target because it can be asked as a question with an answer.
+"Were you careful?" cannot be audited, by the author or anybody else. "Which
+command produced this number?" can, and it can be answered by looking at the
+finished artifact rather than by interrogating whoever wrote it.
+
+**Which gives the test for whether a rule is a mechanism at all: is compliance
+visible in the product?** A rule that says *put the command beside the number*
+leaves evidence of having been followed. A rule that says *check your numbers*
+leaves none, so it is unenforceable by construction — including by its author,
+who is the one person guaranteed to believe they complied.
+
 The corollary for reviewing one's own work is uncomfortable and useful: **the
 fact that you have just written about a failure mode is not evidence you have
 avoided it. It may be weak evidence in the other direction**, since the thing
