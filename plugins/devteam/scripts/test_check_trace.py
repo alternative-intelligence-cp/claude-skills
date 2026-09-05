@@ -106,6 +106,12 @@ CASES = [
     # after that task closed, passed all four checks. `check_scope` reads the
     # board for scopes and a claim is legal whatever a title says;
     # `check_trace` read titles and never opened the Tasks table.
+    # The dispatch window: a claim is committed before the supervisor exists,
+    # and the title is the supervisor's to write. Whether this is healthy or a
+    # dead claim depends on agent liveness, which is not in any file -- so it
+    # belongs to §3's recovery table and not to a static check.
+    ("fp-claimed-over-a-not-yet-started-supervisor",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—")}, set()),
     ("board-drift-claimed-over-a-finished-task",
      {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—"),
       "tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-03)"),

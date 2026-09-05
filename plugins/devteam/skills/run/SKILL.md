@@ -51,14 +51,20 @@ can destroy uncommitted work nobody knew was there.
 2. **Read, in order:** `BOARD.md`; `CHARTER.md`; `REQUIREMENTS.md`;
    `QUESTIONS.md` (anything still open); `RECORD.md`'s last entries.
 
-3. **Check the plan is whole:**
+3. **Recover** every `CLAIMED` row, §3 — **before** asking whether the plan
+   is whole. Reconciling what is *running* has to come first: the plan check
+   reads a state that recovery establishes, so running it earlier asks a
+   question about a situation that does not exist yet. It also used to stop
+   a resuming session on a stale claim **two steps before the procedure that
+   repairs one** — a check firing immediately in front of its own remedy.
+4. **Check the plan is whole:**
    ```bash
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
    ```
    Findings here mean the plan has holes nobody has looked at. Report them and
    stop — do not start building through a hole (P-4).
 
-4. **Pin the environment** (P-33) **including this plugin's own commit**, if
+5. **Pin the environment** (P-33) **including this plugin's own commit**, if
    the board names none. The pin exists so two runs of the same command are
    comparable, and the checks are part of the command: a supervisor and a
    verifier minutes apart got three findings and four from `check_scope`
@@ -72,7 +78,6 @@ can destroy uncommitted work nobody knew was there.
    **Never re-pin while a claim is in flight** — a result that cannot be
    attributed to a known environment is not a result.
 
-5. **Recover** every `CLAIMED` row, §3.
 
 6. **Tell the client the picture in under ten lines:** width, pin, each task's
    state, anything recovered, anything waiting on them. Then §4.

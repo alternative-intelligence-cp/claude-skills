@@ -308,7 +308,28 @@ BOARD_ROW = re.compile(r"^\|\s*(T-\d+)\s*\|.*\|\s*([^|]+?)\s*\|\s*$")
 # saying what a reader needs and the title saying what the task holds.
 BOARD_PHASES = {
     "—": ("PLANNED",), "-": ("PLANNED",),
-    "CLAIMED": ("RUNNING",),
+    # PLANNED is legal under CLAIMED and it is not an exemption for
+    # convenience -- this pair is the one thing this check structurally cannot
+    # decide, and something else already owns it.
+    #
+    # A claim is a commit and the commit authorises the dispatch, so the board
+    # says CLAIMED first. The title is the SUPERVISOR's to write -- established
+    # at cost when a re-claim commit that also set a title made itself
+    # retroactively a foreign write -- so there is an unbounded gap between two
+    # agents, and a supervisor that spends ten minutes reading the charter
+    # holds it open for ten minutes. It also does not close against COMMITTED
+    # state until the supervisor commits, so a clone, a `git archive` or CI
+    # sees it on a perfectly healthy task.
+    #
+    # Whether that pair is a healthy dispatch or a claim whose supervisor never
+    # started depends on ONE FACT NOT IN ANY FILE: is an agent alive on it.
+    # `ListAgents` answers that and this check has no access to it, which is
+    # exactly why §3's recovery table carries the `PLANNED | any` row. Firing
+    # here would put a false stop immediately before the procedure that decides
+    # it -- and `run` §1 ran this check two steps BEFORE recovery, so a fresh
+    # session resuming a project with a dead supervisor stopped on a finding it
+    # was about to repair.
+    "CLAIMED": ("RUNNING", "PLANNED"),
     "BLOCKED": ("PLANNED", "BLOCKED", "NEEDS-DECISION"),
     "DONE": ("DONE",),
     "ACCEPTED": ("ACCEPTED",),
