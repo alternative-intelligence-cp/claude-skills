@@ -39,7 +39,16 @@ REQUIRED = ("status", "model", "env", "requirements", "scope", "commits",
 STATUSES = ("DONE", "BLOCKED", "NEEDS-DECISION", "RED", "READY-TO-AUDIT")
 # Statuses that assert the work is finished, and so must be backed by a clean
 # tree, a commit, and at least one check that was actually run.
-CLOSING = ("DONE", "READY-TO-AUDIT")
+CLOSING = ("DONE", "READY-TO-AUDIT", "ACCEPTED")
+# ACCEPTED means the client closed the task OVER a failed or absent
+# verification (P-2), so the title and the report are EXPECTED to disagree and
+# the decision in the title is what reconciles them. Checking them for
+# agreement inverts the state's whole purpose -- and lands on the common shape,
+# not the rare one: the supervisor verifies each step and reports `DONE`, then
+# an independent verifier checks the task (P-18), so a client accepting over a
+# failure is almost always accepting over the VERIFIER's. The supervisor having
+# escalated first, so its report reads `NEEDS-DECISION`, is the unusual case.
+
 
 DASH = r"[—–-]"
 # A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
@@ -252,7 +261,11 @@ def check(project, want_id):
         status = ""
 
     if status in CLOSING:
-        if not is_step and title_status and not title_status.startswith(("DONE", "READY-TO-AUDIT")):
+        # ACCEPTED reconciles a disagreement rather than asserting agreement,
+        # so it is compatible with any report status -- including the `RED` or
+        # `NEEDS-DECISION` that made the client's decision necessary.
+        if (not is_step and title_status
+                and not title_status.startswith(("DONE", "READY-TO-AUDIT", "ACCEPTED"))):
             add("status-mismatch", f"status {status} but the title says {title_status!r}")
         checks = [c for c in fields.get("checks", []) if c.strip() and c.strip() != "none"]
         if not checks:

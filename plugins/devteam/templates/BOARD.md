@@ -44,8 +44,8 @@ and the join does not matter — the gap is exactly the case the table exists fo
 one claim of several dying while the others live.
 
 | Task | Title | Agent label | Agent id | Since | Model | Scope | Note |
-|---|---|---|---|---|---|---|
-| — | — | — | — | — | — | nothing running |
+|---|---|---|---|---|---|---|---|
+| — | — | — | — | — | — | — | nothing running |
 
 ## Tasks
 

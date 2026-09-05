@@ -92,7 +92,52 @@ T2 = """# T-2 — write the README — PLANNED
 FIXTURE = {"CHARTER.md": CHARTER, "REQUIREMENTS.md": REQS,
            "tasks/T-1.md": T1, "tasks/T-2.md": T2}
 
+BOARD = """# The board
+
+| Task | Title | Discharges | Depends on | Scope | State |
+|---|---|---|---|---|---|
+| T-1 | make it work | R-1 | — | `src/` | {s1} |
+| T-2 | write the README | R-2 | T-1 | `README.md` | {s2} |
+"""
+
 CASES = [
+    # --- board-drift: the one artifact no check read back ------------------
+    # A board saying a task was CLAIMED with a live in-flight row, two hours
+    # after that task closed, passed all four checks. `check_scope` reads the
+    # board for scopes and a claim is legal whatever a title says;
+    # `check_trace` read titles and never opened the Tasks table.
+    ("board-drift-claimed-over-a-finished-task",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—"),
+      "tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-03)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** discharged (T-1)", 1)},
+     {"board-drift"}),
+    ("board-drift-done-over-a-running-task",
+     {"BOARD.md": BOARD.format(s1="DONE", s2="—"),
+      "tasks/T-1.md": T1.replace("— PLANNED", "— RUNNING (since 2026-09-03, T1-a-1200)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** in-progress (T-1)", 1)},
+     {"board-drift"}),
+    ("board-drift-row-with-no-task-file",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + "| T-9 | a ghost | R-1 | — | `x/` | — |\n"},
+     {"board-drift"}),
+    # ...and the states that legitimately agree, since the two vocabularies
+    # differ by design and this is a relation rather than an equality.
+    ("fp-board-and-title-agree-at-rest",
+     {"BOARD.md": BOARD.format(s1="—", s2="—")}, set()),
+    ("fp-board-claimed-over-a-running-task",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—"),
+      "tasks/T-1.md": T1.replace("— PLANNED", "— RUNNING (since 2026-09-03, T1-a-1200)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** in-progress (T-1)", 1)},
+     set()),
+    ("fp-board-accepted-over-an-accepted-task",
+     {"BOARD.md": BOARD.format(s1="ACCEPTED (2026-09-05, D-41)", s2="—"),
+      "tasks/T-1.md": T1.replace("— PLANNED", "— ACCEPTED (2026-09-05, D-41)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** discharged (T-1)", 1)},
+     set()),
+
     ("clean", {}, set()),
 
     # --- one fault per class ----------------------------------------------

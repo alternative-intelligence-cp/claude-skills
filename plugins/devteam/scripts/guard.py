@@ -359,7 +359,16 @@ def history_refusal(what, live):
             "already happened, recover with `git reset --soft` to the "
             "original from `git reflog`, never `--hard`: soft leaves the "
             "index and working tree untouched, and the tree holds other "
-            "tasks' uncommitted work.")
+            "tasks' uncommitted work.\n\n"
+            "IF THIS COMMAND HAD OTHER PARTS, NONE OF THEM RAN. A refusal "
+            "blocks the whole call, so an edit chained before the commit was "
+            "discarded \u2014 silently, because this message names only the "
+            "reason. Re-run the edit before retrying: a manager lost a board "
+            "update this way, read the refusal, fixed the git half with named "
+            "paths, and left the board stale for two hours because the edit "
+            "was already done in its head. Do not batch an edit with its "
+            "commit; the retry costs nothing and the lost edit costs what it "
+            "cost there.")
 
 
 def judge(target, what, session, session_project, cache, category="write"):

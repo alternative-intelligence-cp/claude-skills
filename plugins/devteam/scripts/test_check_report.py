@@ -54,6 +54,22 @@ def task_file(report=REPORT, title=None, record=True):
 
 
 CASES = [
+    # --- ACCEPTED reconciles rather than asserts agreement -----------------
+    # The client closed the task OVER a failed verification (P-2), so the title
+    # and report are EXPECTED to disagree. Checking them for agreement inverts
+    # the state's purpose -- and the first of these is the COMMON shape: the
+    # supervisor verifies each step and reports DONE, then an independent
+    # verifier fails the task, and the client accepts over the verifier.
+    ("fp-accepted-title-over-a-done-report",
+     task_file(title="ACCEPTED (2026-09-05, D-41)"), set()),
+    ("fp-accepted-title-over-an-escalated-report",
+     task_file(report=REPORT.replace("status: DONE", "status: NEEDS-DECISION"),
+               title="ACCEPTED (2026-09-05, D-41)"), set()),
+    # ...and a DONE title still must agree, which is what caught the real one.
+    ("status-mismatch-done-title-over-an-escalated-report",
+     task_file(report=REPORT.replace("status: DONE", "status: NEEDS-DECISION")),
+     {"status-mismatch"}),
+
     # --- unfinished-scope: the canonical assisted-development failure ------
     # A function stub with a TODO and a hard-coded value chosen so the test
     # passes, reported as done and tested. This pipeline CREATES stubs on

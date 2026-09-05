@@ -34,6 +34,10 @@ Findings:
                          changed three or more times since it was written or
                          last shape-reviewed. Not a defect: a signal that it
                          may be enumerating cases where it should state a rule
+  board-drift            the board's `State` for a task and that task's own
+                         title disagree. The board is "live state, and the
+                         lock", and it was the one artifact in `devteam/` that
+                         no check read back
   one-sided-link         a requirement and a task that name each other only in
                          one direction. `Status.` names the task; `Discharges.`
                          names the requirements; nothing compared them, so a
@@ -297,6 +301,29 @@ def first_declared(devteam):
             prev[ident] = now
     return seen, churn
 
+
+BOARD_ROW = re.compile(r"^\|\s*(T-\d+)\s*\|.*\|\s*([^|]+?)\s*\|\s*$")
+# What a board State and a task title may say about one task at one moment.
+# Not an equality -- the two vocabularies are different by design, the board
+# saying what a reader needs and the title saying what the task holds.
+BOARD_PHASES = {
+    "—": ("PLANNED",), "-": ("PLANNED",),
+    "CLAIMED": ("RUNNING",),
+    "BLOCKED": ("PLANNED", "BLOCKED", "NEEDS-DECISION"),
+    "DONE": ("DONE",),
+    "ACCEPTED": ("ACCEPTED",),
+}
+
+
+def board_states(devteam):
+    """{T-n: the board's State cell} from the Tasks table."""
+    out = {}
+    for line in read(devteam, "BOARD.md"):
+        m = BOARD_ROW.match(line)
+        if m:
+            out[m.group(1)] = m.group(2).strip().strip("`")
+    return out
+
 def check(devteam):
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
@@ -413,6 +440,31 @@ def check(devteam):
     # started, so a requirement it will discharge is correctly still `open`;
     # once the task is RUNNING or DONE the requirement's status has to say so,
     # or the board and the requirements disagree about what is being worked.
+    # NOTHING READ THE BOARD BACK. `check_scope` reads it for declared scopes
+    # and a claim is legal whatever a title says; `check_trace` read task
+    # titles and never opened the Tasks table; `check_report` reads one task
+    # file. So the file the run skill calls "live state, and the lock", whose
+    # startup procedure says "it, not your memory, is the state", was the one
+    # artifact here with no checker reading it back -- and a board saying a
+    # task was CLAIMED with a live in-flight row, two hours after that task
+    # closed, passed all four checks.
+    #
+    # Cheap precisely BECAUSE the board is redundant with the task files, which
+    # is the same property that lets them disagree.
+    for tid, state in sorted(board_states(devteam).items()):
+        if tid not in tasks:
+            add("board-drift", "BOARD.md",
+                f"the board lists {tid}, which has no task file")
+            continue
+        title_phase = (tasks[tid][2].split() or [""])[0]
+        key = state.split()[0] if state.split() else state
+        allowed = BOARD_PHASES.get(key)
+        if allowed and title_phase and title_phase not in allowed:
+            add("board-drift", "BOARD.md",
+                f"the board says {tid} is {state!r} and its title says "
+                f"{tasks[tid][2].strip()!r} — a board state of {key} wants a "
+                f"title of {' or '.join(allowed)}")
+
     # COMPARE PHASE, NOT IDENTITY. Naming the task was the whole test, so
     # `in-progress (T-6)` passed while T-6 was DONE -- a requirement claiming to
     # be under construction by a task that had finished. The asymmetry ran the

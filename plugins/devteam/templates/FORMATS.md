@@ -129,7 +129,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | Where | Values |
 |---|---|
 | requirement `Status.` | `open` · `in-progress (T-n)` · `discharged (T-n)` · `struck (D-n)`. **The task list may name several** — `in-progress (T-2, T-5)` — because a requirement is frequently advanced by one task and completed by another, and forcing one id makes the record say something untrue |
-| task title | `PLANNED` · `RUNNING (since <date>, <label>)` · `READY-TO-AUDIT` · `BLOCKED (<why>)` · `DONE (<date>)` |
+| task title | `PLANNED` · `RUNNING (since <date>, <label>)` · `READY-TO-AUDIT` · `BLOCKED (<why>)` · `NEEDS-DECISION (<what>)` · `ACCEPTED (<date>, D-n)` · `DONE (<date>)` |
 | task `Kind.` | `implementation` (default when absent) · `probe` · `spike` · `chore` |
 | step checkbox | `[ ]` pending · `[x]` done · `[~]` struck, with a reason on the line |
 | question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn` |
