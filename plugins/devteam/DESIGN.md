@@ -1246,6 +1246,42 @@ where it lives, and check that the thing you are changing is the thing that
 holds it. If it is not, the change may still be worth making — it just is not
 this fix.
 
+### Awareness is not immunity, and this project has five instances of it
+
+The single strongest argument here for mechanical enforcement over a written
+rule, because every instance is somebody committing a failure **in the same
+artifact where they documented it**, hours or minutes apart:
+
+- A manager repeated a migration trap **two hours** after writing the
+  correction whose entire content was that the record has two grammars and both
+  are needed. It used one and forgot the other, on the very next batch.
+- It reached for the wrong strike-through form **hours** after recording that
+  that form breaks the declaration — and the check caught it in the same breath.
+- It wrote a description beside a measurement rather than from it, **twice**,
+  the second time immediately after writing the finding for the first.
+- The author of a protocol rule about which write tools the guard can see
+  named a tool **without checking which roles have it**, two hours before a
+  role reported the rule was unobeyable — while actively cataloguing exactly
+  that shape.
+- And a test file states, in its own completeness disclosure, *"a nineteenth
+  condition that exists today and that nobody noticed is invisible to this
+  file"* — in a file that hardcodes the word **"eighteen" thirteen times**,
+  once inside a test's node id. Somebody thinking hard about the 18→19
+  transition wrote the number that breaks at 19, thirteen times, in the
+  paragraph where they were thinking about it.
+
+**Care is not the mechanism.** Every one of these was written by somebody
+attentive, recently, about the exact failure they were committing. Attention was
+present and pointed at the right subject and it did not help — which is why the
+standard cannot be *"be true when written"* but **"must not be able to become
+false."**
+
+The corollary for reviewing one's own work is uncomfortable and useful: **the
+fact that you have just written about a failure mode is not evidence you have
+avoided it. It may be weak evidence in the other direction**, since the thing
+you are attending to is the *description* and the instance is a detail in the
+prose around it.
+
 ### A sentence written to justify a measurement does not itself get measured
 
 Three false sentences reached signed text on this project in one night, from an
