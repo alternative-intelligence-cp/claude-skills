@@ -111,9 +111,27 @@ def inside(path, root):
 
 
 def resolve(target, cwd):
-    """Absolute real path of a target, or None if it cannot be judged."""
-    if not target or target.startswith("-") or "$" in target or "*" in target:
+    """Absolute real path of a target, or None if it cannot be judged.
+
+    A GLOB IS JUDGED BY ITS GLOB-FREE PREFIX, not skipped. Returning None for
+    anything containing `*` meant `rm -rf src/*` was ALLOWED while
+    `rm -rf src/x.py` and `rm -rf src/` were both refused -- a hole wide enough
+    to remove another task's whole directory, opened by the one character that
+    makes a path unresolvable. The prefix is what the shell will expand
+    underneath, so judging it is conservative in the right direction: a glob
+    inside a declared scope still passes, and one anywhere else is refused
+    without the guard having to predict what it matches.
+
+    `$` stays unresolvable. A variable's value is not in the command text at
+    all, so there is no prefix to fall back to -- unlike a glob, where the
+    literal part is right there.
+    """
+    if not target or target.startswith("-") or "$" in target:
         return None
+    if "*" in target or "?" in target or "[" in target:
+        head = target.split("*")[0].split("?")[0].split("[")[0]
+        head = head.rsplit("/", 1)[0] if "/" in head else "."
+        target = head or "."
     # A bare number is a file descriptor or a flag's value (`truncate -s 0 f`),
     # never a path worth guarding. Judging it produced refusals against
     # <project>/0 and <project>/2. A file actually named `2` goes unjudged,

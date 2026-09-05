@@ -252,6 +252,21 @@ SPECIAL = [
     ("fp-stranger-path-scoped-commit-is-not-history",
      bash('git commit -F msg.txt -- src/loader/a.py'), "session-Z", False, None, "/tmp"),
 
+    # --- a glob is judged by its glob-free prefix -------------------------
+    # `resolve` returned None for anything containing `*`, and a None target is
+    # allowed -- so `rm -rf src/*` PASSED while `rm -rf src/x.py` and
+    # `rm -rf src/` were both refused. One character wide enough to remove
+    # another task's whole directory. Found while failing to reproduce a
+    # different report.
+    ("deny-glob-removal-outside-scope",
+     bash("rm -rf src/render/*"), WRITER_SESSION, True, None, None),
+    ("deny-bare-glob-at-the-project-root",
+     bash("rm -rf vf7*"), WRITER_SESSION, True, None, None),
+    ("fp-glob-inside-a-declared-scope",
+     bash("rm -rf src/loader/*"), WRITER_SESSION, False, None, None),
+    ("fp-glob-outside-the-repository-entirely",
+     bash("rm -rf /tmp/vf7-scratch-*"), WRITER_SESSION, False, None, None),
+
     # --- the verifier's mutation recipe, which is now documented ----------
     # A verifier holds no task claim, so every in-tree write it makes is "a
     # path no live task has claimed" BY CONSTRUCTION. One concluded from that
