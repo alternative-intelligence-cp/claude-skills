@@ -1592,6 +1592,46 @@ The measurement: one project produced **1,865 lines of design documents for a
 tool that will be about 200 lines of code**, across five gates, before any
 product code existed.
 
+### Half of it is now answered, by the author, and it is the comparison class
+
+That number sat here as an accusation for a day. It is not one, and the reason
+is that **the tool is not meant to suit small projects.** The author's
+position, stated plainly: it *"will likely be not much use at all for small or
+simple projects, as the tooling itself will outweigh them in complexity.
+However, for when things really count, having something take a little longer
+the first time through and getting it right is just preferable all around."*
+
+So 1,865 lines for 200 is **the pipeline being run below its threshold on
+purpose, to find out how it breaks** — which it did, 123 times. The useful
+question was never *"is this heavy?"* It is **"is this heavy for work where
+being wrong is expensive?"**, and that is a different question with different
+evidence.
+
+**And the baseline it is judged against is not the first build.** The obvious
+objection — a model could produce the same artifact in ten minutes — is
+conceded and answered: *"that would not have been tested at all, and if it even
+came close to what the person actually wanted it would be a true miracle.
+Redoing costs too, and sometimes more than the initial cost."* The comparison
+is against **build, discover it is wrong, build it again**, which is the cost
+this pipeline claims to remove. Efficiency remains a goal — the expectation is
+that a well-tuned pipeline saves tokens overall, not that weight is a virtue.
+
+**What stays open, narrowed.** Not "is this too heavy", but **which individual
+steps buy nothing on *any* project**. A simplification justified by
+small-project ergonomics is out of scope by construction. A simplification
+justified by a step earning nothing anywhere is exactly what is still wanted,
+and only two have ever been found — both from people who declined to use the
+thing.
+
+**And a third criterion, which is the purpose rather than the sizing.** The
+pipeline exists so that *"a less experienced developer can build quality
+software via the structure it forces"* — to **model best practice all the way
+through the chain so the user does not have to already know it.** That makes a
+specific kind of step indefensible regardless of its cost: **one that only
+works when the operator already understands why it matters.** Such a step has
+failed at the thing the pipeline is for, and its weight is the least of the
+problem.
+
 
 ### The one nudge, and the only evidence either way
 

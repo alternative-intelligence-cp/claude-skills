@@ -66,7 +66,17 @@ we are trying to find out, and **your answer is data whichever way it goes.**
 run through it produced 1,865 lines of design documents for a tool that will be
 about 200 lines of code. That may be right for something whose correctness is
 the whole point, and it is plainly wrong for a utility somebody needs this
-afternoon. Of about seventy findings, **exactly one has made this pipeline
+afternoon — **and it is not meant to be.** This is built for work where being
+wrong is expensive, and it will outweigh anything simple. If your project is
+small, the honest answer is that this is the wrong tool and no amount of tuning
+will change that.
+
+**So the question we need answered is not "was this heavy?"** It was. The
+question is **"did any individual step buy nothing?"** — on a project where
+correctness actually mattered. Those are different questions and only the
+second one is useful to us.
+
+Of about seventy findings, **exactly one has made this pipeline
 simpler and the rest made it stricter** — because a defect is evidence and
 "that was tedious and bought me nothing" is a feeling, and almost nobody has
 been in a position to report one.
