@@ -1218,6 +1218,34 @@ which is invisible to anyone already using it. That is worth remembering when
 reading §21: the missing findings are not hiding in the runs, they are in the
 people who did not start one.
 
+### "Right" and "sufficient" are two claims, and only one of them was measured
+
+A proposal arrived as two options for a false positive: exempt the case, or
+reorder the startup so recovery precedes the plan check. The reordering was
+**right** — asking whether the plan is whole before reconciling what is running
+asks about a state that has not been established yet — and it was **not
+sufficient**, because recovery finds the agent alive, correctly leaves the claim
+alone, and the check then reads the same state and fires again.
+
+Its author's diagnosis: *"I described the two as alternatives. My error was
+treating 'the reordering is right' as 'the reordering is sufficient.' Both were
+true of the reordering; I only had evidence for the first."* Two properties of
+one proposal, one evidenced and one assumed, offered as a single claim — and a
+client taking the reordering alone would have shipped a false positive believing
+it closed.
+
+**The diagnostic that catches it in one step is the sharper half, and it is
+cheap: ask where the fact that decides the case lives.** Here, what separates a
+healthy dispatch from a dead claim is *whether an agent is alive on it* — which
+is in no file. So no rearrangement of files could decide it, however correct the
+rearrangement. **A fix aimed at the wrong substrate cannot work no matter how
+right it is**, and its rightness is exactly what makes that hard to see.
+
+So before proposing a change: name the fact that distinguishes the cases, say
+where it lives, and check that the thing you are changing is the thing that
+holds it. If it is not, the change may still be worth making — it just is not
+this fix.
+
 ### A sentence written to justify a measurement does not itself get measured
 
 Three false sentences reached signed text on this project in one night, from an
