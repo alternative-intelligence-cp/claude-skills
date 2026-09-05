@@ -75,6 +75,16 @@ TABLE_STEP = re.compile(r"^\|\s*\*{0,2}(S)-(\d+)\*{0,2}\s*\|")
 # happened to declare the same number. Every control used the form on a task
 # that did, which is the single case where the defect is invisible.
 QUAL_TAIL = re.compile(r"\bT-\d+(?:'s)?[.\s]\s*$")
+# QUOTED CHECK OUTPUT IS NOT A CITATION, and this one reproduces itself.
+# A supervisor reporting a finding wrote `cited-undefined  tasks/T-8.md:67
+# S-4` inline, and the scanner read the quoted `S-4` as a citation against the
+# quoting file -- so REPORTING A FINDING CREATED A FINDING, in every task file
+# that ever quotes check output naming an unresolvable identifier. The
+# supervisor did exactly the right thing; the check punished it for doing so.
+# Fenced blocks were already skipped; an inline span was not. The shape is
+# distinctive enough to match on: a lowercase hyphenated kind, then a
+# `path:line`, which is what every check here prints and what prose does not.
+CHECK_OUTPUT = re.compile(r"`[a-z][a-z-]{3,}\s+\S+:\d+[^`]*`")
 # Prefixes that live outside devteam/ and are never declared here. `P-n` is a
 # protocol rule; citing one is correct and must not be reported as undefined.
 EXTERNAL = {"P"}
@@ -334,6 +344,10 @@ def scan(files, base):
             # The check was measuring whether a number had ever been used
             # anywhere, which is not what it is for.
             owner = rel if TASK_FILE.search(rel) else None
+            # Blanked before any identifier is read out of the line, so a
+            # quoted finding cannot cite anything.
+            line = CHECK_OUTPUT.sub("`quoted check output`", line)
+
             for m in QUALIFIED_STEP.finditer(line):
                 step_cited.setdefault((f"tasks/T-{m.group(1)}.md", f"S-{m.group(2)}"),
                                       f"{rel}:{n}")

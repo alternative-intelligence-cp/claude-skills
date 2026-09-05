@@ -225,6 +225,20 @@ S-1 is the only step.
       append("tasks/T-1.md", "\nThe refactor is T-2.S-7's, declined by it.\n")],
      set()),
 
+    # REPORTING A FINDING MUST NOT CREATE ONE. A supervisor quoted a check's
+    # output verbatim in its report -- the right thing to do -- and the scanner
+    # read the quoted identifier as a citation against the quoting file. It
+    # would recur in every task file that ever quotes output naming an
+    # unresolvable identifier.
+    ("fp-quoted-check-output-is-not-a-citation",
+     [append("tasks/T-1.md",
+             "\n`check_refs` reports `cited-undefined  tasks/T-9.md:67  S-8`.\n")],
+     set()),
+    # ...and the blanking must not swallow real citations on the same line.
+    ("fp-a-real-citation-beside-quoted-output-still-counts",
+     [append("tasks/T-1.md",
+             "\nPer D-1, `cited-undefined  tasks/T-9.md:67  S-8` is pre-existing.\n")],
+     set()),
     ("fp-needs-decision-task-title",
      [replace("tasks/T-1.md", "— PLANNED", "— NEEDS-DECISION (R-7 narrows G-3; charter-adjacent)")], set()),
     # ...and it still needs its parenthetical, like BLOCKED and DONE. A bare

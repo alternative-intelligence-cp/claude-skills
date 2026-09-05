@@ -215,6 +215,23 @@ step's three checks all failed before the change, all passed after it, and all
 passed a deliberately built version of the exact defect they existed to catch.
 Every one of them was comparing text that the defect does not alter.
 
+**A test weaker than its requirement passes; a test stronger than it fails.**
+That asymmetry means the weak one is the one that survives, always, and no
+check can see it — comparing a requirement's prose to a test's code is the
+semantic reading this project refuses everywhere. Only a reader finds it.
+
+The measured case: a requirement quantified over every option combination
+producing output that parses as JSON; its instrument **split the output into
+lines before parsing** whenever the JSON-Lines flag was set. Green, honestly,
+for years of runs — because it asked an easier question than the requirement
+did. Nothing was stale, nothing was vacuous, and the clause could fail.
+
+So when you read a test against its requirement, the question is not *"does
+this pass?"* but **"is this the same proposition?"** — and it is worth spending
+an audit on before a document is written *about* the tree, because a README
+faithfully describing a defect is worse than one written against an audited
+tree.
+
 **And mutate in BOTH directions, because "does the instrument catch this being
 wrong?" and "does it catch this being absent?" are different questions.** Every
 mutation discipline written down here asks only the first: break the thing, and
