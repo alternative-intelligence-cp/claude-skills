@@ -1479,6 +1479,42 @@ makes the checks legitimate. The alternative was to withdraw them, and stating
 the rule was the right call in each case only because each rule survived being
 looked at on its own.
 
+### The path nobody walks: a habit built forward has no backward
+
+Four times now this project has found the same shape — a mechanism that has
+never produced output, so nothing says it is missing. The fourth instance is
+the sharpest because the mechanism is not a check or a rule. **It is the
+retraction of an approval.**
+
+Approving a task changed four things: a charter constraint row, a decision, a
+requirement's status, and a board claim. Declining it moved three. The charter
+went on asserting *"the tool refuses any input whose predicted footprint
+exceeds 4 GiB"* for four hours after the task that would have built that
+refusal was stopped — and nothing in the tool had ever done it.
+
+**The forward path was a habit built over eleven amendments. The backward path
+had never been walked once**, because no task in the project had ever been
+approved and then declined. Every other reversal *superseded* a decision with
+another decision, which leaves both in place and reads correctly. **A decline
+leaves a hole where the approval's consequences already are**, and nothing
+generated the list of what to undo.
+
+The fix was sitting unnoticed in machinery built for a different reason.
+`Costs.` — the block a blocking question must carry, computed *before* the
+client answers — is precisely the manifest of what approving will change. So it
+is precisely what to reverse if the answer is later withdrawn. A field built so
+a client could see a price turns out to be the reversal procedure, and neither
+party spotted that until an approval had to come back.
+
+**And the review that should have caught it failed in a way worth naming
+separately.** The row's author reviewed it an hour after standing the task
+down, and flagged only that its constants were fitted and unverified. They were
+auditing the *numbers inside a claim they had stopped believing* and had not
+noticed they had stopped believing it. That is the weaker-proposition failure
+turned on a reviewer rather than on a test: **"are these constants right?"
+presumes the answer to "is this sentence still true?"**, and a careful reviewer
+can spend all their attention inside a predicate that no longer holds.
+
 ### The class of fix that cannot be observed is the class that silently fails
 
 The manager supplied the edge and it is sharper than the incident that produced

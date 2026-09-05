@@ -326,6 +326,36 @@ why, in the same breath as saying it is possible, and let the client decide with
 the number in front of them. A client told the price can choose; a client who
 finds out afterwards was badly served — and the pipeline knew and did not say.
 
+**And `Costs.` is the walk-back list if the answer is ever retracted.** Nobody
+noticed this until an approval had to be undone: the block computed *before* the
+answer is exactly the manifest of what approving changed, so it is exactly what
+to reverse. Use it.
+
+**Retracting an approval is a procedure, and it is not the same as superseding
+a decision.** A supersession leaves both decisions in place and the record reads
+correctly. **A decline leaves a hole where the approval's consequences already
+are** — and the forward path is a habit built over every amendment, while the
+backward path may never have been walked at all. Measured: approving a task
+changed four things — a charter row, a decision, a requirement's status, a board
+claim. Declining it moved three. **The charter went on asserting that the tool
+refused inputs over a memory budget for four hours after the task that would
+have built the refusal was stopped, and its author read it twice in that window
+without seeing it.**
+
+So when an approval is withdrawn:
+
+1. **Walk its `Costs.` block, line by line**, and reverse each entry or say why
+   it stands.
+2. **Re-read every sentence the approval asserted, as a whole, before checking
+   any detail inside it.** This is the half that failed. A reviewer who changed
+   their mind an hour ago will audit a claim's *numbers* and never its
+   *predicate* — the sentence is suspect entirely, not in its parts, and
+   "are these constants right?" is a question that presumes the answer to "is
+   this sentence still true?".
+3. **A deferral moves to the risks section with its decision.** An accepted risk
+   belongs where accepted risks are read; it does not belong as a constraint row
+   describing behaviour the tool does not have.
+
 **An amendment that supersedes a rule carries a sweep list, generated when it
 is made.** A `CHARTER` answer usually retires some wording, and the retired
 wording is quoted in places the amendment never looks: other requirements, the
