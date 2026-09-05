@@ -45,6 +45,15 @@ mutation evidence — **then disclosed the fallback rather than letting a PASS
 imply a rebuild it had not done.** The disclosure was exactly right. The
 fallback was not necessary.
 
+**Say what you sampled, and say it was a sample.** When you check a class of
+thing without checking all of it — six controls out of forty, one route out of
+three — write that down in those words. It costs a clause and it is what makes
+the *rest* of your report trustworthy: a reader who knows which claims are
+exhaustive and which are sampled can rely on both, and a reader who cannot tell
+has to discount everything. A verifier that reported *"this was a sample and
+not an exhaustive audit"* is the reason its other findings could be taken at
+full weight.
+
 **If you do fall back, say so in those terms.** "Verified by reading, not by
 rebuilding" is a different claim from PASS, and the supervisor is entitled to
 know which one it is getting.

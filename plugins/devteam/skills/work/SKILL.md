@@ -253,6 +253,19 @@ something.
   code under test correctly succeeds, and the check reports a pass that means
   nothing. **Verify the fixture is what you think it is** — decode it, measure
   it, print its bytes — before reading anything into the result.
+- **In an artifact, a disclosure refers or derives — it never counts.** The
+  report rule below fixes a count by attaching its command. In code there is a
+  cheaper fix: **remove the need for a number at all.** *"Holds eight key
+  names"* decays the moment somebody adds a ninth, and nothing catches it.
+  *"Holds the dependency-shaped keys listed below"* cannot decay, because it
+  points at the thing instead of describing its size. Same for *"three named
+  routes"* where the function exercises two — an enumeration in prose beside an
+  enumeration in code is two copies of one fact.
+
+  This is the class that took four repair rounds on one task, **each round's
+  defect introduced by the repair for the previous one**. The count rule closes
+  it going forward; referring rather than counting closes it without needing to
+  be remembered, which is the better property.
 - **A count in a report names the command that re-derives it, or it is not
   written.** The charter rule — *a number in signed text is a promise about
   something that has not stopped changing* — was never generalised to reports,
