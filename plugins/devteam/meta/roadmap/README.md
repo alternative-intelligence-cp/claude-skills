@@ -27,7 +27,7 @@ lexical order.
   planning session ran the command on this machine on 2026-09-05 and the
   figure is what it printed. `REASONED` means it was argued, not run — do not
   build on a `REASONED` line without first running it. This is the convention
-  of the spec these plans descend from (`.internal/devteam-sandbox-spec-2026-09-05.md`).
+  of the spec these plans descend from ([`../devteam-sandbox-spec-2026-09-05.md`](../devteam-sandbox-spec-2026-09-05.md)).
 - **This directory is tracked and public; the experiment it plans against
   is not.** The first run's fixture and its full `devteam/` record live in
   `.internal/scratch/` on the owner's machine, gitignored here and pushed to a
@@ -47,12 +47,12 @@ lexical order.
 | every lesson the run produced | [`DESIGN.md`](../../DESIGN.md) §15–§21 |
 | the numbered rules, each with the failure that produced it | [`PROTOCOL.md`](../../PROTOCOL.md) |
 | the grammar the checks parse | [`templates/FORMATS.md`](../../templates/FORMATS.md) |
+| the sandbox idea corrected and measured on this machine, as a build order — "the spec" wherever a subcycle says so | [`../devteam-sandbox-spec-2026-09-05.md`](../devteam-sandbox-spec-2026-09-05.md) |
 
 **Private, on the owner's machine** (paths as the subcycle files cite them):
 
 | Input | Path |
 |---|---|
 | the owner's original sandbox idea, fleshed out by Gemini | `.internal/Structural Sandboxing for Autonomous Agents.md` |
-| that idea corrected and measured on this machine, as a build order — "the spec" wherever a subcycle says so; its measurements are reproduced in [`0.2/README.md`](0.2/README.md) §4 and its build order in `0.2.0`–`0.2.3` | `.internal/devteam-sandbox-spec-2026-09-05.md` |
 | the run's own record: charter, decisions, questions, findings, checkpoints, audits | `.internal/scratch/devteam/` |
 | the final review of the run, `DRIFTED`, and why | `.internal/scratch/devteam/checkpoints/C-3-2026-09-05.md` |

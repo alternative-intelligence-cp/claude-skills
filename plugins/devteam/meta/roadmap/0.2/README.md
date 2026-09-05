@@ -32,7 +32,7 @@ three:
 
 ## 2. The finding that decides the architecture
 
-The spec (`devteam-sandbox-spec-2026-09-05.md`) treats the sandbox as a fix for
+The spec ([`devteam-sandbox-spec-2026-09-05.md`](../../devteam-sandbox-spec-2026-09-05.md)) treats the sandbox as a fix for
 the heredoc hole. **The run's own data says the more expensive class was the
 shared git index and history**, which no bind-mount sandbox touches because
 `.git` must stay writable. Count them in `.internal/scratch/devteam/RECORD.md`:
@@ -73,7 +73,7 @@ Everything below is a pointer; nothing here restates content (P-34).
 
 1. `HANDOFF.md` — the state of the record, and what lives in no file
 2. `plugins/devteam/docs/CONSOLIDATION.md` — the nine items and their measurements
-3. `.internal/devteam-sandbox-spec-2026-09-05.md` — the sandbox as measured, §3 corrections and §6 gotchas especially. Then §4 of this file, which corrects it further. A **private input** (see [`../README.md`](../README.md)); what this plan needs from it is reproduced in §4 and in `0.2.0`–`0.2.3`
+3. [`../../devteam-sandbox-spec-2026-09-05.md`](../../devteam-sandbox-spec-2026-09-05.md) — the sandbox as measured, §3 corrections and §6 gotchas especially. Then §4 of this file, which corrects it further
 4. `plugins/devteam/DESIGN.md` §8 (the guard), §20 ("the one that scopes cannot cover"), §20b (guidance goes where the temptation is), §21 (ceremony)
 5. `plugins/devteam/PROTOCOL.md` — all of it; you will be superseding P-10b and P-12b and adding rules, and a rule is amended by a new number, never by editing (P-23)
 6. `plugins/devteam/templates/FORMATS.md` — the grammar the checks parse
