@@ -153,12 +153,16 @@ the worker's life to a background shell whose lifetime is not documented.
 | [0.2.7](0.2.7.md) — two sweeps | the rule-pairs sweep and the ceremony test, each with a method, a calibration set and a deliverable | 0.2.4 | deferrable |
 | [0.2.8](0.2.8.md) — release 0.2.0 | version, self-check, controls, DESIGN §14, CONSOLIDATION rewritten, a new handoff, a fresh `setup` on a throwaway project | everything shipped | yes |
 | [0.2.9](0.2.9.md) — the second run | cycle 2 on the fixture through `/devteam:iterate`, client channel set so P-27 fires, rotation at a checkpoint, sandboxed workers at width 2–3, a budget ceiling; what to measure and when to stop | 0.2.8 | yes — it is what the cycle is for |
+| [0.2.10](0.2.10.md) — the root-tree allowlist | a declared table of what the repository root holds, a `check_plugin` finding pair that diffs the tree against it, and a hook that refuses a stray write at the root; the mechanism behind the `.gitignore` line | — | small, independent; any time |
 
 **Order.** 0.2.0 → 0.2.1 → 0.2.2 → 0.2.3 → 0.2.4 → 0.2.8 is the shortest
 path to a shippable 0.2.0 with structural containment; 0.2.5 fits before 0.2.8
 and is the item the owner named most valuable in the queue. 0.2.6 and 0.2.7
 are independent of each other and of 0.2.5, and can be dropped or deferred
-without invalidating anything else. 0.2.9 needs 0.2.8.
+without invalidating anything else. 0.2.9 needs 0.2.8. 0.2.10 depends on
+nothing and is small enough to do in the gap between any two others; its
+number sorts after `0.2.1` in a directory listing, and this table is
+authoritative over that order.
 
 **If the budget forces a choice**, this is the recommendation and the
 reasoning: ship 0.2.0–0.2.4 + 0.2.8 (the sandbox), then run 0.2.9 at a small
@@ -285,6 +289,7 @@ before it passes.
 | 0.2.6 | 1 | 0.8–1.5 M |
 | 0.2.7 | 1 | 0.8–1.5 M |
 | 0.2.8 | 1 short | 0.3–0.6 M |
+| 0.2.10 | 1 short | 0.2–0.4 M |
 | **build, core path** (0.2.0–0.2.5, 0.2.8) | 7–9 | **4.3–8.4 M** |
 | 0.2.9 — the run | days | 4–8 M, against cycle 0.1's measured 13.5 M for ten tasks; three or four tasks at width 2 with a ceiling |
 
