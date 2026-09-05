@@ -169,7 +169,34 @@ Worth measuring against a real run before choosing.
 
 ---
 
-## 7. Two mechanisms deferred with their triggers
+## 7. A check for undispositioned audit findings
+
+**The gap:** two audits produced fifteen findings; three became client questions,
+one entered a task brief, and **eleven were never dispositioned** — filed in a
+report that nothing pointed at again. A finding filed is not a finding routed and
+nothing distinguished them.
+
+**Measured before designing, and the measurement rules out the obvious check.**
+A "declared in an audit, cited nowhere else" rule reports **zero** on that
+project, because all eleven *were* mentioned — the manager had logged them in
+the record. **Mention is not disposition**, and the difference between "written
+down" and "decided about" is invisible in a citation graph.
+
+**So it needs a declared status**, which is now in the audit skill: every finding
+carries `Disposition.`, written `open` by the auditor and filled in by the
+manager as `routed T-n`, `raised Q-n` or `declined (D-n)`. The check is then two
+declared sides — a finding still `open` when its audited task closes — and passes
+the name-the-rule test.
+
+**What it costs to build:** the identifier grammar currently matches one- and
+two-letter prefixes, so `COR-n`, `SEC-n` and `HYG-n` are invisible to
+`check_refs` entirely. Extending it interacts with an existing control asserting
+three-letter prefixes need no reserving. Worth doing deliberately rather than in
+passing.
+
+---
+
+## 8. Two mechanisms deferred with their triggers
 
 Neither is a good idea yet. Both are recorded so they are not re-derived from
 scratch, and neither should be built before its trigger fires.
@@ -189,7 +216,7 @@ work. The evidence for building it does not exist — it was looked for.
 
 ---
 
-## 8. The ceremony question, narrowed
+## 9. The ceremony question, narrowed
 
 Not *"is this too heavy?"* — it is, for small work, deliberately, and a
 simplification argued from small-project ergonomics is out of scope by

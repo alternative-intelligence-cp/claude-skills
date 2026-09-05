@@ -253,6 +253,16 @@ something.
   code under test correctly succeeds, and the check reports a pass that means
   nothing. **Verify the fixture is what you think it is** — decode it, measure
   it, print its bytes — before reading anything into the result.
+- **A count in a report names the command that re-derives it, or it is not
+  written.** The charter rule — *a number in signed text is a promise about
+  something that has not stopped changing* — was never generalised to reports,
+  and a count in a report is the same promise with the same decay. Measured: a
+  report stated `1716 mutations a run`, three times, where the value was 1742 —
+  and it had decayed **inside a single task**, because the section it counted
+  grew by two bullets while the task ran. Write
+  `1742 (`python3 -m pytest --collect-only -q tests/x.py | wc -l`)` or leave the
+  number out. The same applies to a breakdown: if the parts are stated, the
+  total is derived from them, not asserted beside them.
 - **Cite scripts as `${CLAUDE_PLUGIN_ROOT}/scripts/...` in a report.** An
   absolute `/home/...` path is a `leak` finding, because reports are committed
   to a tracked file. Do not invent a shorter path to dodge that — a worker

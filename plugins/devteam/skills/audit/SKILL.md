@@ -154,12 +154,47 @@ Every finding carries a **location** (path and line, not an impression), the
 **evidence**, and **what would resolve it**. A finding without evidence is an
 opinion.
 
+**Attack where the mutation history is densest.** A method worth having, and
+it is not the obvious one — the obvious targets are the untested clauses. The
+reasoning: a clause that has been mutated repeatedly has had its *easy*
+directions taken already, so what survives there is what nobody thought of.
+Measured, it found that an exception for **negative exponent-spelled integral
+floats** would convert wrongly with the full suite passing — not a live defect,
+since no such exception is shipped, but no case anywhere covered that shape.
+Density of prior work marks the region where the remaining gaps are the
+non-obvious ones.
+
 **Number your findings `COR-n`, `SEC-n` or `HYG-n`** for your dimension. Never
 a bare single or double letter — `S-5` is a *step* citation in this project's
 grammar, `D-3` a decision, `R-1` a requirement. A finding numbered into one of
 those namespaces cannot be cited from a task file or a checkpoint without
 reporting `cited-undefined` against something that does not exist, which is
 how a real finding ends up referred to in prose and then lost.
+
+**Every finding carries a `Disposition.` line, and the auditor writes it
+`open`.** The manager fills it in — `routed T-n`, `raised Q-n`, or
+`declined (D-n)` — and a finding still reading `open` when the audited task
+closes is one nobody decided about.
+
+```
+- **COR-6.** <one line: what is wrong>
+  - **Disposition.** open
+```
+
+**This exists because a finding filed is not a finding routed, and nothing
+distinguished them.** One project's two audits produced fifteen findings: three
+became client questions, one went into a task brief, and **eleven stayed in the
+report and were never dispositioned** — including a diagnostic that names the
+user's real header row with a remedy that would destroy it, and a truncation the
+audit itself called its closest-to-safety finding. Nothing was hidden and
+nothing was disputed; the report was simply an artifact nobody pointed at again
+after the day it was filed.
+
+**Mention is not disposition**, which is why this has to be declared rather than
+inferred. Measured on that project: every one of the eleven *was* mentioned
+elsewhere — the manager had logged them in the record — so a check for "cited
+nowhere else" reports zero. The difference between "written down" and "decided
+about" is not visible in a citation graph.
 
 **Never reproduce a leak in the report about it.** If the finding is a
 credential, a home path or a session identifier in a tracked file, quote it
