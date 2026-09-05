@@ -27,6 +27,23 @@ BASE = {
 CASES = [
     ("clean", BASE, None, [], set()),
 
+    # --- unparseable-scope-entry: a grant the checker cannot read ---------
+    # This grammar failed PERMISSIVELY: an entry with its reason inline was
+    # skipped in silence, so a file declaring eleven paths was parsed as nine
+    # and two granted paths sat outside the task's scope for its whole run.
+    ("unparseable-scope-entry",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)",
+                          ["src/loader/"]).replace(
+         "  - `src/loader/`", "  - `src/loader/`\n  - `src/extra/` — for the sweep")},
+     None, [], {"unparseable-scope-entry"}),
+    # ...and prose AFTER the list is not a list item, so it must stay quiet --
+    # every task file has explanatory text under its fields.
+    ("fp-prose-after-the-scope-list-is-not-an-entry",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)",
+                          ["src/loader/"]).replace(
+         "- **Gate.**", "The loader is granted because it owns the dialect.\n\n- **Gate.**")},
+     None, [], set()),
+
     # --- foreign-write: a write by somebody who is not in this run ---------
     # The guard no longer refuses a session outside the run, so this finding
     # is what replaces that refusal. Every case below is (…, dirty=[…]) --

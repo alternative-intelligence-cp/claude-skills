@@ -18,6 +18,10 @@ Findings:
   undeclared-write    a task's commits touched a path outside its scope
   empty-scope         a task declares no scope and so cannot be claimed safely
   scope-escapes-tree  a scope entry that leaves the project root
+  unparseable-scope-entry  a list item under `Scope.` that is not a bare path.
+                      It declared nothing and was previously skipped in
+                      silence, so the file and the checker disagreed about how
+                      many paths a task owned
   foreign-write       an uncommitted path outside every live scope, while at
                       least one task is claimed. Since the guard polices only
                       this run's own agents, a write by anybody else is
@@ -43,6 +47,16 @@ SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 TITLE = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 SCOPE_FIELD = re.compile(r"^-\s+\*\*Scope\.\*\*\s*(.*)$")
 SCOPE_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
+# A LIST ITEM UNDER `Scope.` THAT IS NOT A BARE PATH. It used to be skipped in
+# silence, so a grant written as `` - `path` — because reasons `` declared
+# nothing: the file said eleven entries and the checker parsed nine, and two
+# paths a manager believed it had granted were mechanically outside the task's
+# scope for its entire run. The supervisor read the resulting findings as
+# checker false positives, which is the wrong direction -- the check was right,
+# because a grant nobody can parse is a sentence a human believes and a machine
+# never saw. This grammar failed PERMISSIVELY, which is why it went unnoticed
+# where a strike-through and a forward citation failed loudly and did not.
+SCOPE_ITEMISH = re.compile(r"^\s+-\s+\S")
 ANY_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]")
 PLACEHOLDER = re.compile(r"[<>]")
 
@@ -57,7 +71,7 @@ def load_tasks(devteam):
     rc, out = git(devteam, "ls-files", "-z", "--", "tasks/*.md")
     if rc != 0:
         return None
-    tasks = {}
+    tasks, unparsed = {}, []
     for rel in (p for p in out.split("\0") if p):
         try:
             with open(os.path.join(devteam, rel), encoding="utf-8", errors="replace") as fh:
@@ -66,7 +80,7 @@ def load_tasks(devteam):
             continue
         ident = status = None
         scope, collecting = [], False
-        for line in lines:
+        for n, line in enumerate(lines, 1):
             m = TITLE.match(line)
             if m and ident is None:
                 ident, status = m.group(1), m.group(3).strip()
@@ -82,11 +96,14 @@ def load_tasks(devteam):
                 if item:
                     scope.append(item.group(1))
                     continue
+                if SCOPE_ITEMISH.match(line):
+                    unparsed.append((rel, n, line.strip()))
+                    continue
                 if line.strip() and (ANY_FIELD.match(line) or line.startswith("#")):
                     collecting = False
         if ident:
             tasks[ident] = (rel, status or "", scope)
-    return tasks
+    return tasks, unparsed
 
 
 def normalise(entry):
@@ -135,12 +152,20 @@ def check(project, task_id=None):
     repo = os.path.dirname(devteam)
     if not os.path.isdir(devteam):
         return None
-    tasks = load_tasks(devteam)
-    if tasks is None:
+    loaded = load_tasks(devteam)
+    if loaded is None:
         return None
+    tasks, unparsed = loaded
 
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
+
+    for rel, n, text in unparsed:
+        add("unparseable-scope-entry", f"{rel}:{n}",
+            f"{text!r} is a list item under `Scope.` that does not parse as a "
+            "path, so it declares nothing. A grant the checker cannot read is "
+            "not a grant: the file says one thing and every scope check sees "
+            "another. Put the reason on its own line or after the list")
 
     clean = {}
     for ident, (rel, status, scope) in sorted(tasks.items()):

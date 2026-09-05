@@ -200,6 +200,17 @@ here, so the manager and the client do not have to rebuild it.
 - [ ] `AUDIT` triaged if one was given: every finding fixed, or declined with
       a reason in the record
 - [ ] `check_scope.py "$REPO" T-n` and `check_refs.py "$REPO"` clean
+- [ ] **the state-dependent checks are run and their output pasted into the
+      close block, BEFORE the title changes.** `check_scope` reports overlaps,
+      undeclared writes, foreign writes and unparseable grants **only while the
+      claim is live** — the moment the title says `DONE` they stop firing, and
+      a finding nobody copied has not been read, it has stopped existing. That
+      is a different failure from a finding somebody skims: there is nothing
+      left to skim. One real defect on a live project survived only because a
+      supervisor happened to quote the output verbatim, and it would otherwise
+      have sat in two later tasks' futures with nothing able to report it.
+      Paste the output even when it is clean — "clean at close" is the claim,
+      and an absent line is not one.
 - [ ] committed; `git -C "$REPO" status --porcelain -- <this task's scope>`
       empty. **Scoped.** Unqualified, it is a statement about other tasks'
       in-flight work: unsatisfiable at width above one, and every literal way
