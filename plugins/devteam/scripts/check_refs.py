@@ -128,6 +128,19 @@ VOCAB = (
      re.compile(r"(^|/)QUESTIONS\.md$"),
      re.compile(r"^-\s+\*\*Status\.\*\*\s+(.+?)\s*$"),
      re.compile(r"^(open|answered D-\d+|proceeded-unreviewed D-\d+|withdrawn)$")),
+    # ACCEPTED is here because the vocabulary could not express the outcome of
+    # its own escalation path. `DONE` is glossed on the board as "closed,
+    # verified, and released", and P-2 lets the client close a task that FAILED
+    # verification -- so a task accepted over a verifier's FAIL is closed and
+    # released and not verified, and no state said that. A manager wrote `DONE`
+    # and reported the gap rather than inventing a status the check would
+    # refuse, which is correct and left the one table a reader scans saying
+    # something untrue. A VOCABULARY THAT CANNOT EXPRESS THE OUTCOME OF ITS OWN
+    # ESCALATION PATH WILL BE LIED TO BY WHOEVER HOLDS THE PEN. It takes the
+    # decision in its parenthetical -- `ACCEPTED (2026-09-05, D-41)` -- because
+    # a task closed against its own evidence is only legible with the reason
+    # attached.
+    #
     # NEEDS-DECISION is here because the two vocabularies OVERLAP IN MEANING
     # AND NOT IN SPELLING. `BLOCKED (<why>)` means "waiting on a named task",
     # deliberately -- the board legend forbids a bare "waiting". So a task
@@ -141,7 +154,7 @@ VOCAB = (
      re.compile(r"(^|/)tasks/[^/]+\.md$"),
      re.compile(r"^#\s+T-\d+" + SEP + r".*?" + SEP + r"(.+?)\s*$"),
      re.compile(r"^(PLANNED|RUNNING \(.+\)|READY-TO-AUDIT|NEEDS-DECISION \(.+\)"
-                r"|BLOCKED \(.+\)|DONE \(.+\))$")),
+                r"|BLOCKED \(.+\)|ACCEPTED \(.+\)|DONE \(.+\))$")),
     ("checkpoint-verdict",
      re.compile(r"(^|/)checkpoints/[^/]+\.md$"),
      re.compile(r"^#\s+C-\d+" + SEP + r".*?" + SEP + r"(.+?)\s*$"),
@@ -349,8 +362,9 @@ def scan(files, base):
             line = CHECK_OUTPUT.sub("`quoted check output`", line)
 
             for m in QUALIFIED_STEP.finditer(line):
-                step_cited.setdefault((f"tasks/T-{m.group(1)}.md", f"S-{m.group(2)}"),
-                                      f"{rel}:{n}")
+                step_cited.setdefault(
+                    (f"tasks/T-{m.group(1)}.md", f"S-{m.group(2)}"), []
+                ).append(f"{rel}:{n}")
             for m in CITATION.finditer(line):
                 pre, num = m.group(1), m.group(2)
                 if pre in EXTERNAL or pre not in KNOWN:
@@ -368,18 +382,27 @@ def scan(files, base):
                     # steps in prose, and a check that fires on prose is one
                     # somebody turns off.
                     if owner:
-                        step_cited.setdefault((owner, f"S-{num}"), f"{rel}:{n}")
+                        step_cited.setdefault((owner, f"S-{num}"), []).append(f"{rel}:{n}")
                     continue
                 cited.setdefault(f"{pre}-{num}", []).append(f"{rel}:{n}")
 
 
-    for (owner, ident), where in sorted(step_cited.items()):
+    for (owner, ident), sites in sorted(step_cited.items()):
         if f"{owner}:{ident}" not in declared:
-            f, n = where.rsplit(":", 1)
+            # EVERY site, not the first. `setdefault` reported one line per
+            # (file, identifier), so three occurrences in one file surfaced one
+            # at a time -- fix, re-run, discover another, three times -- and
+            # each output looked like progress while saying nothing about how
+            # much remained. A count of problems is not a count of edits, and
+            # "one finding left" carries no information; only "clean" does.
+            first = sites[0]
+            f, n = first.rsplit(":", 1)
+            more = (f" (also {', '.join(s.rsplit(':', 1)[1] for s in sites[1:])})"
+                    if len(sites) > 1 else "")
             findings.append(("cited-undefined", f, int(n),
                              f"{ident} is cited but {owner} declares no such step "
-                             "— steps are numbered per task, so a declaration in "
-                             "another task file does not resolve this one"))
+                             f"— steps are numbered per task, so a declaration in "
+                             f"another task file does not resolve this one{more}"))
 
     bare = {k for k in declared if not k.startswith("tasks/")}
     for ident, where in sorted(cited.items()):

@@ -239,6 +239,13 @@ S-1 is the only step.
      [append("tasks/T-1.md",
              "\nPer D-1, `cited-undefined  tasks/T-9.md:67  S-8` is pre-existing.\n")],
      set()),
+    # P-2 lets the client close a task that failed verification. Nothing in the
+    # vocabulary could say so, so the board said `DONE` -- glossed as "closed,
+    # verified, and released" -- about a task that was not verified.
+    ("fp-accepted-task-title",
+     [replace("tasks/T-1.md", "— PLANNED", "— ACCEPTED (2026-09-05, D-41)")], set()),
+    ("bad-status-accepted-without-its-decision",
+     [replace("tasks/T-1.md", "— PLANNED", "— ACCEPTED")], {"bad-status"}),
     ("fp-needs-decision-task-title",
      [replace("tasks/T-1.md", "— PLANNED", "— NEEDS-DECISION (R-7 narrows G-3; charter-adjacent)")], set()),
     # ...and it still needs its parenthetical, like BLOCKED and DONE. A bare

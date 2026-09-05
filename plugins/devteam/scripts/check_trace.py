@@ -413,17 +413,45 @@ def check(devteam):
     # started, so a requirement it will discharge is correctly still `open`;
     # once the task is RUNNING or DONE the requirement's status has to say so,
     # or the board and the requirements disagree about what is being worked.
+    # COMPARE PHASE, NOT IDENTITY. Naming the task was the whole test, so
+    # `in-progress (T-6)` passed while T-6 was DONE -- a requirement claiming to
+    # be under construction by a task that had finished. The asymmetry ran the
+    # wrong way: coverage was strongest at the CLAIM, where a missed update is
+    # loud and fires in minutes, and vanished at the CLOSE, where it is
+    # permanent -- the task is gone, nothing revisits it, and the requirement
+    # sits citing a finished task until somebody reads it by hand at the final
+    # review, which is a gate where the checks are supposed to have read
+    # already.
+    #
+    # The legal states are a RELATION rather than an equality, which is
+    # presumably why identity was reached for first. A requirement advanced by
+    # one task and completed by another is normal and the format says so, so a
+    # closed task may leave its requirement `in-progress` -- but only naming
+    # some OTHER task that has not itself finished.
     for tid, (twhere, tfields, tstatus) in sorted(tasks.items()):
-        if not tstatus.startswith(("RUNNING", "DONE")):
+        phase = tstatus.split()[0] if tstatus.split() else ""
+        if phase not in ("RUNNING", "DONE", "ACCEPTED"):
             continue
         for r in [x.strip() for x in tfields.get("Discharges", "").split(",") if x.strip()]:
             if r not in reqs or STRUCK.match(reqs[r][1].get("Status", "")):
                 continue
-            if tid not in TASK_REF.findall(reqs[r][1].get("Status", "")):
+            rstatus = reqs[r][1].get("Status", "").strip()
+            named = TASK_REF.findall(rstatus)
+            if phase == "RUNNING":
+                ok = tid in named and rstatus.startswith("in-progress")
+                want = f"`in-progress` naming {tid}"
+            else:
+                unfinished = [o for o in named if o != tid
+                              and not tasks.get(o, ("", {}, ""))[2].startswith(
+                                  ("DONE", "ACCEPTED"))]
+                ok = ((rstatus.startswith("discharged") and tid in named)
+                      or (rstatus.startswith("in-progress") and unfinished))
+                want = (f"`discharged ({tid})`, or `in-progress` naming another "
+                        "task that has not finished")
+            if not ok:
                 add("one-sided-link", twhere,
-                    f"{tid} is {tstatus.split()[0]} and discharges {r}, but "
-                    f"{r}'s status is {reqs[r][1].get('Status', '').strip()!r} "
-                    f"and does not name {tid}")
+                    f"{tid} is {phase} and discharges {r}, but {r}'s status is "
+                    f"{rstatus!r} — wanted {want}")
 
     for ident, (where, fields) in sorted(reqs.items()):
         if STRUCK.match(fields.get("Status", "")):

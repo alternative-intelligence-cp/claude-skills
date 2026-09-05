@@ -133,7 +133,8 @@ While tasks in flight are fewer than `width=`:
 
 2. **Claim, and move the requirement statuses in the same commit.** The
    board's task row to `CLAIMED <label>`; an in-flight row with the task, the
-   label `T<n>-<slug>-<HHMM>`, the time, the model and the scope; **and every
+   label `T<n>-<slug>-<HHMM>`, **the agent id from the dispatch's return
+   value**, the time, the model and the scope; **and every
    requirement the task discharges to `in-progress (T-n)` in
    `REQUIREMENTS.md`.** One commit: `board: claim T-n`. **A claim is a commit**
    — this file's history is the record of who worked what and when (P-11).
@@ -145,6 +146,11 @@ While tasks in flight are fewer than `width=`:
    is. `one-sided-link` caught exactly that twice on one project, both times
    the manager's own bookkeeping rather than a worker's — which is the shape a
    checkpoint was once filed for. It is one commit, so make it one instruction.
+
+   **The agent id is unrecoverable after the dispatch returns**, and it is the
+   only thing that addresses the agent — `SendMessage` to the label fails, and
+   `ListAgents` prints ids with no label and no task. Without it, §3's recovery
+   can count live agents and cannot tell which claim is stale.
 
 3. **Commit every edit you have made to the task file, then dispatch**
    `devteam:supervisor` with §5's template, `description` = the label.
@@ -332,6 +338,20 @@ step-unit**, because no open task owned the file — plus a discharged requireme
 going back to `in-progress`, because a requirement that gains an acceptance
 clause its discharging task never ran is not discharged. Ten lines, and the
 cheaper of the two routes was still a re-dispatch.
+
+**Two priced options look like the option set, and that is this field's own
+hazard.** A costed pair is a menu wearing a recommendation's clothes — the
+thing P-25 forbids — because pricing something is an implicit claim that it was
+worth pricing. Measured: a question costed *repair* against *record* and got a
+third answer that cost less than either and closed the class rather than the
+instance. The asker had silently fixed the repair's **shape** before costing it,
+so the expensive option was one nobody should have taken, and the question
+became "is this worth a step-unit?" when the real alternative was never a
+step-unit at all.
+
+So a blocking question ends with one line: **"the cheapest repair I could find,
+and what would beat it"** — an invitation to a better option rather than a
+choice between the asker's two.
 
 **Neither refuse the change nor agree to it silently.** Say what it costs and
 why, in the same breath as saying it is possible, and let the client decide with

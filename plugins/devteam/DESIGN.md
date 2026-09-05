@@ -1534,6 +1534,46 @@ thing:
 So it belongs in the dispatches too: a brief that asks for an opinion gets
 assent, and a brief that asks for a refutation gets evidence.
 
+### And name which side is the source of truth, or it is a spell-checker
+
+A sharpening of the rule below, from the case that produced it. A file's
+docstring claimed a set "holds eight key names". The claim appeared **twice** —
+in the docstring and pinned verbatim in the file's own blind-spots entry — and
+the file **compared them**. Measured on a clean archive:
+
+| Edit | Result |
+|---|---|
+| change one prose copy to "nine" | **2 failed**, within a second |
+| widen the **set** to nine, both copies still "eight" | **139 passed** |
+
+**The count was not unguarded. It was guarded, rigorously, against a copy of
+itself.** Which is why four careful repair rounds walked past it: from inside
+the file the sentence is visibly checked, and the check is real — it simply
+cannot fire on the fact, because neither side of the comparison is the set.
+
+So: **whenever a check compares two things, name which one is the source of
+truth. If neither is, it is a spell-checker.** Two copies of a fact checked
+against each other are not redundancy; they are one claim with a second mouth,
+and the agreement between them is evidence of nothing except careful
+transcription.
+
+This is also the argument for *refer, don't count* being structural rather than
+stylistic. A description that points at the thing has no second copy to agree
+with.
+
+**And the same shape appears in a person's habit, not only in a file.** A
+manager wrote that four remaining findings "are T-3's three … and nothing else",
+where the four were T-3's three **and one more**. The count came from the
+command — it had run the check and read `4`. The **enumeration** came from
+memory, because it had dispatched T-3's three minutes earlier and the output was
+already labelled in its head. It survived thirteen hours of running that same
+command, because every later run was read against a pre-labelled expectation.
+
+The narrow rule: **a sentence that states a total and names its members is two
+claims, and the second is the one nobody re-derives — because the first one's
+provenance launders it.** "And nothing else" is a completeness claim about a
+set, writable only by somebody who has just read the set.
+
 ### Why a check works: name the rule whose two sides it compares
 
 This design's own account of itself was wrong for most of a day, and the

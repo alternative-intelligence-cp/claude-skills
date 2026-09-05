@@ -28,11 +28,22 @@ a session that is not you, do not write in `devteam/`. This file is exempt: it
 | `CLAIMED <label>` | a supervisor owns this task; the in-flight table says what it is doing |
 | `BLOCKED on T-n` | cannot start until that task is `DONE` |
 | `BLOCKED on Q-n` | stopped on a question the client has not answered. The reason is always a **named** task or question, never "waiting" |
+| `ACCEPTED (<date>, D-n)` | closed and released **over a failed or absent verification**, on a client decision (P-2). The decision is in the state because a task closed against its own evidence is only legible with the reason attached |
 | `DONE` | closed, verified, and released |
 
 ## In flight
 
-| Task | Title | Agent label | Since | Model | Scope | Note |
+**`Agent id` is written at claim time from the dispatch's return value, and it
+is unrecoverable afterwards.** The label is a name a human reads; the id is the
+only thing that addresses the agent. Recovery (P-14) says to run `ListAgents`
+and check each `CLAIMED` row for a live agent — but `ListAgents` prints ids with
+no label and no task, so without this column **the two lists cannot be joined**:
+a manager can count live agents and cannot tell which row is stale, which is the
+table's only job. It has never bitten because after a restart every row is stale
+and the join does not matter — the gap is exactly the case the table exists for,
+one claim of several dying while the others live.
+
+| Task | Title | Agent label | Agent id | Since | Model | Scope | Note |
 |---|---|---|---|---|---|---|
 | — | — | — | — | — | — | nothing running |
 

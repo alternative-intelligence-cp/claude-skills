@@ -331,6 +331,42 @@ CASES = [
       "REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** struck (D-2)", 1)},
      set()),
 
+    # --- phase, not identity: the close is where the miss is permanent -----
+    # `in-progress (T-6)` named T-6, so an identity test passed on a
+    # requirement claiming to be under construction by a task that had
+    # finished. Coverage was strongest at the claim, where a miss is loud, and
+    # absent at the close, where it is permanent.
+    ("one-sided-link-in-progress-under-a-finished-task",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-03)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** in-progress (T-1)", 1)},
+     {"one-sided-link"}),
+    ("fp-discharged-by-the-task-that-finished",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-03)"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** discharged (T-1)", 1)},
+     set()),
+    # A requirement advanced by one task and completed by another is normal, so
+    # a finished task may leave it `in-progress` -- naming a task that has NOT
+    # finished. That distinction is the whole of why this is a relation.
+    ("fp-finished-task-hands-on-to-an-unfinished-one",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-03)"),
+      "tasks/T-2.md": T2.replace("- **Discharges.** R-2", "- **Discharges.** R-1, R-2")
+                        .replace("  - `README.md`", "  - `README.md`\n  - `src/`"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** in-progress (T-1, T-2)", 1)},
+     set()),
+    ("one-sided-link-handed-on-to-a-task-that-also-finished",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-03)"),
+      "tasks/T-2.md": T2.replace("— PLANNED", "— DONE (2026-09-03)")
+                        .replace("- **Discharges.** R-2", "- **Discharges.** R-1, R-2")
+                        .replace("  - `README.md`", "  - `README.md`\n  - `src/`"),
+      "REQUIREMENTS.md": REQS.replace("- **Status.** open",
+                                      "- **Status.** in-progress (T-1, T-2)", 1)
+                             .replace("- **Status.** open",
+                                      "- **Status.** discharged (T-2)", 1)},
+     {"one-sided-link"}),
+
     # --- template-drift: the project against the PLUGIN --------------------
     # Every other check here diffs the project against itself, so an artifact
     # was instantiated once and diverged forever. A real charter was signed six
