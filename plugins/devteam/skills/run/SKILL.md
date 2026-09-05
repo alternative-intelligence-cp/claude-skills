@@ -398,6 +398,22 @@ So when an approval is withdrawn:
 
 1. **Walk its `Costs.` block, line by line**, and reverse each entry or say why
    it stands.
+0. **First, state what declining makes IMPOSSIBLE — which the `Costs.` block
+   does not cover.** That block lists what *approving* would change, so it is
+   the right manifest for undoing an approval and the wrong one for a decline.
+   **A decline can invalidate things the approval would never have touched.**
+
+   Measured, and it was the final review's headline finding: a client declined a
+   task on budget, and the decision it recorded — that the product *"has no
+   users and will have none"* — made a signed **done-means** undischargeable.
+   That done-means was the charter's own *"only condition that tests whether the
+   tool solved the problem rather than the specification"*. The charter was
+   amended three times afterwards and nobody re-read it.
+
+   No check reaches this. A `DM-n` is in none of the chains traceability walks,
+   and a citation check would not have caught it either — that one was cited in
+   six files including a task. **The only thing that finds it is asking, at the
+   moment of declining, what the project can no longer demonstrate.**
 2. **Re-read every sentence the approval asserted, as a whole, before checking
    any detail inside it.** This is the half that failed. A reviewer who changed
    their mind an hour ago will audit a claim's *numbers* and never its
