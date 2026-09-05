@@ -1218,6 +1218,40 @@ which is invisible to anyone already using it. That is worth remembering when
 reading §21: the missing findings are not hiding in the runs, they are in the
 people who did not start one.
 
+### Malicious compliance is a diagnostic, and it points at the rule
+
+A rule this project follows without having stated it, from the author: *"if you
+want me to follow the rule, just tell me why I should. If I find it logical,
+from then on you probably couldn't pay me to break said rule. However, a rule
+with no justification is just getting ignored, or worked around, or my
+favourite, malicious compliance."*
+
+Both halves are load-bearing. A justified rule gets **stronger** adherence than
+an asserted one — not merely equal adherence more pleasantly obtained. And an
+unjustified rule does not simply fail; it gets defeated in a way that
+technically complies, which is the failure mode that leaves no trace.
+
+**So a workaround is evidence about the rule, not about whoever found it.** When
+an agent follows a rule to the letter and defeats its purpose, the first
+question is not *why did they do that?* but **what does this rule fail to say
+about why it exists?** That is the same shape as a test passing while measuring
+a weaker proposition than its requirement — honest compliance with the letter of
+something whose point was elsewhere — and it is worth checking for in the same
+way: read what the rule *asks for* against what it is *for*.
+
+**This is also a large part of why the design record is as long as it is**, and
+it is worth saying plainly against the ceremony question. Every protocol rule
+here carries the measured failure that produced it: the amend that rewrote a
+concurrent task's commit, the seven ad-hoc probes that answered questions they
+were never wired to ask, the two workers who met a conflicting ambient
+instruction and reported it. None of them reads "do X." All of them read "do X,
+and here is what happened when somebody did not."
+
+Rules with their reasons attached are longer than rules. **They are longer on
+purpose**, because the reason is the part that survives contact with somebody in
+a hurry — and the pipeline is explicitly built for that person rather than for a
+careful reader at their best.
+
 ### The shape that has cost the most: two rules that cannot both be satisfied
 
 Stated by the manager running the live project, after it had hit the same thing
