@@ -54,6 +54,22 @@ def task_file(report=REPORT, title=None, record=True):
 
 
 CASES = [
+    # --- unfinished-scope: the canonical assisted-development failure ------
+    # A function stub with a TODO and a hard-coded value chosen so the test
+    # passes, reported as done and tested. This pipeline CREATES stubs on
+    # purpose in tests-first steps and never checked they were gone by close.
+    ("unfinished-scope", task_file(), {"unfinished-scope"}, "T-1", [], "T-1: the config loader",
+     "def load():\n    return 42  # TODO: read the real config\n"),
+    ("unfinished-scope-not-implemented", task_file(), {"unfinished-scope"}, "T-1", [],
+     "T-1: the config loader",
+     "def load():\n    raise NotImplementedError\n"),
+    # A TEST asserting the stub raises is legitimate and must not fire -- it is
+    # exactly what a tests-first step writes, and the distinction is the
+    # statement versus the assertion.
+    ("fp-raises-notimplementederror-is-an-assertion", task_file(), set(), "T-1", [],
+     "T-1: the config loader",
+     "def test_stub():\n    with pytest.raises(NotImplementedError):\n        load()\n"),
+
     ("clean", task_file(), set()),
 
     # --- one fault per class ----------------------------------------------
@@ -156,14 +172,14 @@ CASES = [
 ]
 
 
-def build(root, body, leftovers=(), subject="T-1: the config loader"):
+def build(root, body, leftovers=(), subject="T-1: the config loader", src="x = 1\n"):
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     with open(os.path.join(dt, "T-1.md"), "w", encoding="utf-8") as fh:
         fh.write(body)
     os.makedirs(os.path.join(root, "src"), exist_ok=True)
     with open(os.path.join(root, "src", "main.py"), "w") as fh:
-        fh.write("x = 1\n")
+        fh.write(src)
     env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
     run = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, env=env)
@@ -187,9 +203,10 @@ def main():
         want = case[3] if len(case) > 3 else "T-1"
         leftovers = case[4] if len(case) > 4 else []
         subject = case[5] if len(case) > 5 else "T-1: the config loader"
+        src = case[6] if len(case) > 6 else "x = 1\n"
         root = tempfile.mkdtemp(prefix="devteam-report-")
         try:
-            build(root, body, leftovers, subject)
+            build(root, body, leftovers, subject, src)
             proc = subprocess.run([sys.executable, CHECK, root, want],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}

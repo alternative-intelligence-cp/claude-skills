@@ -18,6 +18,11 @@ Findings:
   unknown-commit    a hash under `commits:` the repository does not have
   head-subject      HEAD's subject does not name this task on a closing status
   dirty-tree        uncommitted paths, on a status that claims to be finished
+  unfinished-scope  a TODO, FIXME, XXX or `raise NotImplementedError` inside the
+                    task's declared scope on a closing status. The pipeline
+                    creates stubs deliberately in tests-first steps; a task
+                    reporting DONE while one survives is reporting something
+                    other than what it did
   no-evidence       a closing status with no `checks:` lines. A requirement is
                     discharged by evidence, never by assertion (P-5)
 
@@ -148,6 +153,45 @@ def parse_report(lines, task_id=None, step_id=None):
     return m.group(1), m.group(2), m.group(3), fields
 
 
+
+# THE CANONICAL FAILURE OF ASSISTED DEVELOPMENT, AND IT IS CHEAP TO CATCH.
+# Work reported "done and tested" that is a function stub with a TODO comment
+# and a hard-coded value chosen so the test passes. Several of those at once is
+# how somebody discovers they are two weeks behind where they believed they
+# were, and no amount of instructing an agent to be careful prevents it.
+#
+# This pipeline DELIBERATELY CREATES stubs -- a tests-first step writes the
+# instrument red against one -- and nothing has ever checked they are gone by
+# the time a task claims to have discharged its requirements.
+#
+# `raise NotImplementedError` is the statement; `raises(NotImplementedError)`
+# is a test asserting behaviour and is legitimate, so the pattern matches the
+# raise and not the assertion.
+STUB = re.compile(r"\b(TODO|FIXME|XXX|HACK)\b|(?<!_)\braise\s+NotImplementedError")
+
+
+def stub_markers(repo, scope):
+    """[(path, line no, marker)] for stub markers inside these paths."""
+    out = []
+    for rel in sorted(set(scope)):
+        base = os.path.join(repo, rel)
+        files = []
+        if os.path.isdir(base):
+            for root, _, names in os.walk(base):
+                files += [os.path.join(root, n) for n in names if n.endswith(".py")]
+        elif os.path.isfile(base):
+            files = [base]
+        for f in files:
+            try:
+                with open(f, encoding="utf-8", errors="replace") as fh:
+                    for n, line in enumerate(fh, 1):
+                        m = STUB.search(line)
+                        if m:
+                            out.append((os.path.relpath(f, repo), n, m.group(0).strip()))
+            except OSError:
+                continue
+    return out
+
 def check(project, want_id):
     """`want_id` is `T-n` or `T-n.S-m`. A step is checked as a step: it does
     not own the task's title line, so its status is never compared to it."""
@@ -266,6 +310,14 @@ def check(project, want_id):
             if mine:
                 add("dirty-tree", f"uncommitted inside {task_id}'s scope on status "
                                   f"{status}: {', '.join(mine[:4])}")
+        # A TASK DOES NOT CLOSE WITH A STUB IN ITS DECLARED SCOPE.
+        for rel, n, marker in stub_markers(repo, task_scope(devteam, task_id))[:8]:
+            add("unfinished-scope",
+                f"{rel}:{n} carries {marker!r} while {task_id} reports {status}. "
+                "A tests-first step leaves a stub on purpose; a closing task has "
+                "no business still holding one. Remove it, or the task is not "
+                "the thing the report says it is")
+
         # The task's OWN closing commit, not HEAD. Checking HEAD made every
         # finished task report `head-subject` the moment any later task
         # committed -- so an audit run afterwards saw a false positive against

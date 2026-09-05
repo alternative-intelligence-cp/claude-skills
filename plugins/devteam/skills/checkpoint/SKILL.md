@@ -174,6 +174,40 @@ what was believed after the fact. If it was wrong, the next one says so.
 
 ## The final checkpoint (GATE 4)
 
+**Walk the run's lessons backwards over the documents written before them.**
+This is the only moment every requirement, goal and criterion is read at once,
+and it is the last one — there will not be another pass over the artifacts this
+project wrote early.
+
+**A project learns forward only.** Three measured instances of the same gap:
+a charter signed before a template gained a row never acquires it; a manifest
+written for one purpose is never re-read for another; and a lesson about how to
+write an acceptance criterion is applied to every subsequent criterion and
+never backwards over the ones already in the file. Documents get written once
+and improved only where somebody happens to be standing.
+
+Most of that cannot be checked — telling a criterion that names a **method**
+from one that names a **property** is the semantic reading this project refuses
+everywhere. The measured case: a requirement whose acceptance said *parse with
+`ast`, collect the roots, assert each is standard library*. A test doing
+exactly that **over six of the seven shipped modules** satisfies every word of
+it and reports green. A criterion that names a method cannot detect
+under-application of that method.
+
+So this is not a check, it is a reading, and these are the questions worth
+spending it on:
+
+- **Which acceptance criteria describe a practice rather than an obligation to
+  demonstrate?** The good form is not *"the tests are marked"* but *"every
+  unmarked case appears in the guard's input set or carries a named
+  exclusion."*
+- **Which documents predate a decision that would have changed them**, and were
+  never revisited because nothing pointed at them?
+- **Which artifacts were written before the rule they should follow existed?**
+  The first requirements in a project are always the least informed, and
+  nothing in the loop ever goes back.
+
+
 At delivery, the same procedure plus:
 
 - **every** `DM-n` from the charter's "Done means", each with its evidence

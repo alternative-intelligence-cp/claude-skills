@@ -200,6 +200,14 @@ here, so the manager and the client do not have to rebuild it.
 - [ ] `AUDIT` triaged if one was given: every finding fixed, or declined with
       a reason in the record
 - [ ] `check_scope.py "$REPO" T-n` and `check_refs.py "$REPO"` clean
+- [ ] **no stub survives in the declared scope.** No `TODO`, `FIXME`, `XXX` or
+      `raise NotImplementedError` in any file this task owns. A tests-first
+      step leaves a stub deliberately; **a closing task has no business still
+      holding one.** This is the canonical failure of assisted development — a
+      function stub with a TODO and a hard-coded value chosen so the test
+      passes, reported as done and tested — and it is how somebody discovers
+      they are two weeks behind where they believed they were. `check_report`
+      reports it as `unfinished-scope`.
 - [ ] **the state-dependent checks are run and their output pasted into the
       close block, BEFORE the title changes.** `check_scope` reports overlaps,
       undeclared writes, foreign writes and unparseable grants **only while the
