@@ -215,6 +215,31 @@ step's three checks all failed before the change, all passed after it, and all
 passed a deliberately built version of the exact defect they existed to catch.
 Every one of them was comparing text that the defect does not alter.
 
+**A cost with two independent drivers cannot be bounded by one of them, and
+the second proxy fails the same way as the first.** This is worth stating flat
+because a project got it wrong twice in a row, an hour apart, with the model in
+front of it both times.
+
+A tool's memory tracked **rows and cells**. Its ceiling was expressed in
+**bytes**, and two 50 MB files differed tenfold in footprint — so no value of
+that row could state the constraint, because the quantity it was keyed to was
+not the quantity that predicted the cost. The replacement proposed was a **row**
+ceiling, which is a better proxy and still a proxy: a file at the row limit can
+carry four cells per row inside the same bytes, and the "4 GiB" ceiling permits
+**7.3**.
+
+The fix is to bound **the predicted cost itself** — `rows*A + cells*B > budget`
+— rather than any single quantity that correlates with it. If you cannot write
+that expression, you do not yet understand the cost well enough to bound it,
+and a ceiling written before you do is a promise about a shape nobody has tried.
+
+**And a fitted constant in a guard needs its own test.** `A` and `B` above are
+measured against one interpreter and one set of data structures. A guard resting
+on them is correct until a refactor, and then quietly wrong — the same failure
+as a number in signed text, one layer down. The test is not "the guard fires";
+it is **"the model still predicts the measured footprint"**, and it must fail
+when the model drifts rather than when the code breaks.
+
 **A test weaker than its requirement passes; a test stronger than it fails.**
 That asymmetry means the weak one is the one that survives, always, and no
 check can see it — comparing a requirement's prose to a test's code is the

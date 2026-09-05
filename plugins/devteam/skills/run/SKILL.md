@@ -383,6 +383,25 @@ the counter-example, committed by an earlier task for an unrelated reason,
 before the contradicting claim was written. Nothing found it until an
 instrument was written against the claim.
 
+**A number the client gives you is an input to be checked, not a decision to
+implement.** The client answers from what they need — "an ordinary laptop", "no
+more than a day" — and then names a figure to make the answer actionable. **The
+figure is arithmetic they did, usually against a model you supplied**, and it
+carries their authority without having earned it.
+
+Measured: a client picked a row ceiling from three options a manager had
+derived, choosing the one labelled 4 GB. The label was wrong — that ceiling
+permits 7.3 GB at a shape neither party had considered — and the manager
+reported nearly building it, *because a client had named it and it came from
+the manager's own model an hour earlier.* Two proxies for the same cost, both
+wrong, and the second one carried a signature.
+
+So when an answer arrives with a number in it: **re-derive the number against
+the worst case, not the case that produced it.** If it does not hold, that is a
+finding to send back, not an instruction to follow — and the client will thank
+you, because they were answering a question about *what they need* and you are
+answering one about *what holds*.
+
 **When a reversible question times out:** proceed, then record it honestly —
 `question Q-n proceeded unreviewed: <what>` in `RECORD.md`, a `D-n` in
 `DECISIONS.md` whose `Reviewed.` line says `proceeded-unreviewed (Q-n)`, and a
