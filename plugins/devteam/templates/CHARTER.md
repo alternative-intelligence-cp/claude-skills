@@ -51,6 +51,31 @@ a `CHARTER` class question (P-26), which always stops for the client.>
 
 ## Constraints
 
+**A row states what is true of the tool as it stands, not what is planned for
+it.** Two failures, both measured on one project, both in signed text:
+
+**A number that describes something still changing does not belong here.** A
+charter said a vendored caller sees "ten lines of traceback"; the figure moved
+three times in one day as the code grew, and correcting ten to thirteen would
+have bought a day. Cite the requirement that governs the behaviour and let the
+number live where it is measured. **The test: if this figure changes when
+somebody refactors, it is a measurement and not a promise.**
+
+**And a row must never promise a mechanism that does not exist yet.** A
+constraint stating a memory budget *and the formula enforcing it* was signed
+while the task building that enforcement was still running — and the task was
+then stood down. The row survived, promising a bound nothing applies. **That is
+worse than a stale number**, because a stale number is wrong about a detail and
+this is wrong about whether the tool does the thing at all. If the mechanism is
+deferred, the row says what the tool actually does and what it costs; the
+deferral belongs in the risks section with its decision.
+
+**Fitted constants are a special case of both.** A model measured against one
+interpreter and one set of data structures is evidence, not verification. If
+one must appear, say in the row that it is fitted and unverified — and give it
+a test asserting **the model still predicts the measured cost**, which fails
+when the model drifts rather than when the code breaks.
+
 <!-- example:begin -->
 | Constraint | Value |
 |---|---|
