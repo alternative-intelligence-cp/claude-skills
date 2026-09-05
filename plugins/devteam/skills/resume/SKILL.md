@@ -16,6 +16,47 @@ destroy work nobody knew was there.
 it does so *immediately*, and after an interruption the record and the tree can
 disagree in ways only a human can settle.
 
+**It also covers the planned handoff**, which is not an interruption at all: a
+session handing to a fresh one at a good stopping point, so the memory files
+reload near the top of the new context and the finished task's debris does not
+follow it. That case has a resource a crash does not — **the predecessor is
+still alive** — and §0 exists to use it before anything else.
+
+## 0. If the previous session is still alive, ask it
+
+**Reconstruction is what you do when nobody is left to ask.** A handoff at a
+planned stopping point is a strictly better position than a crash, and this
+skill was written as though only the crash existed.
+
+So before reconstructing anything: **is the outgoing session still open?**
+`ListAgents` will say. If it is, message it — and keep it open until you are
+done, because once it closes you are back to reading files.
+
+**You drive, not it.** A written handoff can only contain what its author
+thought to include, and what an outgoing session thinks is important is a poor
+predictor of what an incoming one cannot work out. So do not ask for a summary.
+**Read the record first, then ask about the specific things you could not
+determine from it** — why a task was declined rather than closed, what a
+half-finished branch was for, which of two plausible readings of a note is
+right, what the client actually said as opposed to what was minuted.
+
+### Every question you have to ask is a defect in the record
+
+This is the part worth more than the handoff. **Treat the questions as a
+measurement**: anything you had to ask about is something the written state
+failed to carry, and it will fail to carry it again for the next reader, who
+may not have anybody to ask.
+
+So log them. A short list under the day's `RECORD.md` entry — *"the incoming
+session had to ask X, Y and Z"* — is a free audit of the record's completeness,
+taken at the one moment both the record and somebody who knows better are
+available at once. It is also one of the very few points where this pipeline
+looks **backwards** at what it wrote rather than forwards at what it will write
+next.
+
+If the outgoing session is gone, continue from §1 and reconstruct. That is the
+degraded case, not the normal one.
+
 ## 1. Do not take the lock yet
 
 Read first, write nothing. **Do not** set the board's writer line, re-pin the
