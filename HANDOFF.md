@@ -15,28 +15,25 @@ that visible, which is the rule this project's own final review runs under.
 
 ---
 
-## 1. One thing has a deadline, and it is not in this repository
+## 1. The experiment's record is preserved, and where
 
-**The entire experiment — 238 commits, 22 hours — lives in
-`.internal/scratch/`, which is gitignored, has no remote, and exists only on
-this machine.** A disk failure loses all of it.
+**`.internal/scratch/` is gitignored by this repository and is therefore not in
+its history.** It has its own remote:
 
-A full bundle of its history is **1.5 MB**:
+**`alternative-intelligence-cp/devteam-run-01-csv2json`** — **private**, and it
+must stay private. It is the complete working record of a client engagement,
+and this repository is public.
+
+All 238 commits are pushed and verified there by counting the remote HEAD's
+ancestry rather than trusting the push. A further backup is one command:
 
 ```bash
-git -C .internal/scratch bundle create <somewhere-safe>/scratch.bundle --all
+git -C .internal/scratch push
 ```
 
-**It was deliberately not committed here, and that decision needs the owner
-rather than an agent.** This repository is **public**, and the scratch project
-contains the complete working record of a client engagement — charter,
-requirements, 42 decisions, 149 findings, three checkpoints. Publishing it is
-outward-facing and irreversible (P-26), and it is a judgement about what the
-owner wants visible, not a technical question.
-
-Options, in the order I would offer them: a private repository for the bundle; a
-backup outside git entirely; or accept the risk deliberately and say so. **Do
-not push it here without being asked.**
+**Push it after any change to that tree.** It was created because the record
+existed on one disk with no remote at all, which is the state to avoid rather
+than a historical note.
 
 ---
 
