@@ -187,6 +187,22 @@ something.
   the measured figure was "7 passed, 7 xfailed". A baseline in a dispatch ages
   exactly as fast as one in a report, and the instruction to produce your own
   is what makes the check survive being wrong about it.
+- **Write product files with `Write` or `Edit`, not with an interpreter.**
+  `python3 - <<PY` with `Path.write_text` is convenient and it is the one form
+  the guard cannot classify — a write whose target does not appear in the
+  command text. So it is not refused, and **it is not judged either.**
+
+  The refusal message warns about this, and that warning only reaches somebody
+  who was refused first. **A worker whose habit is heredocs never knocks on
+  that door**, so it never sees the warning: the bypass is not reached *around*
+  the guard, it is reached *instead of* it. That is why this bullet is here,
+  at the moment you choose how to write, rather than only in a refusal.
+
+  It has already cost something. Two paths a manager had granted were written
+  in a form the scope parser could not read, so they were outside every parsed
+  scope — and the writes to them went through an interpreter, so the guard
+  never saw them either. **Either failure alone would have been visible: a
+  refusal, or a finding. Together they produced silence.**
 - **A script making two edits to one file must re-read between them.** Both
   writes computed from one `read_text()` means the second silently discards the
   first — the file ends up with the last edit only, no error, no warning, and a

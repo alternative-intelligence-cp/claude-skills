@@ -13,7 +13,7 @@ done. The durable plan is [`REQUIREMENTS.md`](REQUIREMENTS.md) and
 > what and when, at no extra cost.
 
 **Updated.** <date> · **Width.** 1 · **Phase.** <onboard | plan | build | harden | deliver>
-**Environment.** <pin id> · `.run/env/<pin>/` · pinned <date>
+**Environment.** <pin id> · `.run/env/<pin>/` · pinned <date> · plugin <short sha>
 **Writer.** `<session id>` since <date> — one writer here (P-13). If this names
 a session that is not you, do not write in `devteam/`. This file is exempt: it
 **is** the lock, and taking it is always possible and always in the history.

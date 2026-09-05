@@ -215,6 +215,27 @@ step's three checks all failed before the change, all passed after it, and all
 passed a deliberately built version of the exact defect they existed to catch.
 Every one of them was comparing text that the defect does not alter.
 
+**And mutate in BOTH directions, because "does the instrument catch this being
+wrong?" and "does it catch this being absent?" are different questions.** Every
+mutation discipline written down here asks only the first: break the thing, and
+require the check to notice. A **narrowing** mutation — one that makes the code
+do *less* rather than something wrong — is the case nobody builds, and it is
+the one a suite tends to miss.
+
+Measured. A tool inferring numeric types was narrowed to reject exponent-form
+floats, so `1e+16` stayed a string: **zero failures across 277 tests.**
+Narrowed to reject integers above fifteen digits: **zero failures.** The
+behaviour was correct and nothing defended it. A *total* no-op failed 21 tests,
+so the floor existed — it simply sat far below where the interesting narrowings
+are.
+
+The diagnosis matters as much as the finding, because it decides what it costs:
+the requirement was fine. **It was a rule over a domain, and the corpus did not
+span the domain** — seven numeric cells that did not cover the shapes inference
+can be narrowed on. So the fix is a test, not a charter question. A requirement
+written as an enumeration would have produced the expensive version of the same
+gap.
+
 So: build the defect on a copy, run the check, and require it to fail. If it
 does not, the check is measuring something adjacent to the thing you care
 about, and a green result from it means nothing at all.

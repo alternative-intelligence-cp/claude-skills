@@ -58,7 +58,15 @@ can destroy uncommitted work nobody knew was there.
    Findings here mean the plan has holes nobody has looked at. Report them and
    stop — do not start building through a hole (P-4).
 
-4. **Pin the environment** (P-33) if the board names none: record the
+4. **Pin the environment** (P-33) **including this plugin's own commit**, if
+   the board names none. The pin exists so two runs of the same command are
+   comparable, and the checks are part of the command: a supervisor and a
+   verifier minutes apart got three findings and four from `check_scope`
+   because the script was extended between the two runs. **A tool-version
+   difference no `ENV` row covered**, and it read as a disagreement between two
+   parties rather than as two different tools. Record
+   `git -C "$CLAUDE_PLUGIN_ROOT" rev-parse --short HEAD` beside the interpreter
+   and library versions. Record the
    toolchain versions, lockfile hashes and image digests the charter's
    constraints name, into `devteam/.run/env/<id>/` and the board header.
    **Never re-pin while a claim is in flight** — a result that cannot be
