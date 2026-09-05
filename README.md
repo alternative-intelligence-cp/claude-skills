@@ -6,6 +6,10 @@ Each plugin here is a **complete working system**, not a prompt — a set of
 skills, agents, hooks and checks that carry a piece of work end to end with a
 written record of what was decided and evidence that it was verified.
 
+Each plugin's README states its status and its known problems plainly, and
+its `meta/roadmap/` says what comes next and in what order. Neither is
+polished away: a problem stays listed until the change that removes it lands.
+
 ## Install
 
 ```bash
@@ -23,7 +27,7 @@ claude --plugin-dir ~/path/to/claude-skills/plugins/devteam
 
 | Plugin | What it does |
 |---|---|
-| [**devteam**](plugins/devteam/) | A three-layer development pipeline — project manager, task supervisors, specialist workers — that takes a project from a client's idea to a working product under a signed charter, with numbered requirements traced to tasks and tests, independent verification of every report, scheduled checkpoints that diff the built thing against the charter, and escalations classified by reversibility so the loop keeps running without guessing on anything that matters |
+| [**devteam**](plugins/devteam/) | A three-layer development pipeline — project manager, task supervisors, specialist workers — that takes a project from a client's idea to a working product under a signed charter, with numbered requirements traced to tasks and tests, independent verification of every report, scheduled checkpoints that diff the built thing against the charter, and escalations classified by reversibility so the loop keeps running without guessing on anything that matters. **Status:** run end to end once, on a fixture; its [known problems](plugins/devteam/README.md#known-problems) and [the plan for cycle 0.2](plugins/devteam/meta/roadmap/README.md) are in its README |
 
 ## The ideas these are built on
 

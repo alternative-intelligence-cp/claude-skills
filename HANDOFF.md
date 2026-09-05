@@ -117,6 +117,13 @@ the repository this session was started in without asking.**
 
 ## 5. Where to start
 
+**A plan for the next cycle now exists** —
+[`plugins/devteam/meta/roadmap/README.md`](plugins/devteam/meta/roadmap/README.md),
+written 2026-09-05 from this file, `CONSOLIDATION.md`, the run's record and a
+measured sandbox spec. It takes the queue below into subcycle files a fresh
+session can implement. Read it after this file; the three points below still
+hold and the plan is built on them.
+
 1. **Ask about the bundle** (§1). It is the only item with a clock on it.
 2. **Read `CONSOLIDATION.md`.** Nine items, ordered, each with the measurement
    behind it. Item 1 — manager rotation — is the one the owner named as most
