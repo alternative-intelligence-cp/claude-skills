@@ -30,11 +30,50 @@ into a protected tree, which is a read and allowed, would otherwise disarm the
 guard for the next call. The per-call `cwd` is still what relative targets
 resolve against, because it is what the shell will use.
 
-KNOWN LIMITS, STATED: an interpreter heredoc that writes (`python3 - <<PY`)
-cannot be classified from the command text, and a target containing an
-unexpanded variable (`"$REPO"`) cannot be resolved and is not judged. The
-airtight mechanism for the first is the sandbox's own write-deny list; this is
-a second layer, not the only one.
+KNOWN LIMITS, STATED. Three, and the first two are closed in one of the two
+places this script runs and open in the other, so read them with the project's
+charter row `Containment` beside you.
+
+1. AN INTERPRETER HEREDOC THAT WRITES (`python3 - <<PY`) cannot be classified
+   from the command text, and 2. A TARGET CONTAINING AN UNEXPANDED VARIABLE
+   (`"$REPO"`) cannot be resolved and is not judged.
+
+   Under `Containment: structural` both are CLOSED, and not by this script: a
+   worker runs inside a copy-on-write overlay and the promotion gate diffs the
+   paths its commits touched against the task's declared scope (P-43, P-44).
+   The gate reads the RESULT, so a write it cannot classify is a write it does
+   not need to classify. That is why P-10c frees the write form inside, and
+   why the refusal text differs there.
+
+   Under `guard-only` both stand exactly as before, and P-10b is the whole of
+   the coverage: product files are written with `Write` or `Edit`, as a
+   protocol requirement rather than a preference.
+
+3. SELF-SCOPING NEEDS `CLAUDE_PROJECT_DIR`, AND SILENTLY DEGRADES WITHOUT IT.
+   The protected-path rule is checked twice: once from the project containing
+   the TARGET, and once from the project containing the SESSION. The first
+   needs nothing. The second is what defends a path OUTSIDE every devteam
+   project — a sibling repository, the case this docstring advertises by name —
+   and it resolves the session's project from `CLAUDE_PROJECT_DIR`, falling
+   back to the per-call `cwd`. On the fallback a `cd` out of the project
+   disarms it: MEASURED, one charter declaring a sibling protected, one payload
+   targeting it, `cwd` inside the project -> REFUSED, `cwd` outside -> ALLOWED.
+
+   It is not reachable in either place this script runs today, and both reasons
+   are external to this file, which is why it is written down rather than
+   fixed. The harness sets `CLAUDE_PROJECT_DIR` for a host session. Inside a
+   sandbox it is deliberately absent -- the mount plan's environment map is
+   closed and is the whole of what crosses `--clearenv` -- but the same mount
+   plan makes exactly three things writable (a fresh tmpfs `/tmp`, the worker's
+   HOME, and the repository at its own path) under `--remount-ro /`, so there
+   is no path outside the repository for the disarmed check to have defended.
+   MEASURED from `build_mount_plan` itself, which is data for this reason.
+
+   THE ENTRY CONDITION THAT WOULD MAKE IT BITE: a host session that runs this
+   hook without `CLAUDE_PROJECT_DIR` set. Then a `cd` out of the project turns
+   the sibling-repository protection off, with no refusal and nothing in any
+   record — the same shape as P-10b's ambient instruction, and stated here for
+   the same reason.
 
 Set DEVTEAM_GUARD=off to disable. Reads PreToolUse JSON on stdin; prints a
 deny decision, or nothing.  Control: test_guard.py.
@@ -551,11 +590,34 @@ def judge(target, what, session, session_project, cache, category="write"):
                 return None
 
     running = ", ".join(sorted(live))
-    return (f"Refused: {what} to a path no live task has claimed, while {running} "
+    head = (f"Refused: {what} to a path no live task has claimed, while {running} "
             f"is running. A task declares the paths it writes and a worker stays "
             "inside them (P-10, P-12) — that is what keeps two agents out of one "
             "file. If this task genuinely needs this path, that is an escalation "
-            "to widen its scope, not a write outside it.\n\n"
+            "to widen its scope, not a write outside it.")
+
+    if os.environ.get("DEVTEAM_SANDBOX"):
+        # INSIDE, the tail of the host message is wrong in both halves and
+        # would send a worker somewhere useless. There is no scratch problem
+        # here -- the whole filesystem is a private overlay and nothing
+        # survives it -- so the mktemp recipe answers a question nobody has.
+        # And the heredoc paragraph names a limit that does not exist here:
+        # P-10c, the form is free inside because the promotion gate judges the
+        # RESULT, not the command text. What a worker needs to be told instead
+        # is that this refusal is early warning for a refusal it will meet
+        # again at promotion, where it is not a warning (L-6).
+        return (head + "\n\nYou are inside a sandbox, so this is the EARLY "
+                "half of the same refusal: nothing you write here reaches the "
+                "host until your supervisor promotes it, and promotion diffs "
+                "the paths your commits touched against this task's declared "
+                "scope (P-44). This path is outside it, so the write would be "
+                "refused there too — after you had built on it. Reaching for "
+                "an interpreter does not help: inside a sandbox the write form "
+                "is free (P-10c) precisely because the gate does not read your "
+                "command, it reads your commits. Escalate for the scope, or "
+                "work inside what you were given.")
+
+    return (head + "\n\n"
             "If you hold no claim at all — verifying, auditing, or building a "
             "mutation to test a check — then no scope can ever cover you, and "
             "this refusal is not about the path. Work outside the repository: "

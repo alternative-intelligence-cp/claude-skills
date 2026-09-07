@@ -25,6 +25,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
 1. **Phase and width** — onboard, plan, build, harden or deliver.
 2. **In flight** — each task, since when, on what model, and *what its
    supervisor last reported*. A claim with no live agent is **stale**: say so.
+   **Then one line per open sandbox**, read from `devteam/.run/locks/*.sandbox`
+   — task, step, id, whether the pid is live, and the root. A headless worker
+   is invisible to `ListAgents` (P-14b), so without this line a task that is
+   actively being worked reads here as a task with nobody on it.
 3. **Waiting on the client** — every open question, its class, and how long it
    has been waiting. Put this above "done" if anything is here; it is the only
    part the client can act on.

@@ -85,6 +85,7 @@ when the model drifts rather than when the code breaks.
 | Lint / format command | <exact command, or `none`> |
 | Target platforms | <e.g. Linux x86-64> |
 | Protected paths | <trees the pipeline may read but never write — vendored deps, generated output, sibling repos. The guard enforces these> |
+| Containment | <`structural` or `guard-only` — NOT a choice. `/devteam:setup` writes this from `sandbox_probe.py`'s exit code on the machine that will run the work, and `/devteam:run` re-checks it at every startup because it depends on a kernel setting nobody here can see. `structural`: each worker runs inside a copy-on-write overlay, so writes outside its scope, a shared index and a history rewrite are all impossible rather than refused (P-43), and the worker's permission set widens accordingly (P-38b). `guard-only`: this machine cannot make the namespace, so the guard is the whole of the coverage — which leaves three measured holes open, and they are worth knowing: an interpreter heredoc writes unjudged, a git history rewrite has no path for a path-based guard to see, and every agent shares one index> |
 | Model band | <floor> .. <ceiling> |
 | Budget ceiling | <tokens, wall-clock, or `none`> |
 | Checkpoint cadence | <after how many closed tasks, plus any milestone — e.g. `every 3 tasks, and at each release`. A count of tasks assumes tasks are a similar size and nothing enforces that, so this also carries a size trigger: a task above a stated share of the remaining budget checkpoints at its halfway step-unit. P-30> |

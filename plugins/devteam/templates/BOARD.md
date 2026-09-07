@@ -43,9 +43,18 @@ table's only job. It has never bitten because after a restart every row is stale
 and the join does not matter — the gap is exactly the case the table exists for,
 one claim of several dying while the others live.
 
-| Task | Title | Agent label | Agent id | Since | Model | Scope | Note |
-|---|---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — | nothing running |
+| Task | Title | Agent label | Agent id | Sandbox | Since | Model | Scope | Note |
+|---|---|---|---|---|---|---|---|---|
+| — | — | — | — | — | — | — | — | nothing running |
+
+**`Sandbox` is the id of the worker's overlay, or `—` under `guard-only`.** It
+exists for the same reason `Agent id` does and answers the case `Agent id`
+cannot: a headless worker is not an agent and `ListAgents` never sees one, alive
+or dead (P-14b). Without this column a task actively being worked is
+indistinguishable here from a task with nobody on it. The harness also writes
+`devteam/.run/locks/<TASK>.sandbox` — which survives the session and carries the
+overlay's absolute path — so this column is the *readable* copy and that file is
+the recoverable one.
 
 ## Tasks
 

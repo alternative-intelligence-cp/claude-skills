@@ -14,6 +14,15 @@ the same effect, because the other route is the one nobody reviewed.
 > and a regeneration that *widens* the set is shown as a diff, never applied
 > quietly.
 
+**A permission is one of two kinds and they are withheld differently** (P-38b).
+*Outward-facing* ones — publishing, installing, escalating privilege — have
+consequences that outlive any sandbox, so they are withheld **by name** and
+structure cannot help. *Filesystem-shaped* ones are contained by the sandbox on
+a `Containment: structural` project, and are granted to a worker **inside** it
+for that reason: within a private copy-on-write overlay, `rm`, `chmod`,
+`truncate` and an interpreter can harm nothing that survives. On a `guard-only`
+project the tables below are the whole of the grant, for everyone.
+
 ## Granted
 
 | Permission | Why the loop needs it | Requested by |
@@ -25,6 +34,8 @@ the same effect, because the other route is the one nobody reviewed.
 | `Read`, `Grep`, `Glob` | reading the project | all |
 | `Edit`, `Write` | the work itself, bounded by the guard to declared scope (P-10) | implementer, tester, documenter |
 | `WebSearch`, `WebFetch` | research digests from primary sources (P-36) | researcher |
+| `Bash(python3 <plugin>/scripts/sandbox.py:*)` | the harness that opens, dispatches into, promotes from and closes a worker's sandbox. **The supervisor** needs `open`, `dispatch`, `promote`, `status` and `close`; a `structural` project's loop cannot run a single step without them | supervisor |
+| `Bash(python3 <plugin>/scripts/sandbox.py exec:*)` | a verifier or auditor has no `Write` tool and no task claim, so it has nowhere to build the mutation its own job is defined by — F-100, where one concluded mutation was unavailable and downgraded an independent re-measurement to an independent reading. `exec` gives it a copy of the tree that cannot survive the command | verifier, auditor |
 | `Bash(rm devteam/*)` | **the manager only**, and only to remove an UNTRACKED file it created in error under `devteam/`. Granted because withholding it entirely has twice cost something concrete: a heartbeat that could not be retired, and a stray file that leaves `git status` non-empty and so fails the first precondition of every future verification. A file created in error and unremovable is a defect that compounds, and the alternatives — truncating, renaming — are the same effect by another route, which P-39 forbids | manager |
 
 ## Deliberately not requested
@@ -33,7 +44,8 @@ the same effect, because the other route is the one nobody reviewed.
 |---|---|
 | `Bash(git push:*)` | publishing is outward-facing and `IRREVERSIBLE` (P-26). The client pushes, or answers a question first |
 | `Bash(gh :*)` | the same, plus it can open, close and merge |
-| `Bash(rm:*)` broadly, `Bash(sudo:*)` | destructive, and nothing in the loop needs them |
+| `Bash(rm:*)` broadly, `Bash(sudo:*)` | destructive, and nothing in the loop needs them **on the host**. Inside a sandbox both are granted to a worker and neither can reach anything that outlives it — `sudo` additionally being a no-op under `--cap-drop ALL` |
+| `Bash(pip install:*)`, `Bash(uv add:*)` | adding a dependency is a design decision, not a build step. Withheld **by name even inside a sandbox**, where the install would land harmlessly in the overlay — because the decision is the thing being withheld, not its blast radius |
 | package publication, deployment, anything that spends money | `IRREVERSIBLE` by definition |
 
 ## The escalation window

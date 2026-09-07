@@ -978,6 +978,33 @@ def sandbox_lock_file(repo, task):
     return os.path.join(repo, "devteam", ".run", "locks", f"{task}.sandbox")
 
 
+def liveness_is_ignored(repo, task):
+    """(ok, path) -- is the liveness file git-ignored in this repository?
+
+    IT HAS TO BE, and until this check existed that was a written rule holding
+    up a mechanism. `dispatch` writes the `.sandbox` file HOST-side, into
+    `devteam/.run/locks/`, before the overlay is mounted -- so the merged view
+    sees it as an untracked file inside the repository, it lands in the
+    worker's uncommitted remainder, and `promote` refuses the whole promotion
+    with `promote-uncommitted`. MEASURED 0.2.3: the first live promotion was
+    refused for exactly this, and what saved the second was a `.gitignore` line
+    that `setup.py` happens to write.
+
+    So the mechanism depended on a line in a file nobody re-reads, and its
+    failure mode was a refusal that names the wrong thing entirely -- a
+    supervisor reading `promote-uncommitted` goes looking at the worker.
+    A project scaffolded by hand, or one whose `.gitignore` was tidied, gets
+    a paid worker round and then a misleading refusal.
+
+    `git check-ignore` is asked rather than the file parsed, because the answer
+    depends on precedence, negation and nested `.gitignore` files, and a
+    second implementation of those rules here would be a second home for them.
+    """
+    path = os.path.join(repo, "devteam", ".run", "locks", f"{task}.sandbox")
+    rc, _ = _git_rc(repo, "check-ignore", "-q", path)
+    return rc == 0, path
+
+
 def write_liveness(repo, task, text, say):
     """The fourth liveness signal (§3.5): written at dispatch, REWRITTEN at
     exit, never deleted.
@@ -1078,6 +1105,26 @@ def cmd_dispatch(args):
             "inside cannot tell this worker from a stranger and will refuse it "
             "its own task file (L-3.1). Re-open with `--parent-session <the "
             "board's writer id>`; a sandbox's environment is fixed at `open`.")
+    if task:
+        ok, lock_path = liveness_is_ignored(repo, task)
+        if not ok:
+            # REFUSED here, for the same reason the parent-session case is:
+            # the alternative is a worker that runs, costs money, succeeds, and
+            # then has its whole promotion refused as `promote-uncommitted` --
+            # a message about the worker's remainder, for a file the HARNESS
+            # put there. Cheap and truthful now, or expensive and misleading
+            # later.
+            rel = os.path.relpath(lock_path, repo)
+            raise SystemExit(
+                f"sandbox: {rel} is not git-ignored in {repo}, so the liveness "
+                "file this dispatch is about to write would appear in the "
+                "worker's overlay as an untracked path and `promote` would "
+                "refuse the whole promotion with `promote-uncommitted` -- "
+                "naming the worker for something the harness did. Add "
+                "`devteam/.run/` to .gitignore (which `/devteam:setup` does; "
+                "a hand-scaffolded project may not have it) and dispatch "
+                "again.")
+
     if not os.path.exists(args.dispatch):
         raise SystemExit(f"sandbox: no dispatch file at {args.dispatch}")
     with open(args.dispatch, encoding="utf-8") as fh:

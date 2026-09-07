@@ -450,19 +450,86 @@ def main():
          write("src/loader/a.py"), WORKER,
          {**SB, "DEVTEAM_PARENT_SESSION": WRITER_SESSION}, False),
     ]
-    for name, tool, session, env, expect_deny in identity_cases:
+    # --- roadmap 0.2.4 §3.5: the refusal MESSAGE has two variants -----------
+    # Both arms refuse, so a verdict-only control cannot tell them apart and a
+    # mutation deleting the whole branch would pass it. What separates them is
+    # WHAT THE MESSAGE SENDS THE READER OFF TO DO, so each case names a phrase
+    # that must be there and one that must not -- the `forbid` half is the
+    # load-bearing one. The host message's scratch recipe is actively wrong
+    # inside (there is no scratch problem in a private overlay) and its heredoc
+    # paragraph names a limit P-10c removes there.
+    OUT_OF_SCOPE = write("src/render/b.py")
+    message_cases = [
+        # (name, tool, session, env, expect_deny, want, forbid)
+        ("sandbox-refusal-points-at-promotion-not-a-scratch-directory",
+         OUT_OF_SCOPE, WORKER, {**SB, "DEVTEAM_PARENT_SESSION": WRITER_SESSION},
+         True, "promotion diffs the paths", "mktemp"),
+        ("sandbox-refusal-does-not-repeat-the-heredoc-limit",
+         OUT_OF_SCOPE, WORKER, {**SB, "DEVTEAM_PARENT_SESSION": WRITER_SESSION},
+         True, "the write form is free", "cannot be classified"),
+        # The false-positive twin, and it is the one that proves the branch is
+        # a branch: the SAME write by the SAME session with no DEVTEAM_SANDBOX
+        # must still get the host message, recipe and all.
+        ("fp-host-refusal-still-carries-the-scratch-recipe",
+         OUT_OF_SCOPE, WRITER_SESSION, {}, True, "mktemp", "promotion diffs"),
+    ]
+
+    for name, tool, session, env, expect_deny, *rest in (
+            [(c[0], c[1], c[2], c[3], c[4], None, None) for c in identity_cases]
+            + message_cases):
+        want, forbid = (rest + [None, None])[:2] if isinstance(rest, list) else rest
         root = build()
         try:
             denied, reason = run(root, tool, session, extra_env=env)
-            if denied == expect_deny:
-                passed += 1
-            else:
+            if denied != expect_deny:
                 failed += 1
                 verb = "REFUSED" if denied else "ALLOWED"
                 print(f"FAIL  {name}: {verb}, expected to "
                       f"{'refuse' if expect_deny else 'allow'}")
                 if reason:
                     print(f"        | {reason[:200]}")
+            elif want and want not in (reason or ""):
+                failed += 1
+                print(f"FAIL  {name}: refused, but the message never says {want!r}")
+                print(f"        | {(reason or '')[:200]}")
+            elif forbid and forbid in (reason or ""):
+                failed += 1
+                print(f"FAIL  {name}: the message still says {forbid!r}, "
+                      "which is the other variant's text")
+            else:
+                passed += 1
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # --- roadmap 0.2.4 §3.5, limit 3: a `cd` must not disarm the protected
+    # path rule for a target INSIDE the project. That is the reachable half of
+    # the `CLAUDE_PROJECT_DIR` limit the docstring states: the target-side
+    # check covers it, and this pins that it keeps doing so. The UNREACHABLE
+    # half -- a sibling outside every project, with the session's own project
+    # unresolvable -- is deliberately NOT controlled here: a control asserting
+    # the disarmed behaviour would lock a defect in place rather than guard a
+    # property, and the docstring records the measurement instead.
+    for label, cwd_rel in (("at-the-root", "."), ("in-a-subdirectory", "src"),
+                           ("with-cwd-outside-the-project", None)):
+        root = build()
+        try:
+            outside = tempfile.mkdtemp()
+            here = outside if cwd_rel is None else os.path.join(root, cwd_rel)
+            os.makedirs(here, exist_ok=True)
+            payload = {"tool_name": "Write", "cwd": here, "session_id": WRITER_SESSION,
+                       "tool_input": {"file_path": os.path.join(root, "vendor/x.txt")}}
+            proc = subprocess.run(
+                [sys.executable, GUARD], input=json.dumps(payload),
+                capture_output=True, text=True,
+                env={k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"})
+            name = f"protected-path-inside-the-tree-holds-{label}"
+            if "protected path" in proc.stdout:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}: ALLOWED a write to a charter-protected "
+                      "path; only the session-side check was defending it")
+            shutil.rmtree(outside, ignore_errors=True)
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
@@ -483,9 +550,16 @@ def main():
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
-    total = len(all_cases) + 1 + len(identity_cases)
+    # PROTECTED_CD_CASES is the count of the `cd` loop above; keep it beside
+    # that loop's tuple or this line quietly under-reports, which is a suite
+    # claiming to be smaller than it is -- harmless, and exactly the kind of
+    # drift the next person assumes cannot happen in a control file.
+    PROTECTED_CD_CASES = 3
+    total = (len(all_cases) + 1 + len(identity_cases)
+             + len(message_cases) + PROTECTED_CD_CASES)
     fp = (sum(1 for c in all_cases if c[0].startswith("fp-")) + 1
-          + sum(1 for c in identity_cases if c[0].startswith("fp-")))
+          + sum(1 for c in identity_cases if c[0].startswith("fp-"))
+          + sum(1 for c in message_cases if c[0].startswith("fp-")))
     print(f"\nguard control: {passed} passed, {failed} failed, {total} cases "
           f"({fp} of them false-positive controls, {100 * fp // total}%)")
     return 1 if failed else 0

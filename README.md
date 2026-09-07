@@ -48,6 +48,18 @@ a negative control that plants one fault per finding class and demands exactly
 that class back — including false-positive controls, because a guard that
 blocks legitimate work gets switched off, which is worse than no guard.
 
+**A write that cannot happen beats a write that is refused.** A rule enforced by
+reading a command can only refuse what it manages to recognise, and the world is
+always wider than the frame — an interpreter's heredoc gives it nothing to read,
+and a rewrite of git history is a write with no path at all. Both of those got
+through here, repeatedly, past a guard that was working correctly. So where the
+structure can make the mistake unavailable, it does: each worker gets a private
+copy-on-write view of the repository and its work is applied deliberately
+afterwards, checked against what it said it would touch. The refusal stays in
+front of that as early warning, because being told at the moment of typing is
+worth a great deal — but it is no longer the thing standing between a mistake
+and the repository.
+
 **A fact has one home.** Skills carry procedure and pointers, never content. A
 fact with two homes drifts, and the copy is the one that goes stale.
 

@@ -154,6 +154,61 @@ inside it can see.** When a rule here assumes a mechanism is watching, say what
 would make it stop watching — and prefer the arrangement where the failure is
 loud.
 
+**P-10c supersedes P-10b for a worker inside a sandbox** (P-43). Inside an
+overlay the write form is free — `Write`, `Edit`, a redirect, a heredoc, an
+interpreter — because nothing judges it and nothing needs to: every write lands
+in that worker's own upper layer and reaches the host only through a promotion
+that diffs the paths the commits touched against the task's declared scope. The
+mechanism no longer depends on the guard being able to *read* the write, so the
+form no longer matters.
+
+**P-10b's text stands unedited and still governs the host** — the manager, the
+supervisors, and every actor on a project whose charter says
+`Containment: guard-only`. Keep its paragraph on the ambient instruction in
+view when reading this one: it is the clearest statement in this file that
+coverage can rest on an external variable nobody inside the run can see, and
+P-43 has exactly that shape too, with the kernel in the variable's place.
+
+**P-43 — A worker's writes land in a sandbox, and reach the host only through
+promotion.** Under `Containment: structural` a worker is a headless process
+inside a user-namespace overlay: the repository is mounted copy-on-write at its
+own absolute path, its `.git` with it, and the whole of the rest of the
+filesystem is read-only. Nothing it writes — a file, the index, a ref, a
+rewritten commit — exists outside its own upper layer until a supervisor
+promotes it.
+
+*What this contains*, and each of these is a measured failure the guard could
+not close: the working tree (F-80, the manager used the unjudged heredoc form
+for a whole run; F-121, the refusal message cannot reach the case that matters),
+**the index** (F-17, a `git add -A` stole a worker's commit; F-66, "stage
+explicit files" defeated because somebody else did the staging), and **the
+history** (F-71, a path-based guard structurally cannot see a rewrite; F-73 and
+F-81, two independent instances of the amend trap; the worker's half of F-135).
+The index and the history are the expensive class and the reason the mechanism
+is an overlay rather than a bind-mount allow-list.
+
+*What it does not contain, stated in the rule rather than a footnote:*
+
+- **The network.** The worker's namespace is shared, because the model API must
+  be reachable. A worker can therefore reach the network — it could exfiltrate,
+  or install a package into its own overlay. What is made impossible instead is
+  *outward git*, and structurally rather than by a rule: no `SSH_AUTH_SOCK`, no
+  `~/.ssh`, no `~/.gitconfig`, no `gh` configuration and no token survive the
+  cleared environment, so `git push` has nothing to authenticate with. **The
+  trigger for closing this is a worker observed contacting anything but the
+  model API, or a charter that marks the project sensitive.**
+- **The manager and the supervisors.** Both stay host-side and share one index
+  and one `HEAD`. F-129 and the manager–supervisor half of F-135 are theirs and
+  are **not** closed by this rule; what holds them is what held them before —
+  the pathspec commits their skills mandate, and P-12b's history refusal, which
+  is why P-12c below keeps it in force on the host.
+- **A `guard-only` project.** The mechanism is Linux user namespaces. Where the
+  probe cannot get them the charter says `guard-only`, this rule does not
+  apply, and P-10b is the whole of the coverage.
+
+*Control:* `test_sandbox.py`, and `sandbox_probe.py` is what decides which of
+the two a project gets.
+
 ---
 
 ## 3. Claims, locks and running more than one thing
@@ -186,6 +241,27 @@ recover with `git reset --soft` to the original commit from `git reflog`, never
 `--hard`: soft leaves the index and working tree untouched, and the tree holds
 other tasks' uncommitted work.
 
+**P-12c supersedes P-12b for a worker inside a sandbox** (P-43). **History is
+shared at promotion, not during work.** Inside an overlay a worker has its own
+`.git`, so `--amend`, `reset`, `rebase` and `stash` act on its own copy and
+nobody else's `HEAD` is reachable to rewrite. Those operations are therefore
+**permitted inside, above the base commit the sandbox recorded at `open`** — the
+thing P-12b exists to prevent cannot happen there. **A rewrite at or below the
+base is refused by the promotion gate**, because that is the history the worker
+shares with the host after all, and rewriting it is the original failure
+arriving one layer down.
+
+**On the host, P-12b's prohibition stands unchanged and unedited**, for every
+host-side actor — the manager, every supervisor, and every actor on a
+`guard-only` project — and the guard still enforces it at the moment of typing.
+
+This **narrows** `CONSOLIDATION.md` item 8b, the deferred narrow
+unscoped-commit refusal: a worker's unscoped commit inside its overlay can only
+take that worker's own index, so the case shrinks to the host-side actors, whose
+skills already mandate pathspec commits. **Its trigger is unchanged** — an
+unscoped host-side commit that actually carries another party's staged work —
+and the evidence for building it still does not exist.
+
 **P-13 — `devteam/` has one writer: the project manager.** Supervisors and
 workers write into the product tree and into their own task file's execution
 record, and nowhere else under `devteam/`. Findings for the charter, the
@@ -200,6 +276,52 @@ when the agent the board names has finished. A supervisor awaiting a worker
 reports as completed, so the narrow reading declares a working claim dead and
 puts a second writer on it, which is the failure P-12 exists to prevent. After a session restart *every* claim is stale, because agent
 liveness is only visible within the session that spawned them.
+
+**P-14b — Liveness has a fourth signal, and under `structural` it is the only
+one that can see a worker at all.** A headless worker inside a sandbox is not an
+`Agent`-tool subagent, so `ListAgents` cannot see it — that is L-2's accepted
+cost, not a defect. The harness therefore writes
+`devteam/.run/locks/<TASK>.sandbox` at dispatch and **rewrites it at exit,
+never deleting it**, for the reason the heartbeats are never deleted: an absent
+file and a file nobody has written read the same, and recovery has to tell *no
+worker ran* from *a worker ran and we lost it*. The line carries the task, the
+step, the sandbox id, the pid, the times, and the **sandbox root as an absolute
+path** — the root is on the line so a reader never has to resolve a
+machine-local environment variable the way the writer did, which would be a
+second home for one path.
+
+Read it **after** the three signals P-14 names, and it has two readings:
+
+- **a live pid** under a claim whose supervisor is gone is a worker still
+  writing its overlay — the claim is working, **not** stale;
+- **a dead pid with a non-empty upper layer** is work to inspect with
+  `close --keep`, never to discard.
+
+After a session restart `--die-with-parent` has already killed every worker, so
+every line reads `exited` or names a dead pid. That is P-14's "every claim is
+stale after a restart" with a mechanism a reader can see, rather than a
+statement they have to take.
+
+**P-44 — Promotion is serialised, gated by the declared scope, and never
+automatic.** Nothing a worker produces reaches the host because the worker
+finished. A supervisor promotes it, under a lock so two promotions cannot
+interleave, and the gate diffs the paths its commits touched against the task's
+`Scope.` — the same declared list every other check here reads, because a diff
+of two declared lists is the only kind of check that has ever worked in this
+project (P-4).
+
+**An uncommitted remainder is evidence, not work.** A worker that leaves changes
+uncommitted has left something the gate cannot attribute to a step, so promotion
+refuses rather than guessing. The remainder is captured and named so it can be
+read; it is never applied.
+
+**Cite a promoted commit by its subject, never by its hash.** Promotion is a
+cherry-pick: the host `HEAD` has usually moved since the sandbox opened, so
+every hash the worker reported is rewritten on the way in. A report citing hashes
+is a report whose citations are wrong the moment they are true.
+
+*Control:* `test_sandbox.py`; the finding classes are named in `sandbox.py`'s
+gate and, from 0.2.6, each against the rule it enforces.
 
 **P-15 — Width is an argument, and the default is one.** The number of
 concurrent tasks is a dial the client sets, never a constant. Helper agents
@@ -490,6 +612,34 @@ authority over a permission set. The point is to ask the client
 once, up front, for exactly what the loop needs — no more, so the grant is
 reviewable, and no less, so the loop does not stall overnight on a prompt
 nobody is there to answer.
+
+**P-38b supersedes P-38 in one respect: the grant has two halves, and only one
+of them is a list.** A permission here is either *outward-facing* or
+*filesystem-shaped*, and P-38 treated them alike because before P-43 there was
+only one way to withhold anything.
+
+- **Outward-facing** — `git push`, `gh`, `sudo`, `pip install`, `uv add`.
+  Withheld **by name**, on the host by the allowlist and inside a sandbox by
+  `--disallowedTools`. These are the ones whose consequences outlive the
+  sandbox, so structure cannot help and a name is the whole mechanism.
+- **Filesystem-shaped** — `rm`, `chmod`, `truncate`, `python3 -c`, a redirect,
+  an interpreter. Under `Containment: structural` these are **granted inside**,
+  because inside an overlay they can harm nothing that survives it, and the
+  promotion gate judges the result rather than the command. Under `guard-only`
+  they stay exactly as P-38 had them.
+
+*Why the split, and it is four measured failures rather than a preference:*
+F-30, F-64, F-76 and F-100 were each a command withheld for the guard's sake
+that cost a verification chain — most sharply F-100, where a verifier had no
+sanctioned place to build the mutation its own job is defined by, concluded
+mutation was unavailable, and downgraded an independent re-measurement to an
+independent reading. A grant tight enough to make the guard's job easy was
+tight enough to stop the checking.
+
+**The inside list has one home and is derived, never written twice.** It comes
+from the role's own `agents/<role>.md` `tools:` line — the only enforced
+restriction the 0.1 design had — minus the outward set. F-6, F-24 and F-30 were
+each a grant and a rule disagreeing; a second list would be the fourth.
 
 **P-39 — A permission the pipeline does not have is a stop, not a workaround.**
 An agent that cannot run a command reports it; it does not find another route

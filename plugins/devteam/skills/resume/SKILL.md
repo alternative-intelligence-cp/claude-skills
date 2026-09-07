@@ -82,8 +82,29 @@ git -C "$REPO" status --porcelain
 git -C "$REPO" log --oneline -15
 ls -la devteam/.run/locks/            # heartbeats: which step since when,
                                       # or `closed <date>, verified PASS`
+cat  devteam/.run/locks/*.sandbox     # under `structural`: which worker ran,
+                                      # its pid, and WHERE its overlay is
 ls -la devteam/.run/session/          # which session believed it held the lock
 ```
+
+**The `.sandbox` files are part of what the tree holds, and they are the only
+record of a worker that a restarted session can see** (P-14b). `ListAgents`
+never saw a headless worker even while it lived. Each line names the task, the
+step, the sandbox id, the pid, and the sandbox's **root as an absolute path** —
+so a session that never spoke to the one that dispatched it can still find the
+overlay. Then:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sandbox.py" status   # what is still open
+```
+
+**A kept sandbox with a non-empty `upper/` is work a predecessor did not
+promote.** It is the one thing in this whole procedure that a restart does not
+recover on its own: the commits are real, they are on disk, and nothing on the
+host knows about them. List every one of them in your report, by id and by
+what it holds, **before anything is re-dispatched** — a re-dispatch opens a new
+sandbox from the current base and the old work stops being reachable from the
+board.
 
 Then run all four checks. They compare the two directly and are the fastest
 route to the disagreement:
@@ -110,6 +131,8 @@ a finished one or the reverse:
 | a task still working — heartbeat says `waiting on S-n` | a task that closed, whose heartbeat was never retired | the board and the task title say `DONE`; a heartbeat is retired to `closed <date>` at close, never deleted, so a live-looking one after a close is a lie told to this procedure |
 | a live claim | a task stopped for a question, whose title was never updated | `QUESTIONS.md` has an open item naming it (P-27b) |
 | a stale claim | a live worker under a completed supervisor | a live child in `ListAgents` (P-14) |
+| a stale claim, nothing live anywhere | a headless worker still writing its overlay | `ListAgents` **cannot see one at all**; the `.sandbox` file's pid can, and a live pid there means the claim is working (P-14b) |
+| the work was lost — `RUNNING`, clean tree, dead worker | done but never promoted | the `.sandbox` line names a root whose `upper/` is not empty; the commits are in the overlay, not the host |
 
 **An uncommitted change under a claimed task's scope is work, not debris.**
 Read it before deciding anything. A predecessor's uncommitted diff is

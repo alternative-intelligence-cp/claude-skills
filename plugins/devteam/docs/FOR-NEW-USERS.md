@@ -18,6 +18,36 @@ anything that changes what is being built.
 ## Install
 
 The plugin loads from a symlink; ask the operator to add it if it is not there.
+
+**It works best on Linux, and it will tell you which one you are getting.**
+Workers are isolated by putting each one inside a per-worker, copy-on-write
+copy of your repository — a Linux user namespace with an overlay filesystem. On
+a machine that can do that, `/devteam:setup` writes `Containment: structural`
+into your charter and a worker's mistakes are *impossible* rather than refused:
+it cannot write outside the paths its task declared, cannot touch your git
+history, and cannot see any other work in progress. Nothing it does reaches
+your repository until it is applied deliberately, one task at a time, with a
+check that what it touched is what it said it would touch.
+
+**On macOS, on Windows, or on a Linux host with user namespaces disabled, you
+get `Containment: guard-only` instead** — and you get told, in the charter, in
+plain words. That is the pipeline as it ran for its whole first cycle, and it
+works: a hook refuses a write outside a task's declared scope at the moment it
+is made. What it cannot do is refuse a write it cannot recognise. Three gaps
+are known and measured: a script that writes through an interpreter is not
+classified and so is not refused; a rewrite of git history is a write with no
+file path, so a path-based rule cannot see it; and every agent shares one git
+index, so one agent's staging can end up in another's commit. Each of those has
+actually happened here. **You should know which of the two you are running
+before you leave it unattended**, and the charter is where it says so.
+
+**One thing is not contained on any platform, and it is fair to know up front:
+the network.** A worker can reach out, because it has to reach the model API.
+It cannot push, publish, or authenticate as you — no credential, key, or git
+remote configuration is given to it, so there is nothing for it to push *with*
+— but if you are working on something where a process reaching the internet is
+itself the problem, this is not yet the tool for it, and say so and it will be.
+
 Then, in the project directory:
 
 ```

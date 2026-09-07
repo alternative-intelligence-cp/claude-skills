@@ -378,6 +378,25 @@ being careful.
 | `check_report.py` | a committed REPORT block ↔ the tree it claims | `no-report`, `wrong-task`, `missing-field`, `bad-report-status`, `status-mismatch`, `unknown-commit`, `head-subject`, `dirty-tree`, `no-evidence` |
 | `check_scope.py` | a task's declared scope ↔ every other live claim, and ↔ what it actually wrote | `overlapping-scope`, `undeclared-write`, `empty-scope`, `scope-escapes-tree` |
 
+**And one script that is not a check.** `sandbox.py`
+(`open · run · exec · dispatch · allowlist · promote · status · close`) is the
+containment harness — it makes a worker's writes impossible rather than
+reporting on them afterwards. Its `promote` subcommand is the one part that
+*does* diff two declared lists, and it belongs in the table above in spirit:
+`promote-base-disagreement`, `promote-conflict`, `promote-extraction-failed`,
+`promote-fetch-failed`, `promote-foreign-subject`, `promote-history-rewrite`,
+`promote-host-index-dirty`, `promote-no-commits`, `promote-no-scope`,
+`promote-no-task-file`, `promote-out-of-scope`, `promote-task-file-unparsed`,
+`promote-task-file-untracked`, `promote-uncommitted`. `sandbox_probe.py`
+decides whether any of it is available on a given machine, and `test_sandbox.py`
+and `test_sandbox_probe.py` are their controls.
+
+`check_report.py` gains two findings from the harness — `budget-mismatch` and
+`model-mismatch` — because under structural containment the process that ran a
+worker metered it, and a worker's own `budget:` and `model:` lines stop being
+the only source. Both are silent where no harness ran: an absent measurement is
+not a finding.
+
 **`defined-uncited` and `unmotivated-task` are the ones that earn their keep.**
 A decision nothing cites is usually a requirement that states a rule and forgot
 to attribute it; a task discharging no requirement is either scope creep or a
@@ -410,7 +429,38 @@ Every script exits `0` clean, `1` findings, `2` could not run, and reads
 
 ---
 
-## 8. The guard
+## 8. The sandbox, and the guard as early warning
+
+**Two mechanisms, and only one of them is a mechanism.** Under
+`Containment: structural` a worker runs headless inside a per-worker
+copy-on-write overlay of the repository, mounted at its own absolute path, with
+everything else read-only. Its writes — files, index, refs, rewritten history —
+exist nowhere but its own upper layer until a supervisor promotes them, and
+promotion diffs the paths its commits touched against the task's declared scope
+(P-43, P-44). **The guard stays, in front of that, as early warning**: a
+refusal at the moment of typing is where guidance works, and a worker that only
+learns at promotion that it built on an out-of-scope edit has lost the work
+rather than been told (§20b).
+
+So the three kinds of thing here are worth separating, because they fail
+differently:
+
+| | What it is | What happens when it is wrong |
+|---|---|---|
+| the overlay | **structural** — the write cannot land | nothing lands. There is no "wrong" mode short of the kernel not providing a namespace, which the probe detects up front |
+| promotion | **a gate** — the work exists and is judged before it moves | the work is refused, and it still exists to be argued about |
+| the guard | **a warning** — it refuses what it can classify | it goes quiet. A write it cannot read is a write it does not judge, and nothing anywhere says so |
+
+**The residual, stated so nobody over-reads it.** The network is shared (the
+model API must be reachable), so a worker can reach out; what is made
+impossible instead is outward *git*, structurally, because no credential
+survives the cleared environment. The manager and the supervisors stay
+host-side and share one index and one `HEAD`. And on macOS, Windows, or a Linux
+host without user namespaces there is no overlay at all: the charter says
+`guard-only`, this section's first paragraph does not apply, and the four
+properties below are the whole of the coverage.
+
+### The guard itself
 
 A `PreToolUse` hook on `Bash`, `Write`, `Edit` and `NotebookEdit` — one script,
 covering both the file tools and the shell, because a guard that covers one and
@@ -440,9 +490,29 @@ Three properties it must have, each learned the expensive way in the prior art:
 
 **Its limits, stated rather than hidden:** an interpreter heredoc that writes
 (`python3 - <<PY`) cannot be classified from the command text, and a target
-containing an unexpanded variable cannot be resolved and is not judged. The
-airtight mechanism for the first is the sandbox's own write-deny list, and the
-guard is a second layer, not the only one.
+containing an unexpanded variable cannot be resolved and is not judged.
+
+**Under `structural` both are closed, and not by the guard.** The promotion
+gate reads the worker's *commits*, so a write it could not classify is a write
+it does not need to classify — which is why the write form is free inside
+(P-10c) and mandated outside (P-10b). Under `guard-only` both limits stand and
+the rule is the whole of the answer. This is the clearest case in the design of
+something whose coverage depends on an external variable — here, a kernel
+setting — and the arrangement chosen is the loud one: the charter states which
+regime a project is in, and the loop refuses to start if the charter claims a
+containment the machine cannot deliver.
+
+**One more limit, which is neither closed nor currently reachable.** The
+protected-path rule is checked twice — from the target's project and from the
+session's — and only the second defends a path outside every devteam project, a
+sibling repository being the case that matters. It resolves the session's
+project from `CLAUDE_PROJECT_DIR` and falls back to the per-call `cwd`, so
+without that variable a `cd` out of the project disarms it. Measured, and
+measured not to bite: a host session has the variable, and inside a sandbox
+there is no writable path outside the repository for it to have defended. The
+entry condition that would make it real — a host hook running without
+`CLAUDE_PROJECT_DIR` — is named in `guard.py`'s own docstring, which is where
+somebody meeting it will be.
 
 ---
 
@@ -598,6 +668,7 @@ riskiest unknown goes earliest and a probe that fails changes the design.
 | **4** | rehearse on a throwaway project; fix what the rehearsal breaks | ✅ **done** — three tasks, a killed supervisor recovered, a correct verifier FAIL, a live guard refusal, and a DRIFTED checkpoint; §15–§17 |
 | **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | ✅ **done** — three auditors dispatched in parallel against the rehearsal project, none able to write; §18 |
 | **6** | a client the pipeline did not write: another session, briefed only with an underspecified paragraph, interviewed and run end to end | ◐ **in flight** — eighteen findings before the product had a line of code; §20 |
+| **7** | **structural containment**: a worker's writes made impossible rather than refused — a per-worker copy-on-write overlay, a headless worker inside it, and a serialised promotion gated by the declared scope | ◐ **in flight** — the mechanism runs and a live worker's commits have been promoted under the gate. **Done when** a `guard-only` machine degrades loudly rather than silently, every skill dispatches through the harness, and one full `setup` → `run` → promote → verify → close is walked on a throwaway |
 
 Phase 3 is the one that matters. Everything before it is scaffolding, and
 everything after it is filling in a loop already known to work.
@@ -1127,6 +1198,25 @@ This is the second time the guard has been blind to something because of the
 frame it judges in — the first was `2>&1`, where a file descriptor was read as
 a path. Neither was a bug in the code; both were the frame being narrower than
 the world.
+
+**This is fixed in cycle 0.2, and it is fixed by changing the frame rather than
+widening it.** A worker now runs inside a per-worker copy-on-write overlay with
+its own `.git`, so an `--amend` can only rewrite that worker's own history,
+`git add -A` can only sweep that worker's own index, and the host's `HEAD` is
+not reachable to land on. The failure above is not refused; it is **absent**,
+because the thing it acted on does not exist inside (P-43). The gate at
+promotion then judges what the worker actually committed, by path, against the
+declared scope — which is a path-shaped rule again, but applied to a *result*
+rather than to a command, and a result has no forms the frame can miss.
+
+Worth being exact about what that buys, because the finding above is one of a
+class and the class is not uniformly fixed. **The worker's half is closed.** The
+manager's and the supervisors' half is not: both stay host-side, share one index
+and one `HEAD`, and are held by the same things that held them before — the
+pathspec commits their skills mandate, and P-12b, which the guard still
+enforces against every host-side actor. That half is the smaller one — neither
+role writes product code — and it is stated here rather than left for somebody
+to discover in the gap between "history is contained now" and which history.
 
 ### The first finding that made it simpler, and it came from a refusal to use it
 

@@ -78,9 +78,53 @@ can destroy uncommitted work nobody knew was there.
    **Never re-pin while a claim is in flight** — a result that cannot be
    attributed to a known environment is not a result.
 
+   **Under `structural`, the pin also carries what the containment rests on,
+   and none of it is in this repository:**
+
+   ```bash
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sandbox_probe.py" --pin \
+       >> "devteam/.run/env/<id>/containment"
+   ```
+
+   The plugin commit already pins `sandbox.py`, because it is *in* the plugin.
+   What it cannot pin is the `claude` CLI that every dispatch resolves through
+   `PATH`, the `bwrap` that composes the namespace, and the kernel settings that
+   decide whether a user namespace may be created at all. **Those move on
+   their own.** The CLI moved twice inside two days during this cycle's own
+   planning, and a finding recorded against one build stopped being true of the
+   next without anything in the record changing. A claim conditioned on a
+   version nobody wrote down is a claim that expires silently.
+
+   This is the same concern `sandbox.py run` reports at the other end: it
+   refuses when a bind source has vanished between `open` and `run`, and names
+   a toolchain auto-update as the usual cause. The pin is that check made
+   *before* the work rather than during it.
+
+5b. **If the charter says `Containment: structural`, prove it still is.**
+
+   ```bash
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sandbox_probe.py"      # must exit 0
+   ```
+
+   **Non-zero → `BLOCKED`, and paste the probe's whole table**, which names the
+   row that failed and the command that produced it. Do not continue, and do
+   **not** quietly fall back to `guard-only`: a charter that says `structural`
+   is a charter whose worker permissions were widened on the strength of it
+   (P-38b), and running those permissions with the guard as the only mechanism
+   is strictly worse than either arrangement chosen on purpose.
+
+   The row is set once, by `setup`, from this same probe. It is re-checked here
+   because **it depends on things outside the project that change without
+   anyone touching it** — a kernel upgrade, an AppArmor policy, a `bwrap` that
+   went away. That is the dependency P-10b's closing paragraph says must be
+   stated and made loud, and this is where it is made loud.
+
+   A charter that says `guard-only` skips this step; that project runs cycle
+   0.1's behaviour whole, and P-43 does not apply to it.
 
 6. **Tell the client the picture in under ten lines:** width, pin, each task's
-   state, anything recovered, anything waiting on them. Then §4.
+   state, **the containment**, anything recovered, anything waiting on them.
+   Then §4.
 
 ## 2. The writer lock, restated
 
@@ -108,19 +152,38 @@ and treat the claim as live if any of them says so:
    anywhere is the genuinely stale case — and it tells you *where* it died.
 3. **The tree.** `git -C "$REPO" status --porcelain` and the mtimes under the
    task's scope. Work that changed in the last few minutes is work in progress.
+4. **The sandbox file** (P-14b), `devteam/.run/locks/<TASK>.sandbox`, under
+   `structural` — and read it **last**, because it answers a question the other
+   three cannot. `ListAgents` cannot see a headless worker at all, so a claim
+   whose supervisor is gone looks dead by every signal above while a worker is
+   still writing its overlay. Two readings:
 
-Only when all three are silent is the row stale. **After a session restart
+   - **a live pid** → the claim is **working**. Not stale. Leave it alone.
+   - **a dead pid with a non-empty `upper/`** → a worker ran and its work is
+     still there. `close --keep` and inspect it; never discard it.
+
+Only when all four are silent is the row stale. **After a session restart
 every row is stale regardless**, because agent liveness is only visible inside
-the session that spawned them — and that is the case the heartbeat and the tree
-exist to make recoverable rather than merely detectable.
+the session that spawned them — and that is the case the heartbeat, the tree
+and the sandbox file exist to make recoverable rather than merely detectable.
+Under `structural` a restart has additionally killed every worker outright
+(`--die-with-parent`), so every `.sandbox` line reads `exited` or names a dead
+pid — which is what makes "every claim is stale after a restart" something a
+recovering session can *see* rather than something it has to be told.
 
-| Task title says | `git status --porcelain` | Do |
-|---|---|---|
-| `RUNNING` | dirty | re-dispatch the same task, `TREE: dirty`, `NOTES:` saying the predecessor died |
-| `RUNNING` | clean | re-dispatch the same task; the work was lost |
-| `DONE` / `READY-TO-AUDIT` | clean | run the verifier. PASS → advance. FAIL → re-dispatch with the FAIL in `NOTES:` |
-| `DONE` | dirty | a record written and not committed: treat as `RUNNING` + dirty |
-| `PLANNED` | any | the supervisor never started: re-dispatch |
+| Task title says | `git status --porcelain` | `.sandbox` | Do |
+|---|---|---|---|
+| `RUNNING` | any | live pid | **not stale.** A worker is writing its overlay; wait |
+| `RUNNING` | any | dead pid, non-empty upper | `close --keep`, read what it got done, re-dispatch with `NOTES:` naming the kept sandbox |
+| `RUNNING` | dirty | absent or `exited` | re-dispatch the same task, `TREE: dirty`, `NOTES:` saying the predecessor died |
+| `RUNNING` | clean | absent or `exited` | re-dispatch the same task; the work was lost |
+| `DONE` / `READY-TO-AUDIT` | clean | any | run the verifier. PASS → advance. FAIL → re-dispatch with the FAIL in `NOTES:` |
+| `DONE` | dirty | any | a record written and not committed: treat as `RUNNING` + dirty |
+| `PLANNED` | any | any | the supervisor never started: re-dispatch |
+
+**A kept sandbox is work nobody promoted, and it is the one thing recovery can
+still lose.** The overlay outlives the session that made it; nothing else here
+does.
 
 Every recovery is a `stale claim` line in `RECORD.md`.
 
@@ -212,6 +275,8 @@ REQUIREMENTS: <the R-n it discharges>
 GATE: <what must be true to call it done>
 VERIFY: <the exact command that proves it>
 ENV: <pin id, and the pinned versions>
+CONTAINMENT: structural | guard-only
+SANDBOX-ROOT: <absolute path, or `none` under guard-only>
 MODEL-BAND: <floor> .. <ceiling>, from the charter
 ATTRIBUTION: <your own harness notice's trailer lines, verbatim>
 TREE: clean | dirty
@@ -264,6 +329,17 @@ judgement call:
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_report.py" . T-n
 ```
+
+Two of its findings are about the report's *honesty* rather than its shape, and
+neither is a thing to correct:
+
+| Finding | Means | Do |
+|---|---|---|
+| `budget-mismatch` | the report's `budget:` disagrees with what the harness metered for that step — beyond 10% on tokens or 20% on minutes | record it. **Never rewrite the worker's figure.** A worker cannot see the counter; the first one this pipeline metered reported `tokens=3000` against `309639`, in good faith. It is a fact about self-reporting (P-17c), and the number to trust is the harness's |
+| `model-mismatch` | the report's `model:` names a model that did not run | this one is not a rounding error. Treat it as a report about a different run than the one you have, and re-dispatch |
+
+Both are silent on a `guard-only` project, which has no harness meter — an
+absent measurement is not a finding.
 
 **Then verify it yourself** (P-18). Dispatch a **fresh** `devteam:verifier` —
 not the one the supervisor used — with the task, the pin and the report's
@@ -579,6 +655,14 @@ and history is corrected by a commit. Not a file somebody else created: you do
 not know why it is there. Not the product tree. If you want any of those, it is
 a question for the client, and truncating or renaming instead is the same
 effect by another route, which P-39 forbids as plainly as the removal itself.
+
+**None of this changes under `structural`, and it is worth saying so because a
+reader will wonder.** The sandbox contains *workers*. You are the manager and
+you are host-side (L-2): your writes land on the host directly, the guard is
+the only thing between you and them, and P-10b — not P-10c — is the rule you
+write under. The widened grant of P-38b is the *inside* set and none of it is
+yours. A manager that reads "writes are structurally contained now" as applying
+to itself has removed the only mechanism it had.
 
 ## 10. The record (P-42)
 

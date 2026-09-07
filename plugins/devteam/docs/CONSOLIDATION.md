@@ -9,6 +9,19 @@ list is a bug report — those were fixed as they arrived. This is the work that
 only makes sense once the run has stopped and the whole thing can be read at
 once.
 
+> **Where cycle 0.2 has got to, so this file is not read as though nothing had
+> happened.** Item **5** is closed — not by wrappers, but by structural
+> containment, which turned out to be the same idea arrived at from the other
+> end (see the item). Item **8b** is **narrowed** rather than retired: a
+> worker's unscoped commit can no longer carry anyone else's staged work, so
+> the case shrinks to the host-side actors, and its trigger is unchanged.
+> Items **1**, **3**, **6** and **7** are the cycle's remaining queue and are
+> assigned; **2** and **9** are deferrable and say so in the cycle map. Item
+> **8a** is untouched and its trigger has still not fired.
+>
+> This file is **rewritten whole at the cycle's release**, so treat these
+> annotations as current-state rather than as the final accounting.
+
 ---
 
 ## 1. Manager rotation — the one layer that never resets
@@ -134,6 +147,33 @@ So the shape worth exploring is not "wrap git to be safe". It is **wrap the
 operations whose refusal currently creates a rule conflict**, and let them
 through under a signature.
 
+> **CLOSED in cycle 0.2, by a mechanism this item was circling without naming.**
+> The insight above is the right one — *make a dangerous thing deliberate
+> rather than forbidden* — and structural containment is what delivers it. A
+> worker inside a copy-on-write overlay may run every operation this item
+> wanted to wrap: `rm`, `git reset --hard`, an interpreter, a history rewrite.
+> None of them can harm anything that outlives the sandbox, so none of them
+> needs to be forbidden, and the permission grant widens inside precisely
+> because the blast radius went to zero (P-38b).
+>
+> **The deliberate step is `promote`, and it is a signature in everything but
+> name**: the work exists, a supervisor asks for it to be applied, and a gate
+> diffs what it touched against what the task declared before anything reaches
+> the host (P-44). That is "do it, on the record, having said why", with the
+> record being the promotion and the saying-why being the declared scope.
+>
+> **And it does not depend on the agent choosing to use it**, which this item
+> named as the hard part and could not solve: there is no real tool to reach
+> past, because inside the sandbox every tool *is* the wrapped one. That is the
+> difference between a wrapper and a wall, and it is why the answer came from
+> the containment work rather than from here.
+>
+> **What is not closed:** the *outward-facing* operations — `git push`, `gh`,
+> publishing, spending — are still withheld by name rather than wrapped,
+> because their consequences outlive any sandbox and no overlay helps. If the
+> wrapper idea has a remaining home, it is those, and no finding has asked for
+> it yet.
+
 ---
 
 ## 6. Keeping a long-lived role's context fresh
@@ -226,6 +266,26 @@ finding count and does not read the finding under it. Reported as *not yet*.
 the caller's live scope. It races, and it needs a scope the caller may not have.
 **Trigger:** an unscoped commit that actually carries another task's staged
 work. The evidence for building it does not exist — it was looked for.
+
+> **NARROWED in cycle 0.2, and the trigger is unchanged.** The danger this
+> would have caught is a shared index: at width above one, another agent's
+> `git add` has already put its files there, and a plain `git commit` takes the
+> whole index — carrying somebody else's in-flight work into your commit, under
+> your message, with you having done nothing wrong. Under
+> `Containment: structural` a worker has **its own index**, so its unscoped
+> commit can only ever take its own staging (P-43). The case does not arise for
+> the role it was most likely to arise for.
+>
+> **It shrinks to the host-side actors** — the manager and the supervisors, who
+> stay outside the sandbox and do share one index. Both write under skills that
+> already mandate `git commit -- <paths>`, which is why this was deferred in the
+> first place and why it stays deferred.
+>
+> **The trigger does not move**, and it is worth saying why rather than
+> quietly restating it: this narrowing changes *who could trip it*, not whether
+> the evidence exists. It still does not. An unscoped host-side commit that
+> actually carries another party's staged work is what would justify building
+> it, and nobody has produced one.
 
 ---
 

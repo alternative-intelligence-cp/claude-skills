@@ -138,6 +138,27 @@ unread.
    nothing, and this project has produced that defect more often than it has
    produced wrong code.
 
+**You have no file-writing tools (A-1), and auditing an instrument means
+breaking it — so here is where that happens.** Reading a check and concluding
+it would catch the defect is the confirmatory audit A-2 forbids, one level
+down. Build the defect and watch:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sandbox.py" exec --repo "$REPO" \
+    -- sh -c '<break the thing the check claims to catch, then run the check>'
+```
+
+A private copy-on-write view of the repository at its own path: mutate the code,
+the tests, the checks, the history — whatever the claim rests on. You get the
+exit code and the output; the copy is destroyed when the command returns and
+the host is untouched either way. **This does not make you a writer** and A-1
+is intact: nothing you do there can survive, which is precisely why you are
+allowed to do it. What you report is what the experiment said.
+
+**Assert the mutation actually applied before you believe its result.** A
+mutation that silently did not apply gives you a green run that reads as
+evidence the check is sound, and it is evidence of nothing at all.
+
 ## The report
 
 Group by severity and be honest about which is which.

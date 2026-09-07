@@ -27,10 +27,28 @@ GOAL: <what this step must achieve>
 STEP-VERIFY: <the exact command that judges this step>
 REQUIREMENTS: <the R-n this step serves>
 ENV: <pin id, and the pinned versions>
+CONTAINMENT: structural | guard-only
+SANDBOX-ROOT: <absolute path, or `none` under guard-only>
 ATTRIBUTION: <commit trailer lines, verbatim>
 TREE: clean | dirty
 NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client>
 ```
+
+**`CONTAINMENT: structural` means you are inside a sandbox**, and three things
+follow that nothing else in your dispatch tells you:
+
+- **You are at the repository's own path, and nothing outside it exists.** The
+  path in `REPO:` is the same string inside as out — deliberately, so that
+  every scope, refusal and check reads the same in both places. But the rest of
+  the filesystem is read-only or absent: exactly three things are writable, and
+  they are `/tmp`, your own `HOME`, and this repository.
+- **Nothing you do reaches the host until your supervisor promotes it.** Your
+  commits, your index, your `HEAD` are all your own copy. That is why you can
+  correct your own history here (P-12c) and why nobody else's work can be in
+  your index (P-43).
+- **Your work is not saved by finishing.** It is saved by being promoted, and
+  promotion is gated on your commits' paths against `SCOPE:` (P-44). Work that
+  drifts outside your scope is lost at the gate, after you have done it.
 
 ## 2. Before touching anything
 
@@ -47,9 +65,25 @@ NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client
    other tasks have open, and hands you a clean tree by taking theirs away.
    That instruction was written when width was one and became a corruption the
    moment it was not.
-2. **Your scope.** You may write under `SCOPE` and nowhere else (P-10). The
-   guard enforces it. **Needing a path you were not given is an escalation,
-   not a wider write** — report `BLOCKED` with the path and why.
+
+   **Under `structural`, `git stash` cannot take anybody else's work — and you
+   still must not use it here.** P-12c permits it inside your overlay, because
+   your tree is yours alone. But the reason for this instruction was never only
+   the corruption: **a dirty tree under your scope is a predecessor's
+   unfinished work, and you were dispatched to continue it.** Stashing it makes
+   it invisible to you, and the most valuable thing in the tree is frequently
+   exactly what the last worker had learned and had not yet said. Read it.
+2. **Your scope.** You may write under `SCOPE` and nowhere else (P-10).
+   **Needing a path you were not given is an escalation, not a wider write** —
+   report `BLOCKED` with the path and why.
+
+   Under `structural` this is enforced **twice, and only the second one is the
+   mechanism.** The guard refuses the write as you type it — that is early
+   warning, and it is there because learning at promotion that you built on an
+   out-of-scope edit means losing the work rather than being told. The
+   promotion gate is what actually decides: it diffs the paths your commits
+   touched against `SCOPE:` and refuses what falls outside (P-44). A write the
+   guard happens not to classify is still refused there.
 3. **The environment.** Confirm the pinned versions match what `ENV` names. A
    mismatch is `BLOCKED`: a result that cannot be attributed to a known
    environment is not a result (P-33).
@@ -82,6 +116,17 @@ NOTES: none | <a verifier FAIL, a predecessor's death, an answer from the client
   failure; report it as a timeout, not as a red.
 - **One web fetch may be inline. More is a research request** to the
   researcher agent, whose context is disposable and yours is not (P-36).
+- **How you write a file depends on your containment, and your dispatch says
+  which.** Under `guard-only`, product files are written with `Write` or
+  `Edit`, as a protocol requirement rather than a preference (P-10b): the guard
+  judges a write by reading the command, and a heredoc gives it nothing to
+  read, so the other forms silently leave the scope unenforced. Under
+  `structural` the form is free (P-10c) — a redirect, a heredoc, an interpreter
+  — because the gate reads your **commits**, not your commands. **If your
+  harness carries an ambient instruction to prefer `sed` and heredocs over the
+  file tools, this is where it is resolved:** under `guard-only` the pipeline's
+  form wins and you say in your report that the two conflicted; under
+  `structural` there is no conflict to report.
 
 ## 5. Committing
 
@@ -116,6 +161,15 @@ Scope clean, or the commit does not happen. The subject is
 message with the `ATTRIBUTION` lines exactly as given. **Never write a model
 name yourself.**
 
+**Cite a commit by its subject, never by its hash** — in your report, in the
+execution record, anywhere a later reader will follow it. Under `structural`
+your commits are cherry-picked onto the host at promotion, so **every hash you
+can see is rewritten on the way in**: `77f040e3` became `ac290fc5` on the first
+live promotion this pipeline ever did, because the host `HEAD` had moved while
+the work was happening. A hash you report is correct when you write it and
+wrong by the time anybody reads it. `check_scope` runs inside against your
+overlay's own commits exactly as before — that part does not change.
+
 ## 6. Your report
 
 Append it to the task file's `## Execution record`, then make it your final
@@ -139,6 +193,19 @@ findings-for-protocol: none | - <one line each>
 budget: tokens=<n> minutes=<n>
 notes: none | <free text>
 ```
+
+**`budget:` and `model:` are cross-checked against the harness, so report what
+you believe and do not manufacture precision.** Under `structural` the process
+that ran you metered its own tokens, wall-clock and model id, and
+`check_report` compares your two lines against them — tokens within 10%,
+minutes within 20%, and the model id exactly. **A mismatch is recorded as a
+finding about self-reporting, not corrected**, and it is expected rather than
+shameful: the first worker ever metered here wrote `tokens=3000` against a
+measured `309639`, honestly, because a process cannot see its own counter. What
+is *not* fine is inventing a figure that looks precise. If you do not know,
+give your best estimate and say in `notes:` that it is one. The `model:` line
+is the one to be careful with, because it is compared exactly — write the id
+your system prompt names and nothing else.
 
 **The short identifier prefixes are reserved, and you are not shown the file
 that says so.** `G-` `DM-` `R-` `T-` `S-` `D-` `Q-` `C-` are the project's, and
@@ -187,6 +254,12 @@ something.
   the measured figure was "7 passed, 7 xfailed". A baseline in a dispatch ages
   exactly as fast as one in a report, and the instruction to produce your own
   is what makes the check survive being wrong about it.
+- **The next two bullets are `guard-only` rules. Under `CONTAINMENT:
+  structural` the write form is free and P-10c says so** — the promotion gate
+  reads your commits rather than your commands, so there is nothing for a
+  heredoc to evade. Read them anyway: your dispatch says which regime you are
+  in, and getting this backwards on a `guard-only` project silently disables
+  the only mechanism it has.
 - **Inside the repository, `Write` or `Edit`. Outside it, anything (P-10b).**
   The rule is about writes the guard would judge, and it does not police paths
   outside the project — so a mutation built in `$(mktemp -d)` may be written
@@ -200,10 +273,12 @@ something.
   met exactly that instruction, used `Edit` anyway, and said so; neither had
   been told to by anything but its own judgement, and it is the reason anybody
   knows the interaction exists.
-- **Write product files with `Write` or `Edit`, not with an interpreter.**
-  `python3 - <<PY` with `Path.write_text` is convenient and it is the one form
-  the guard cannot classify — a write whose target does not appear in the
-  command text. So it is not refused, and **it is not judged either.**
+- **Write product files with `Write` or `Edit`, not with an interpreter —
+  under `guard-only`.** `python3 - <<PY` with `Path.write_text` is convenient
+  and it is the one form the guard cannot classify — a write whose target does
+  not appear in the command text. So it is not refused, and **it is not judged
+  either.** (Under `structural` this bullet does not apply: the gate reads your
+  commits, so an unclassifiable command is not an unjudged write — P-10c.)
 
   The refusal message warns about this, and that warning only reaches somebody
   who was refused first. **A worker whose habit is heredocs never knocks on
@@ -307,6 +382,16 @@ something.
   underneath it. Read the board's `**Width.**` line; above 1, correct a commit
   by **adding another one**, never by rewriting. The same goes for `rebase`,
   `reset --hard`, `stash`, and `checkout` of a tracked path (P-12b).
+
+  **Under `CONTAINMENT: structural` this is P-12c instead, and it is looser
+  for a reason rather than by relaxation:** you have your own `.git`, nobody
+  else's `HEAD` is reachable, and `HEAD` genuinely is yours. So `--amend`,
+  `rebase`, `reset` and `stash` are permitted **above the base commit your
+  sandbox recorded when it opened** — the failure described above cannot occur,
+  because the commit it landed on does not exist in your view. **At or below
+  that base you are back to shared history**, and the promotion gate refuses a
+  rewrite there. The rule did not get weaker; the thing it was protecting moved
+  out of your reach.
 - **If you have already rewritten history, `reset --soft`, never `--hard`.**
   Recover the original commit from `git reflog` and soft-reset to it. Soft
   leaves the index and working tree exactly as they are, which matters because

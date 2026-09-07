@@ -205,7 +205,49 @@ def rows():
 UNDETERMINED = {"already-nested", "native-overlay"}
 
 
+# The rows a PIN needs, as opposed to the rows a human reading a diagnosis
+# needs. Named rather than filtered by a predicate so that adding a row to the
+# probe does not silently change what a pin records -- a pin whose contents
+# drift is worse than one that is missing something, because two runs then
+# compare unequal things and nothing says so.
+#
+# These three are here because they are OUTSIDE this repository and move on
+# their own: the CLI every dispatch resolves through PATH (MEASURED: it moved
+# 2.1.261 -> 2.1.263 inside two days of this cycle's planning), the bwrap that
+# composes the namespace, and the kernel settings that decide whether a user
+# namespace can be created. The plugin's own commit pins `sandbox.py`.
+PIN_ROWS = ("claude CLI", "bwrap", "kernel",
+            "kernel.unprivileged_userns_clone", "apparmor userns restriction")
+
+
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if "--pin" in argv:
+        # One `name<TAB>value` line per row, plus the verdict, so a diff of two
+        # pins is readable and a missing row is visible as a missing line
+        # rather than as a shifted column.
+        collected = list(rows())
+        for name, value, _, _ in collected:
+            if name in PIN_ROWS:
+                print(f"{name}\t{value}")
+        blocked = [v for _, _, _, v in collected if v]
+        print(f"containment\t{'guard-only' if blocked else 'structural'}")
+        # A SHORT PIN IS WORSE THAN NO PIN, so this refuses rather than emits
+        # one. Every row above is unconditional today -- each branch of `rows()`
+        # yields its name either way, `absent` included, because an absent tool
+        # is a measurement. If a later edit makes one conditional, two runs
+        # would silently compare pins of different shapes and nothing would say
+        # so. This is that edit's alarm, and it is here rather than in the
+        # control because a control cannot fire on the machine that runs it.
+        missing = sorted(set(PIN_ROWS) - {n for n, _, _, _ in collected})
+        if missing:
+            print(f"sandbox_probe: --pin is incomplete, no row for: "
+                  f"{', '.join(missing)}. A pin missing a row it has always "
+                  f"carried makes two runs incomparable without saying so; fix "
+                  f"`rows()` or PIN_ROWS rather than recording this.",
+                  file=sys.stderr)
+            return 2
+        return 0
     collected = list(rows())
     width = max(len(name) for name, _, _, _ in collected)
     print("devteam sandbox probe\n")

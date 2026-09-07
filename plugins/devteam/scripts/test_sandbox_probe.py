@@ -203,7 +203,74 @@ def main():
         print(f"        exit {proc.returncode}")
         print(f"        | {(proc.stdout + proc.stderr).strip()[:400]}")
 
-    total = len(CASES) + 1
+    # --- `--pin`, the machine-readable form the ENV pin records (0.2.4 §3.2)
+    # A pin is only worth having if it records the things that MOVE, so each
+    # case asks for a named row rather than for "some output": a pin that
+    # silently dropped the CLI version would still look like a pin, and the
+    # finding it lets expire is one nobody knows to go back for.
+    pin_cases = [
+        ("pin-carries-the-cli-version-that-moves", machine(),
+         lambda t: "claude CLI\t2.1.263 (Claude Code)" in t),
+        ("pin-carries-bwrap-and-the-userns-sysctls", machine(),
+         lambda t: ("bwrap\tbubblewrap 0.9.0" in t
+                    and "kernel.unprivileged_userns_clone\t1" in t
+                    and "apparmor userns restriction\t0" in t)),
+        ("pin-records-the-containment-a-project-would-get", machine(),
+         lambda t: "containment\tstructural" in t),
+        # The arm that makes the row mean something: on a machine that cannot
+        # do it, the SAME pin says guard-only. Without this the row could be a
+        # constant and every case above would still pass.
+        ("pin-says-guard-only-where-the-probe-blocks", no_bin("bwrap"),
+         lambda t: "containment\tguard-only" in t),
+        # A tool being ABSENT is still a row: `bwrap absent` is a measurement
+        # and belongs in the pin. Written after a first version of this case
+        # asserted the opposite and failed, which is the control doing its job
+        # on its own author.
+        ("pin-records-an-absent-tool-as-a-row-not-a-gap", no_bin("bwrap"),
+         lambda t: "bwrap\tabsent" in t),
+    ]
+    saved = (sandbox_probe.run, sandbox_probe.read, sandbox_probe.which, sandbox_probe.exists)
+    for name, m, want in pin_cases:
+        install(m)
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = sandbox_probe.main(["--pin"])
+        text = buf.getvalue()
+        if code == 0 and want(text):
+            passed += 1
+        else:
+            failed += 1
+            print(f"FAIL  {name}: exit {code}")
+            for line in text.strip().split("\n"):
+                print(f"        | {line}")
+
+    # The refusal that keeps a pin from silently shrinking. It cannot be
+    # reached by any machine -- every row in `rows()` is unconditional -- so it
+    # is reached by naming a row that does not exist, which is exactly the
+    # state a future edit would create.
+    real_rows = sandbox_probe.PIN_ROWS
+    install(machine())
+    try:
+        sandbox_probe.PIN_ROWS = real_rows + ("a row nobody yields",)
+        import io
+        import contextlib
+        buf, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+            code = sandbox_probe.main(["--pin"])
+        if code == 2 and "a row nobody yields" in err.getvalue():
+            passed += 1
+        else:
+            failed += 1
+            print(f"FAIL  pin-refuses-rather-than-emitting-a-short-pin: exit {code}")
+            print(f"        | {err.getvalue().strip()[:200]}")
+    finally:
+        sandbox_probe.PIN_ROWS = real_rows
+    pin_cases = pin_cases + [("pin-refuses-rather-than-emitting-a-short-pin",)]
+    sandbox_probe.run, sandbox_probe.read, sandbox_probe.which, sandbox_probe.exists = saved
+
+    total = len(CASES) + 1 + len(pin_cases)
     fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
     print(f"\nsandbox_probe control: {passed} passed, {failed} failed, "
           f"{total} cases ({fp} of them false-positive controls, {100 * fp // total}%)")

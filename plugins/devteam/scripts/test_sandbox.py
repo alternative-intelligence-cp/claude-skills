@@ -421,6 +421,16 @@ def build_promo_fixture(root, n):
             fh.write("v1\n")
         with open(os.path.join(path, "neighbour", "other.txt"), "w") as fh:
             fh.write("theirs\n")
+        # What `/devteam:setup` writes, and what this fixture did NOT have
+        # until 0.2.4. Without it `dispatch`'s own liveness file lands in the
+        # worker's uncommitted remainder and `promote` refuses the promotion
+        # for it -- MEASURED 0.2.3, on the first live promotion this pipeline
+        # ever attempted. `dispatch` now refuses up front instead, which is
+        # what `dispatch-refuses-a-repo-that-does-not-ignore-the-run-directory`
+        # below controls; a fixture without the line cannot reach any of the
+        # other dispatch cases.
+        with open(os.path.join(path, ".gitignore"), "w") as fh:
+            fh.write("devteam/.run/\n")
         subprocess.run(["git", "-C", path, "add", "-A"], check=True, capture_output=True)
         subprocess.run(["git", "-C", path, "commit", "-qm", "base"], check=True,
                        capture_output=True)
@@ -830,6 +840,51 @@ def dispatch_extras(root, n):
                 else "expected a refusal naming --parent-session, got: %s"
                      % (r.stdout + r.stderr)[:200]))
     sbx("close", "nop%02d" % n, "--repo", repo)
+
+    # The `.gitignore` entry `dispatch` DEPENDS ON, made mechanical (0.2.4).
+    # Until this refusal existed it was a written rule holding up a mechanism:
+    # the harness writes its own liveness file into `devteam/.run/locks/`
+    # host-side, the merged view sees it as untracked, and `promote` then
+    # refuses the whole promotion as `promote-uncommitted` -- blaming the
+    # worker for a file the harness put there. MEASURED 0.2.3.
+    #
+    # The FALSE-POSITIVE TWIN is the load-bearing half and it is not written
+    # here: it is every other dispatch case in this function, all of which run
+    # against a fixture that DOES carry the line. A refusal that fired
+    # unconditionally would take them all down with it -- which is exactly what
+    # happened when this check was first added to a fixture that lacked it.
+    gi = os.path.join(repo, ".gitignore")
+    keep_gi = _slurp_file(gi)
+    try:
+        with open(gi, "w") as fh:
+            fh.write("# the line a hand-scaffolded project never got\n")
+        subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
+        subprocess.run(["git", "-C", repo, "commit", "-qm", "drop the ignore"],
+                       capture_output=True)
+        sbx("open", "--repo", repo, "--task", "T-1", "--step", "S-1",
+            "--id", "gid%02d" % n, "--parent-session", "writer-1")
+        r = sbx("dispatch", "gid%02d" % n, "--repo", repo, "--role", "implementer",
+                "--model", "m", "--dispatch", dfile)
+        blob = r.stdout + r.stderr
+        out.append(("dispatch-refuses-a-repo-that-does-not-ignore-the-run-directory",
+                    None if r.returncode != 0 and "not git-ignored" in blob
+                    else "expected a refusal naming the ignore rule, got: %s"
+                         % blob[:200]))
+        # And it must name the CONSEQUENCE, not just the condition. A refusal
+        # that says "not ignored" and stops sends a reader to a .gitignore with
+        # no idea why it matters; the whole point is that the failure it
+        # prevents surfaces later, elsewhere, under another name.
+        out.append(("dispatch-ignore-refusal-names-the-promotion-it-prevents",
+                    None if "promote-uncommitted" in blob
+                    else "the refusal never mentions promote-uncommitted: %s"
+                         % blob[:200]))
+        sbx("close", "gid%02d" % n, "--repo", repo)
+    finally:
+        with open(gi, "w") as fh:
+            fh.write(keep_gi)
+        subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
+        subprocess.run(["git", "-C", repo, "commit", "-qm", "restore the ignore"],
+                       capture_output=True)
 
     # THE 0.2.0 FINDING, PLANTED. A failed run reported `subtype: "success"`
     # in the same object as `is_error: true`. A dispatch that read subtype

@@ -137,6 +137,35 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
 | REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT` |
 | board task state | `—` · `CLAIMED <label>` · `BLOCKED on T-n` · `BLOCKED on Q-n` · `DONE` |
+| charter `Containment` | `structural` · `guard-only`. Written by `/devteam:setup` from `sandbox_probe.py`'s exit code and re-checked at every `/devteam:run` startup. **Not a preference and never copied from an example** — it is a fact about the machine |
+| promotion findings | `promote-base-disagreement` · `promote-conflict` · `promote-extraction-failed` · `promote-fetch-failed` · `promote-foreign-subject` · `promote-history-rewrite` · `promote-host-index-dirty` · `promote-no-commits` · `promote-no-scope` · `promote-no-task-file` · `promote-out-of-scope` · `promote-task-file-unparsed` · `promote-task-file-untracked` · `promote-uncommitted`. Check output, closed set, emitted by `sandbox.py promote` and by its `--dry-run`. 0.2.6 is where each is named against the rule it enforces |
+| `check_report` harness findings | `budget-mismatch` · `model-mismatch`. Silent on a `guard-only` project, which has no harness meter — **an absent measurement is not a finding** |
+
+---
+
+## The liveness files under `.run/locks/`
+
+Two files per task, both **rewritten and never deleted** — an absent file and a
+file nobody wrote read identically, and recovery has to tell *no worker ran*
+from *a worker ran and we lost it*.
+
+```
+<TASK>.heartbeat   waiting on S-n (<role>, dispatched <time>, sandbox <id>)
+                   closed <date>, verified PASS
+<TASK>.sandbox     T-n S-m <id> pid <n> started <iso> step-timeout <s> root <abs>
+                   T-n S-m <id> exited <code> at <iso> root <abs>
+```
+
+The supervisor writes the heartbeat; the harness writes the `.sandbox` line.
+**The root is an absolute path on the line itself**, not derivable from the id:
+resolving one to the other means reading a machine-local environment variable
+the way the writer did, which is a second home for a path, and the second home
+is the one that is wrong. `check_report` finds `meta/budget.json` through it.
+
+Both live under `devteam/.run/`, **which must be git-ignored** — `/devteam:setup`
+writes that line, and `sandbox.py dispatch` refuses if it is missing, because
+otherwise the harness's own file lands in the worker's uncommitted remainder and
+`promote` refuses the promotion for it.
 
 ---
 

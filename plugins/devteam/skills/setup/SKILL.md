@@ -206,6 +206,53 @@ The guard is inert until the charter names protected paths and a task is
 `RUNNING`, so it will not obstruct the client's own work before the loop
 starts.
 
+## 3b. Then prove the sandbox contains, and write the charter's row from it
+
+The guard is the early warning; under `Containment: structural` the sandbox is
+the mechanism (P-43). Prove it the same way and for the same reason — by
+watching it refuse something, not by reading that it would.
+
+**First, the probe:**
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/sandbox_probe.py     # exit 0, 1 or 2
+```
+
+**Then one write that must fail**, on the freshly scaffolded project:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/sandbox.py exec --repo <project> \
+    -- sh -c 'echo x > /etc/devteam-containment-check'
+#  -> sh: cannot create /etc/devteam-containment-check: Read-only file system
+```
+
+**Use a literal absolute path here too, and one outside the project**, for the
+same reason the guard's proof does: a path inside the repository is writable
+inside the sandbox by design — that is the whole point — so a test that writes
+there succeeds under both a working sandbox and no sandbox at all, and answers
+nothing. The arms have to differ.
+
+**Write the charter's `Containment` row from the probe's exit code, never from
+what this machine looks like:**
+
+| Probe exit | Row | What it means |
+|---|---|---|
+| 0 | `structural` | workers run inside a copy-on-write overlay; P-43, P-10c, P-12c and P-38b's widened inside grant all apply |
+| 1 | `guard-only` | this machine cannot make the namespace. Cycle 0.1's behaviour, whole |
+| 2 | **stop and read the table** | the composition's assumptions do not hold here — already inside somebody's namespace, or a `bwrap` that would compose differently. Do not choose a row from a guess |
+
+**Say what `guard-only` leaves open, in the row's own comment, in the charter.**
+It is not a lesser configuration of the same thing; it is a project where three
+measured holes stay open — an interpreter heredoc writes unjudged (F-80, F-121),
+a git history rewrite has no path for a path-based guard to see (F-71), and
+every agent shares one index (the F-17 class). A client whose project says
+`guard-only` is entitled to know that from their own charter rather than from
+this file.
+
+**Never write `structural` as an example value anywhere.** The value comes from
+the probe on the machine that will run the work, and an example showing the good
+one is exactly how it gets copied onto a machine that cannot do it.
+
 ## 4. Hand over
 
 Print, and nothing more:

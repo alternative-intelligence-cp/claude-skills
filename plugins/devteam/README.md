@@ -82,6 +82,13 @@ WORKERS  implementer · tester · auditor · documenter · reviewer · researche
   not do it, re-running the exact command against the committed tree.
 - **An auditor that structurally cannot write a file** — no `Write`, no `Edit`
   in its tool list — because an auditor that fixes can hide what it changed.
+- **A write that cannot happen, rather than one that is refused.** On Linux each
+  worker runs inside a private copy-on-write view of the repository: writing
+  outside its task's declared paths, touching git history, or picking up another
+  agent's staged work are not *forbidden* to it, they are unavailable, and its
+  work reaches the repository only when it is applied deliberately and checked
+  against what it said it would touch. A refusal can only catch what it manages
+  to recognise; this catches what nobody thought to recognise.
 - **A record of what was decided without you**, listed at every checkpoint while
   it is still cheap to reverse.
 
@@ -94,7 +101,7 @@ the evidence column says where.
 
 | Problem | Evidence | Plan |
 |---|---|---|
-| **The write guard judges a write by parsing command text, and the world is wider than its frame.** Two measured holes: an interpreter heredoc (`python3 - <<PY` … `open(path, 'w')`) writes unjudged, and git history is a write with no path — at width above one, a worker's `git commit --amend` rewrote a *concurrent* task's commit. `check_scope` reports both after the fact; nothing prevents them | [`DESIGN.md`](DESIGN.md) §8, §20; [`PROTOCOL.md`](PROTOCOL.md) P-10b, P-12b | replace classification with structure: a per-worker copy-on-write sandbox in which the host tree does not exist, and a promotion gate — roadmap 0.2.0–0.2.4 |
+| **The write guard judges a write by parsing command text, and the world is wider than its frame.** Two measured holes: an interpreter heredoc (`python3 - <<PY` … `open(path, 'w')`) writes unjudged, and git history is a write with no path — at width above one, a worker's `git commit --amend` rewrote a *concurrent* task's commit. `check_scope` reports both after the fact; nothing prevents them | [`DESIGN.md`](DESIGN.md) §8, §20; [`PROTOCOL.md`](PROTOCOL.md) P-10b, P-12b | **closed for a worker on Linux, open elsewhere.** Structure replaces classification: a per-worker copy-on-write overlay in which neither the host tree nor anyone else's index exists, and a promotion gate that diffs what the commits touched against the declared scope — [`PROTOCOL.md`](PROTOCOL.md) P-43, P-44, P-10c, P-12c. The manager and the supervisors stay host-side and are still held by the guard; a `guard-only` machine keeps both holes and says so in its charter |
 | **The manager never resets.** Every other role gets a fresh context; the manager runs for the whole project and, by the rule that makes it trustworthy, reads every worker report verbatim — roughly 230,000 tokens of task files on one run, plus a record, a decision log and a question log it re-reads. It cannot measure its own context, and compaction is a copy of a copy | [`docs/CONSOLIDATION.md`](docs/CONSOLIDATION.md) §1 | rotate the manager at every checkpoint into a fresh session that reads the durable state and asks the outgoing one what the files could not say — roadmap 0.2.5 |
 | **Two mechanisms have never produced output.** `/devteam:iterate` has never run. The path where a reversible question proceeds on its recommendation and resurfaces for review (P-27) has never fired, because the run's client answered all thirty questions within the hour. A mechanism that has never fired has not been shown to work | the run's final review, `C-3` §3, in the private record | a second cycle on the fixture with a deliberately slow client — roadmap 0.2.9 |
 | **Estimates are biased, not noisy.** Ten of ten tasks over their estimate, 1.78× in total, after two upward revisions; the overruns were on *rounds* — steps re-run after a defect — which the model does not carry | final review `C-3` §4; findings F-101, F-102 | a rounds term, corrected from measured budgets at every checkpoint — roadmap 0.2.6 |

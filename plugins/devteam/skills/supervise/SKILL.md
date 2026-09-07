@@ -22,6 +22,8 @@ REQUIREMENTS: <the R-n this task discharges>
 GATE: <what must be true to call this task done>
 VERIFY: <the exact command that proves the gate>
 ENV: <pin id, and the pinned versions>
+CONTAINMENT: structural | guard-only
+SANDBOX-ROOT: <absolute path, or `none` under guard-only>
 MODEL-BAND: <floor> .. <ceiling>
 ATTRIBUTION: <commit trailer lines, verbatim>
 TREE: clean | dirty
@@ -122,7 +124,11 @@ evidence where its concurrence would have been nothing.
    ceiling; never below the floor.
 2. **Leave a heartbeat, then dispatch.** Write one line to
    `devteam/.run/locks/<TASK>.heartbeat` *before* dispatching:
-   `waiting on S-n (<role>, dispatched <time>)`. You will be blocked for the
+   `waiting on S-n (<role>, dispatched <time>)` — and under `structural`,
+   **name the sandbox id in it**: `waiting on S-n (<role>, dispatched <time>,
+   sandbox <id>)`. That id is how a recovering session gets from your heartbeat
+   to the worker's overlay, and the harness's own `.sandbox` file is the only
+   other place it appears. You will be blocked for the
    whole time that worker runs, and from outside a blocked supervisor is
    indistinguishable from a dead one — no output, no tokens, no progress. That
    line is the only evidence you are waiting rather than hung, and it is what
@@ -151,9 +157,76 @@ evidence where its concurrence would have been nothing.
    `GOAL:` and `STEP-VERIFY:`. Send **only that step**. A worker that can see
    the whole task starts optimising it, and then nobody is doing the step you
    asked for.
-4. **Receive its REPORT.** Read it. Do not skim it.
+
+   **Which mechanism dispatches it depends on the role, and your dispatch says
+   `CONTAINMENT:` so you never have to guess:**
+
+   | Role | Dispatched by | Its writes land |
+   |---|---|---|
+   | implementer, tester, documenter | `sandbox.py dispatch`, in the background | in that worker's own overlay — on the host only when **you** promote them |
+   | verifier, auditor, reviewer, researcher | the `Agent` tool, as before | nowhere. One that must *mutate* to do its job uses `sandbox.py exec` |
+
+   Under `CONTAINMENT: guard-only` every role goes through the `Agent` tool and
+   the rest of this step is unchanged — that project has no sandbox and the
+   guard is the whole of its coverage (P-10b).
+
+   **Under `structural`, the sequence is this and the first line is the one
+   that bites:**
+
+   ```bash
+   # 1. Open. --parent-session is REQUIRED and is the BOARD'S WRITER id, not
+   #    yours and not the worker's: the guard inside judges the worker by it
+   #    (P-43). `dispatch` REFUSES a sandbox opened without it, because a
+   #    sandbox's environment is fixed at `open` and there is no repair later.
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sandbox.py" open \
+       --repo "$REPO" --task T-n --step S-m --parent-session "<the board's writer id>"
+   # 2. Heartbeat, naming the sandbox id (see below), THEN
+   # 3. Dispatch, in the background — a step outlives the ten-minute foreground limit
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sandbox.py" dispatch <id> \
+       --role implementer --model <the model you picked> --dispatch <file> --timeout <s>
+   ```
+
+   Then, on exit: **read `meta/report.txt`** — that is what the worker said —
+   **and check `meta/dispatch-failed` before you believe any of it.** That
+   marker means the worker came back with `is_error: true`, which arrives
+   alongside `subtype: "success"` in the same object: an unauthenticated worker
+   returns an empty result that a supervisor reading only the exit code accepts
+   as a completed step. Marker present → the step did not run. Re-dispatch after
+   fixing what it names; it does not count as an attempt against P-20c.
+
+   Then `promote --dry-run` — read its findings, they are the gate's — then
+   `promote`, and only then steps 4 to 6 below. **Promotion comes before the
+   checking and the verifying, and that ordering is deliberate.** Nothing is
+   verified inside an overlay that is about to be discarded, and nothing is
+   *checked* there either: `check_report` reads the project's own task file,
+   and the worker's REPORT block is in it only once promoted. Until then there
+   is no tree for a verifier to run against that will still exist when it
+   answers.
+
+   **So a FAIL arrives after the commits are on the host, and the remedy is a
+   further commit, never a rewrite** — exactly as P-12b has always required.
+   Re-dispatch with the FAIL verbatim in `NOTES:`; the new sandbox opens from
+   the new base and its correction lands on top. Promotion is not acceptance:
+   it is what makes the work examinable.
+
+   The evidence you need is host-side by then, including `meta/budget.json`,
+   which `check_report` finds through the `.sandbox` file's `root` path and
+   which outlives the overlay by design (P-14b).
+
+4. **Check the REPORT mechanically**, `check_report.py "$REPO" T-n`. Two of its findings
+   are new and neither is a correction to make — each is a fact about the
+   report:
+   `budget-mismatch` (the worker's `budget:` disagrees with what the harness
+   metered, beyond 10% on tokens or 20% on minutes) and `model-mismatch` (its
+   `model:` names a model that did not run). The first one this pipeline ever
+   saw was a worker reporting `tokens=3000` against a metered `309639` — a
+   hundredfold understatement, in good faith, by a process that cannot see the
+   counter. Record it; do not edit the worker's figure.
 5. **Verify it** (P-18) — dispatch `devteam:verifier` with the step id, the
    pin and the report's `checks:` lines. Nothing is accepted before `PASS`.
+   **A verifier runs against the promoted host tree**, never inside a worker's
+   overlay: it holds no claim there, its writes would be discarded with the
+   sandbox, and a PASS against a tree nobody will keep is a PASS about nothing.
 6. **Then one of three things:**
 
 | Outcome | Do |
@@ -161,6 +234,12 @@ evidence where its concurrence would have been nothing.
 | `PASS` | tick the step and move on. **The worker already committed its own block** — do not append it again |
 | `FAIL`, or the worker reported `RED` | re-dispatch **once**, the failure verbatim in `NOTES:` |
 | failed twice, or `BLOCKED`, or `NEEDS-DECISION` | **escalate.** Never a third attempt of your own (P-20c) |
+
+**A re-dispatch opens a NEW sandbox from the new base.** Never re-run a worker
+inside the one that already produced a rejected attempt: its overlay holds the
+work you are re-doing and its base is behind the host. Close the old one with
+`close --keep` so the attempt survives for the record, and close it properly at
+task end.
 
 **When a worker withdraws a bar as unsatisfiable, that is a claim — test it.**
 It will usually arrive attached to a principle that is *true in general*, which
@@ -225,6 +304,11 @@ here, so the manager and the client do not have to rebuild it.
       to satisfy it is forbidden by P-12b
 - [ ] the title line set to `DONE (<date>)`, or `READY-TO-AUDIT` if this task
       needs an audit and `AUDIT: none`
+- [ ] **under `structural`: every sandbox this task opened is closed**, its
+      `.sandbox` line rewritten to `exited`, and no promotion lock held.
+      `sandbox.py status` lists what is still open. A kept sandbox is a
+      deliberate act with a reason in your report — an unclosed one is a disk
+      full of overlays and a liveness file that says a worker is running
 
 ## 7. If you stop instead of closing
 
@@ -243,6 +327,15 @@ reported and ended. Nobody else is in a position to know why you stopped.
 **This checklist previously covered only the paths that complete**, which is
 the ordinary shape of a checklist and the ordinary way a state ends up owned by
 nobody. The stopping paths are the ones where somebody is waiting.
+
+**Keep your open sandboxes, do not close them, and name their ids in the
+report.** A stopped task's overlays hold the only copy of whatever the worker
+got done, and closing them to leave things tidy destroys it — the successor
+reads those ids and decides what to promote. This is P-27b applied to
+sandboxes: the role that can stop owns the record of having stopped, and here
+the record has to name where the work is. `sandbox.py status` gives you the
+list; the `.sandbox` file gives a session that never spoke to you the same
+list, which is why the harness writes it and never deletes it (P-14b).
 
 ## 8. Your report
 
