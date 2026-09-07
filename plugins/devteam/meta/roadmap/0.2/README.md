@@ -324,8 +324,32 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > neither number means anything without the other.
 >
 > So the boost's expiry falls inside the window that begins on **9 September**.
-> Whichever subcycle runs in that window inherits a denominator that changes
-> mid-flight, and should be told so before it writes a row rather than after.
+> Whichever subcycle runs in that window should be told before it writes a row
+> rather than after — but **not** that it inherits a mid-flight denominator
+> change, which is what an earlier version of this note predicted and is
+> probably wrong.
+>
+> **Observed behaviour, from the owner, 2026-09-07: the last promo expiry came
+> with a COMPLETE QUOTA RESET, mid-cycle.** So the likely shape on 13 September
+> is a refill, not a rescaling — and those break comparability differently. A
+> rescaling gives two readings against different scales inside one window; a
+> reset gives two readings of two different windows. **Ask which happened
+> rather than assuming either.**
+>
+> His explanation is the convincing one: at expiry, anyone sitting above the
+> unboosted cap would be instantly over quota through no action of their own,
+> and every alternative — lock them out, grandfather them, prorate — is harder
+> to build and harder to explain than resetting everybody. A reset makes the
+> question moot, which is very likely why it is the answer.
+>
+> **And the more important half: RESETS ARE NOT PREDICTABLE FROM THE CALENDAR.**
+> The second reset in that week was unscheduled — the owner's reading is that it
+> followed a day of API outages and failed requests, where retries would have
+> consumed quota for work nobody received, and that a blanket reset got ahead of
+> it. **So never infer from "no reset was scheduled" that none happened.** That
+> inference is available, cheap, and wrong, and it is exactly the shape of error
+> this section already exists to prevent. The reset state is asked for, every
+> time, alongside the reading.
 >
 > **Why the dollar column and the percentage column can never be reconciled,
 > asked and answered by the owner 2026-09-07.** He did the obvious arithmetic —
