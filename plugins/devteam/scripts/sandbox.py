@@ -91,6 +91,11 @@ WORKER_HOME = "/home/devteam-worker"
 SHELL_ADDED = ("PWD", "SHLVL", "_")
 
 SETUP_FAILED = "setup-failed"
+# Extraction failed after the worker ran. A SEPARATE marker from SETUP_FAILED
+# because the two mean opposite things to a supervisor: setup-failed says there
+# was no worker, extract-failed says there was one and its exit code in
+# exit.txt is still good -- we just could not capture what it produced.
+EXTRACT_FAILED = "extract-failed"
 
 
 # --- where a sandbox lives ------------------------------------------------
@@ -498,6 +503,7 @@ def cmd_open(args, narrate=print):
 def outer_script(path, plan, doc, cmd_argv, timeout):
     q = shlex.quote
     merged = q(os.path.join(path, "merged"))
+    base = q(doc["base"] or "")
     meta = q(os.path.join(path, "meta"))
     over = ",".join([f"lowerdir={doc['repo']}",
                      f"upperdir={os.path.join(path, 'upper')}",
@@ -513,6 +519,11 @@ def outer_script(path, plan, doc, cmd_argv, timeout):
 set -u
 MERGED={merged}
 META={meta}
+BASE={base}
+# Above this, a remainder file is NAMED rather than diffed. Ten mebibytes sits
+# two orders of magnitude below where git's binary diff was measured to
+# overflow, and already far past anything a person reads as a patch.
+PATCH_MAX=10485760
 
 mount -t overlay overlay -o {q(over)} "$MERGED" || {{
   echo "sandbox: could not mount the overlay on $MERGED" >&2
@@ -533,14 +544,180 @@ fi
 rc=$?
 printf '%s\\n' "$rc" > "$META/exit.txt"
 
-# Extraction runs HERE -- inside the namespace, after the command and before
-# the namespace goes -- because the merged view does not outlive it (spec
-# §3.3). 0.2.2 replaces this stub with the base-SHA diff and the promotion
-# bundle; until then it records what the worker left behind.
-if [ -e "$MERGED/.git" ]; then
-  git -C "$MERGED" status --porcelain -uall > "$META/status.txt" 2> "$META/status.err"
-else
+# --- extraction (roadmap 0.2.2 §3.1) --------------------------------------
+# Runs HERE -- inside the namespace, after the command and before the namespace
+# goes -- because the merged view does not outlive it (spec §3.3). Whatever the
+# worker produced is captured now or it is gone. Three things are captured and
+# LABELLED (L-2.1): the committed work as a bundle, the uncommitted remainder as
+# a patch, and the status listing. Never one combined `git diff <base>` -- spec
+# S-5's form cannot tell committed from uncommitted, and the promotion gate and
+# the report check both need to.
+#
+# The upper layer is NOT walked to compute any of this (spec §6.1): a deletion
+# there is a character device and a removed directory is an xattr. The merged
+# view is diffed instead.
+#
+# An extraction failure is `run` exit 126, signalled by the marker file
+# meta/extract-failed and NOT by overwriting exit.txt. The supervisor still
+# needs the worker's own exit code; an extraction failure that erased it would
+# turn one fault into two. This mirrors how meta/setup-failed carries 125,
+# for the same reason: a worker may legitimately exit 125 or 126 itself, so
+# the codes are disambiguated by which file exists rather than by the number.
+xrc=0
+: > "$META/extract.log"
+
+if [ ! -e "$MERGED/.git" ]; then
   : > "$META/status.txt"
+  printf 'no-git skipped=not-a-repository\n' >> "$META/extract.log"
+else
+  # 1. status FIRST, pristine. The ORDER of this step and `add -N` below is
+  #    load-bearing and was measured: `add -N` stages intent-to-add, which
+  #    rewrites every untracked `??` in `git status` as ` A`. Taken after it,
+  #    status.txt would report no untracked paths at all, and anything
+  #    downstream that classifies a foreign write by `??` -- check_scope's
+  #    `foreign-write` among them -- would silently stop finding them.
+  #    `-uall` because `git status` collapses an untracked directory to its
+  #    prefix, which 0.1 measured turning a worker's new package into one
+  #    foreign write (DESIGN §20).
+  git -C "$MERGED" status --porcelain -uall > "$META/status.txt" 2> "$META/status.err"
+  rc2=$?
+  printf 'status exit=%s\n' "$rc2" >> "$META/extract.log"
+  [ "$rc2" -eq 0 ] || xrc=1
+
+  if [ -z "$BASE" ]; then
+    printf 'no-base skipped=open-recorded-no-base-sha\n' >> "$META/extract.log"
+  else
+    # 2. How many commits sit above the base. This count is what decides
+    #    whether `bundle create` is called at all: MEASURED, it exits 128 with
+    #    `fatal: Refusing to create empty bundle.` and writes no file when
+    #    HEAD == base. A worker that committed nothing is the ordinary case,
+    #    not an extraction failure, so it must never reach that command.
+    NCOMMITS=0
+    git -C "$MERGED" rev-list --count "$BASE"..HEAD > "$META/commits.count" 2>> "$META/extract.log"
+    rc2=$?
+    printf 'rev-list-count exit=%s\n' "$rc2" >> "$META/extract.log"
+    if [ "$rc2" -eq 0 ]; then
+      NCOMMITS=$(cat "$META/commits.count")
+    else
+      xrc=1
+    fi
+
+    if [ "$NCOMMITS" -gt 0 ] 2>/dev/null; then
+      git -C "$MERGED" bundle create "$META/commits.bundle" "$BASE"..HEAD >> "$META/extract.log" 2>&1
+      rc2=$?
+      printf 'bundle exit=%s commits=%s\n' "$rc2" "$NCOMMITS" >> "$META/extract.log"
+      [ "$rc2" -eq 0 ] || xrc=1
+    else
+      printf 'bundle skipped=no-commits (HEAD == base)\n' >> "$META/extract.log"
+    fi
+
+    # 3. The commits themselves, oldest first, one hash and subject per line.
+    #    `git log`, not `rev-list`: rev-list --format emits a `commit <hash>`
+    #    header line of its own and yields two lines per commit, which is not
+    #    the shape §3.1 asks for.
+    git -C "$MERGED" log --first-parent --reverse --format='%H %s' "$BASE"..HEAD \
+        > "$META/commits.txt" 2>> "$META/extract.log"
+    rc2=$?
+    printf 'commits-txt exit=%s\n' "$rc2" >> "$META/extract.log"
+    [ "$rc2" -eq 0 ] || xrc=1
+
+    # 4. L-2.3's evidence. A NON-ZERO exit here is DATA, not a failure: it says
+    #    the base is no longer an ancestor of HEAD, which is a rewrite of shared
+    #    history below the base and is what `promote-history-rewrite` refuses.
+    #    So this step must never set xrc -- treating its answer as an error
+    #    would convert the finding the gate exists to make into an extraction
+    #    fault, and the supervisor would be told the wrong thing.
+    git -C "$MERGED" merge-base --is-ancestor "$BASE" HEAD 2>> "$META/extract.log"
+    printf '%s\n' "$?" > "$META/base-is-ancestor.txt"
+    printf 'base-is-ancestor exit=0 value=%s (non-zero value is DATA, not a fault)\n' \
+        "$(cat "$META/base-is-ancestor.txt")" >> "$META/extract.log"
+
+    # 5. The remainder, LAST, because `add -N` is what alters `git status`.
+    #    The `-N` cannot be dropped: MEASURED, without it `diff HEAD --binary`
+    #    omits new files entirely, so the remainder patch would lose exactly
+    #    the work L-2.1 exists to preserve. `--binary` so a binary fixture's
+    #    patch survives.
+    git -C "$MERGED" add -N . >> "$META/extract.log" 2>&1
+    rc2=$?
+    printf 'add-N exit=%s\n' "$rc2" >> "$META/extract.log"
+    [ "$rc2" -eq 0 ] || xrc=1
+
+    # A file too large for `diff --binary` is EXCLUDED from the patch and NAMED
+    # instead. MEASURED on a 2 GiB untracked file:
+    #   fatal: Out of memory, malloc failed (tried to allocate 18446744071562723405 bytes)
+    # -- an overflow inside git's own binary-diff path, not a limit of this
+    # machine, which had 5.5 TB free and 157 GiB of RAM at the time.
+    #
+    # Failing the extraction over it would be wrong twice over. A large build
+    # artifact left uncommitted is ORDINARY -- spec §4 records a sibling
+    # project whose compile peaked at 30.9 GiB -- and the remainder is never
+    # promoted in any case (§3.2 refuses it), so the patch exists to be READ by
+    # a supervisor deciding whether to re-dispatch. Nobody reads two gibibytes.
+    # The path is still named in status.txt, which was taken first and does not
+    # depend on this step, so what the worker left behind stays on the record
+    # either way; only its content is dropped, and the drop is itself recorded.
+    #
+    # A gate that fails on ordinary work is a gate somebody switches off, which
+    # is the same argument that keeps an unstaged host edit out of promotion's
+    # pre-flight.
+    : > "$META/uncommitted-oversize.txt"
+    # This line deliberately uses neither `-z` nor `tr`, and the reason is a
+    # property of this whole template rather than of this line. outer_script()
+    # returns a Python f-string, so every backslash escape written below is
+    # interpreted by PYTHON before the shell ever sees it. Written the obvious
+    # way -- tr, backslash-zero, backslash-n -- Python turned the first into a
+    # real NUL byte in the generated script, and a NUL cannot be passed in an
+    # argv string, so `tr` received an empty set and translated nothing. The
+    # nearby printf formats survive the same treatment only by luck: Python
+    # turns their backslash-n into a real newline inside single quotes, which
+    # the shell accepts as equivalent.
+    #
+    # This comment was itself the second casualty -- describing the trap using
+    # the characters it is about split the comment across a real newline and
+    # left the remainder as a command. Hence: no backslash escapes in this
+    # template that must reach the shell intact, and none in prose about them.
+    # `--name-only` is newline-separated already and needs none.
+    # `core.quotePath=false` keeps a non-ASCII path unquoted so it still
+    # matches the `:(exclude)` pathspec built from it. A path containing a
+    # literal newline remains unhandled: the patch step then fails and is
+    # recorded rather than being fatal, which is the safe direction.
+    git -C "$MERGED" -c core.quotePath=false diff HEAD --name-only \
+        > "$META/changed-names.txt" 2>> "$META/extract.log"
+    set --
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      sz=$(wc -c < "$MERGED/$f" 2>/dev/null || echo 0)
+      if [ "$sz" -gt "$PATCH_MAX" ] 2>/dev/null; then
+        printf '%s %s\n' "$sz" "$f" >> "$META/uncommitted-oversize.txt"
+        set -- "$@" ":(exclude)$f"
+      fi
+    done < "$META/changed-names.txt"
+    NOVER=$(wc -l < "$META/uncommitted-oversize.txt")
+    [ "$NOVER" -eq 0 ] || printf 'oversize excluded=%s over %s bytes\n' \
+        "$NOVER" "$PATCH_MAX" >> "$META/extract.log"
+
+    git -C "$MERGED" diff HEAD --binary -- . "$@" > "$META/uncommitted.patch" \
+        2>> "$META/extract.log"
+    rc2=$?
+    printf 'uncommitted-patch exit=%s bytes=%s excluded=%s\n' "$rc2" \
+        "$(wc -c < "$META/uncommitted.patch")" "$NOVER" >> "$META/extract.log"
+    # A patch git could not produce is NOT an extraction failure. status.txt
+    # already carries the list, and the alternative -- 126, which blocks the
+    # sandbox entirely -- would throw away a worker's committed work because of
+    # something it left lying beside it. Recorded, not fatal. `promote` reads
+    # status.txt as well as the patch for exactly this reason, so a remainder
+    # git cannot represent still refuses promotion (§3.2).
+    if [ "$rc2" -ne 0 ]; then
+      : > "$META/uncommitted.patch"
+      printf 'uncommitted-patch UNREPRESENTABLE -- git could not diff the remainder; status.txt is the record of it\n' \
+          >> "$META/extract.log"
+    fi
+  fi
+fi
+
+if [ "$xrc" -ne 0 ]; then
+  : > "$META/extract-failed"
+  echo "sandbox: extraction failed; see meta/extract.log" >&2
 fi
 exit $rc
 """
@@ -584,15 +761,44 @@ def cmd_run(args, path=None, doc=None):
     say(f"run {doc['id']}: command written to meta/cmd.sh "
         f"({len(args.cmd)} argv element{'s' if len(args.cmd) != 1 else ''})")
 
-    for stale in ("exit.txt", SETUP_FAILED, "status.txt", "status.err"):
+    # Every artifact a previous `run` on this sandbox may have left. A stale
+    # commits.bundle read as this run's output is a promotion of work nobody
+    # did in this step, which is the worst shape of wrong available here.
+    for stale in ("exit.txt", SETUP_FAILED, EXTRACT_FAILED, "status.txt",
+                  "status.err", "extract.log", "commits.bundle",
+                  "uncommitted-oversize.txt", "changed-names.txt",
+                  "commits.count", "commits.txt", "base-is-ancestor.txt",
+                  "uncommitted.patch"):
         try:
             os.unlink(os.path.join(meta, stale))
         except OSError:
             pass
 
     outer = os.path.join(meta, "outer.sh")
+    script = outer_script(path, doc["mount_plan"], doc, args.cmd, args.timeout)
     with open(outer, "w") as fh:
-        fh.write(outer_script(path, doc["mount_plan"], doc, args.cmd, args.timeout))
+        fh.write(script)
+    # The generated script is a Python f-string, so a backslash escape meant for
+    # the shell is eaten by Python first -- `\0` becomes a real NUL byte and the
+    # command it was an argument to silently receives an empty string. That
+    # happened, and it cost a debugging round because the symptom was a step
+    # that ran, exited 0 and did nothing. Neither reading the template nor
+    # reading the generated file makes it visible; `file(1)` calling the script
+    # "binary data" is what makes it visible. So it is checked here rather than
+    # remembered: no NUL, and it must parse as a shell script.
+    if "\0" in script:
+        raise SystemExit(
+            "sandbox: the generated outer.sh contains a NUL byte. A backslash "
+            "escape in outer_script()'s template was interpreted by Python "
+            "instead of reaching the shell. Write the escape doubled, or "
+            "avoid it.")
+    syn = subprocess.run(["/bin/sh", "-n", outer], capture_output=True, text=True)
+    if syn.returncode != 0:
+        raise SystemExit(
+            "sandbox: the generated outer.sh is not valid shell:\n"
+            + (syn.stderr.strip() or "(no message)")
+            + "\n  The template is a Python f-string; a literal brace must be "
+              "doubled and a backslash escape is consumed by Python first.")
     say(f"run {doc['id']}: composing -- unshare --user --map-root-user --mount "
         f"-> mount -t overlay -> bwrap ({len(doc['mount_plan'])} mount entries)"
         + (f", timeout {args.timeout}s" if args.timeout else ""))
@@ -657,6 +863,16 @@ def cmd_run(args, path=None, doc=None):
     note = " (the timeout fired)" if rc == 124 and args.timeout else ""
     say(f"run {doc['id']}: exit {rc}{note} after {ended - started:.1f}s; "
         f"status.txt lists {entries} path{'s' if entries != 1 else ''}")
+    if os.path.exists(os.path.join(meta, EXTRACT_FAILED)):
+        # 126, and exit.txt is deliberately left holding the worker's own code.
+        # The worker may have succeeded; what failed is our capture of it, and
+        # a supervisor that was told only "126" still needs to know whether the
+        # step passed before deciding to re-dispatch it.
+        say(f"run {doc['id']}: the extraction failed -- exit 126. The worker's "
+            f"own exit code was {rc} and is preserved in meta/exit.txt; "
+            "meta/extract.log says which step failed. Nothing may be promoted "
+            "from this sandbox: what it produced was not captured.")
+        return 126
     return rc
 
 
