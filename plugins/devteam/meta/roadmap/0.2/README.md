@@ -322,6 +322,39 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > Whichever subcycle runs in that window inherits a denominator that changes
 > mid-flight, and should be told so before it writes a row rather than after.
 >
+> **Why the dollar column and the percentage column can never be reconciled,
+> asked and answered by the owner 2026-09-07.** He did the obvious arithmetic —
+> `$12.28` against a `$200` subscription is 6% of a month, yet the gauge moved
+> under 1% of a week — and observed that summing every session's dollars would
+> come to three or four times what he pays. Both observations are correct, and
+> the explanation is the cache.
+>
+> **About two-thirds of the dollar figure is the charge for re-reading the
+> session's own conversation.** 128 requests against `21.27 M` cache-read
+> tokens is one ~166,000-token conversation read 128 times, and the API bills
+> every read. Solving the rates from his own four numbers against Opus 5's
+> published `$5/M` input and `$25/M` output puts cache reads near `$0.5–0.6/M`,
+> which decomposes a typical session here as **~67% cache read, ~20% output,
+> ~13% cache write, input negligible**.
+>
+> Two rules follow, and they are stronger than the ones above because they say
+> *why*:
+>
+> - **Never sum the dollar column.** It adds the same conversation counted once
+>   per turn. A session doing identical work in twice as many turns shows twice
+>   the dollars, so the sum measures turn count, not spend.
+> - **Do not look for a conversion factor.** It cannot be a constant: it depends
+>   on the cache profile, and across this project's own sessions output ranges
+>   from **0.25% to 1.6%** of tokens processed — a sixfold spread driven purely
+>   by session length. What the weekly meter counts is not published. Say so
+>   rather than producing a number that looks like an answer.
+>
+> **So record OUTPUT TOKENS alongside the dollars from here on.** Output is the
+> only measured component that tracks work produced rather than conversation
+> length, and it is the one plausible correlate of the gauge. It is free to
+> record and it is falsifiable — if output-per-point turns out as unstable as
+> dollars-per-point, that kills the hypothesis and the column can go.
+>
 > **Do not sum this column.** The owner's quota was **reset twice** during the
 > week 0.2.0–0.2.4 ran. The display read `88%` at the cycle's start and `91%`
 > after all five, which invites *"five subcycles cost three points"* — **it did
