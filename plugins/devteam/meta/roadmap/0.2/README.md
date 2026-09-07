@@ -307,7 +307,7 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.3 — the worker inside | 100 | `18.35 M` | `$14.73` | `0.6–1.2%` (see below) |
 > | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | **not derivable — see below** |
 >
-> ### 0.2.4 RETIRED THE PERCENTAGE COLUMN. Read this before writing a row.
+> ### 0.2.4 retired the DERIVED percentage. The READ one stays — it is what the owner plans with.
 >
 > **`$41.81` moved the weekly display zero points.** It read `90%` at 0.2.3's
 > close and `90%` after a subcycle that cost three times as much. The anchor the
