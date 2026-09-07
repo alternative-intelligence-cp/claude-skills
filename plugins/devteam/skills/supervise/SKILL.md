@@ -238,7 +238,11 @@ evidence where its concurrence would have been nothing.
    **A verifier runs against the promoted host tree**, never inside a worker's
    overlay: it holds no claim there, its writes would be discarded with the
    sandbox, and a PASS against a tree nobody will keep is a PASS about nothing.
-6. **Then one of three things:**
+6. **Re-read the step's line in the task file's §Steps, then one of three
+   things.** *Your dispatch is hours old.* Read the goal, the class and the
+   verify command from the file rather than from the brief you were handed —
+   the file is what a later reader will diff your tick against, and it may
+   have been corrected since you dispatched.
 
 | Outcome | Do |
 |---|---|
@@ -283,8 +287,10 @@ here, so the manager and the client do not have to rebuild it.
 ## 6. Closing the task
 
 - [ ] every step ticked, or struck with a reason
-- [ ] `GATE` met — **read it again rather than remembering it**
-- [ ] `VERIFY` run, its output recorded verbatim in your report's `checks:`
+- [ ] `GATE` met — **read it again from the task file** — *your dispatch is
+      hours old*, and the file is the version a later reader will hold you to
+- [ ] `VERIFY` run — **the command from the task file, not from the dispatch**
+      — its output recorded verbatim in your report's `checks:`
 - [ ] every `R-n` in `REQUIREMENTS` actually discharged, with its acceptance
       criterion run — not "implemented", *discharged*, with evidence (P-5)
 - [ ] `AUDIT` triaged if one was given: every finding fixed, or declined with

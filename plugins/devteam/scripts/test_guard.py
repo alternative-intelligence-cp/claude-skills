@@ -589,6 +589,85 @@ def main():
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
+    # --- rotation: the refusal a REPLACED manager gets ---------------------
+    # The generic takeover recipe -- "if that session is gone, take the lock"
+    # -- is right after a crash and dangerous after a rotation: the successor
+    # is not gone, and re-taking the lock on the refusal's own advice is the
+    # two-writer failure P-13 exists to prevent. Every case here asserts the
+    # message in BOTH directions, because a rotation notice shown to a manager
+    # that was never replaced is the more expensive of the two errors and a
+    # want-only assertion cannot see it.
+    OUTGOING, SUCCESSOR, THIRD = "session-out-9", "session-new-9", "session-else-9"
+
+    def rotating(handoff):
+        def mutate(dt):
+            open(os.path.join(dt, "BOARD.md"), "w").write(
+                f"# The board\n\n**Writer.** `{SUCCESSOR}` since 2026-09-07\n")
+            if handoff is not None:
+                sess = os.path.join(dt, ".run", "session")
+                os.makedirs(sess, exist_ok=True)
+                open(os.path.join(sess, "handoff-ready"), "w").write(handoff)
+        return mutate
+
+    ROTATION_CASES = [
+        ("rotation-refusal-tells-a-replaced-manager-not-to-re-take-the-lock",
+         rotating(f"session {OUTGOING}\ncheckpoint C-3\n"), OUTGOING, True,
+         "REPLACED", "If that session is gone"),
+        ("fp-without-a-handoff-file-the-takeover-recipe-still-stands",
+         rotating(None), OUTGOING, True,
+         "If that session is gone", "REPLACED"),
+        ("fp-a-handoff-naming-a-third-session-is-not-your-rotation",
+         rotating(f"session {THIRD}\ncheckpoint C-3\n"), OUTGOING, True,
+         "If that session is gone", "REPLACED"),
+        ("fp-the-successor-that-holds-the-lock-may-still-write-devteam",
+         rotating(f"session {OUTGOING}\ncheckpoint C-3\n"), SUCCESSOR, False,
+         None, None),
+        # The writer line had this bug already: `session in writer` was a
+        # substring test and handed the lock to an id that merely appeared
+        # inside another. The handoff read is a second place with the same
+        # shape, and the first four cases above could not see it -- a mutation
+        # replacing the exact-token match with `in` passed all of them, which
+        # is a control answering a question adjacent to the one asked (P-35b).
+        # `session-out-9` is a substring of `session-out-99` and a different
+        # session from it.
+        ("fp-a-handoff-naming-an-id-this-one-is-a-substring-of-is-not-yours",
+         rotating(f"session {OUTGOING}9\ncheckpoint C-3\n"), OUTGOING, True,
+         "If that session is gone", "REPLACED"),
+        # Line order is not enforced anywhere -- `run` §7b states a form, and a
+        # form in prose is not a grammar. A reader that takes the first line it
+        # sees instead of the one keyed `session` passes every case above,
+        # because in the stated order the first line IS the session line. This
+        # is the case that makes the key do work.
+        ("rotation-is-recognised-with-the-lines-in-the-other-order",
+         rotating(f"checkpoint C-3\nsession {OUTGOING}\n"), OUTGOING, True,
+         "REPLACED", "If that session is gone"),
+    ]
+
+    for name, mutate, session, expect_deny, want, forbid in ROTATION_CASES:
+        root = build(mutate)
+        try:
+            denied, reason = run(root, write("devteam/RECORD.md"), session)
+            if denied != expect_deny:
+                failed += 1
+                verb = "REFUSED" if denied else "ALLOWED"
+                print(f"FAIL  {name}: {verb}, expected to "
+                      f"{'refuse' if expect_deny else 'allow'}")
+                if reason:
+                    print(f"        | {reason[:200]}")
+            elif want and want not in (reason or ""):
+                failed += 1
+                print(f"FAIL  {name}: refused, but the message never says {want!r}")
+                print(f"        | {(reason or '')[:200]}")
+            elif forbid and forbid in (reason or ""):
+                failed += 1
+                print(f"FAIL  {name}: the message says {forbid!r}, which belongs "
+                      "to the other branch")
+                print(f"        | {(reason or '')[:200]}")
+            else:
+                passed += 1
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     # PROTECTED_CD_CASES is the count of the `cd` loop above; keep it beside
     # that loop's tuple or this line quietly under-reports, which is a suite
     # claiming to be smaller than it is -- harmless, and exactly the kind of
@@ -596,10 +675,12 @@ def main():
     PROTECTED_CD_CASES = 3
     EMPTY_WRITER_CASES = 4
     total = (len(all_cases) + 1 + len(identity_cases)
-             + len(message_cases) + PROTECTED_CD_CASES + EMPTY_WRITER_CASES)
+             + len(message_cases) + PROTECTED_CD_CASES + EMPTY_WRITER_CASES
+             + len(ROTATION_CASES))
     fp = (sum(1 for c in all_cases if c[0].startswith("fp-")) + 1
           + sum(1 for c in identity_cases if c[0].startswith("fp-"))
-          + sum(1 for c in message_cases if c[0].startswith("fp-")))
+          + sum(1 for c in message_cases if c[0].startswith("fp-"))
+          + sum(1 for c in ROTATION_CASES if c[0].startswith("fp-")))
     print(f"\nguard control: {passed} passed, {failed} failed, {total} cases "
           f"({fp} of them false-positive controls, {100 * fp // total}%)")
     return 1 if failed else 0

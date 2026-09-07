@@ -43,6 +43,20 @@ each still cheap to reverse. This list is why the autonomy is honest.>
 - **Tasks that were mis-sized:** <T-n, estimate vs measured (P-41)>
 - **Dependencies that actually bound:** <which, and whether the graph predicted them>
 - **Findings that recurred:** <the same problem in more than one task>
+- **Rotation cadence:** <only once three rotations exist; otherwise "fewer
+  than three rotations — nothing to read yet">
+
+## Rotation
+
+<Only if a manager rotation happened since the last checkpoint. Omit this
+whole section otherwise — an empty one reads as a rotation that cost nothing.>
+
+- **Manager's own reading:** <`session_cost.py --json`, with the command>
+- **Workers' spend since the last rotation:** <sum of the sandboxes'
+  `budget.json`, with the command — a different meter, never added to the
+  line above>
+- **Questions asked at the handoff:** <count of `record defect:` lines, and
+  the list>
 
 ## 5. Verdict
 

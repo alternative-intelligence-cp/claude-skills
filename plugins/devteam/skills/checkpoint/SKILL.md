@@ -139,6 +139,34 @@ What stays unknowable by construction is whether a verifier had a gap it did
 not disclose. The only mitigation for that is the two independent layers, and
 an undisclosed gap would have to be common to both.
 
+## 3d. What did the manager's own rotation cost?
+
+Only when a rotation has happened since the last checkpoint (`run` §7b). **Two
+numbers, both from commands, both filed under `## Rotation`:**
+
+- **the manager's own reading**, from its own transcript:
+
+  ```bash
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/session_cost.py" --json
+  ```
+
+  This is the *manager's* meter and it is not the workers'. The harness writes
+  a `budget.json` per sandbox; those are what the workers spent. **A
+  dispatching project spends the quota twice and the two are metered
+  differently** — report both, never one as the other, and never their sum as
+  a single figure. A manager session begins at a rotation, so its whole-session
+  figure *is* its figure since the last rotation and there is no window to
+  subtract.
+
+- **the questions asked at the handoff** — the count of `record defect:` lines
+  the incoming session logged under the day's `RECORD.md` entry (`resume` §0).
+  **Zero is a claim about the record, not an absence of data**, and it earns
+  more suspicion than a large number does: a successor that asked nothing
+  either inherited an unusually complete record or did not drive.
+
+**Neither number decides anything yet**, and one rotation cannot tell you
+whether the cadence is right. They accumulate for §4.
+
 ## 4. Is the plan still right?
 
 - **requirements that turned out wrong** — and whether anyone said so
@@ -148,6 +176,13 @@ an undisclosed gap would have to be common to both.
 - **findings that recurred** across more than one task — the same mistake
   twice is a process problem, not two accidents
 - **currency rows now stale** (P-37)
+- **the rotation cadence, once three rotations exist** — read the pairs of
+  numbers in the filed `## Rotation` sections (§3d) against each other. A
+  manager reading that barely moved between rotations says the cadence is
+  tighter than it needs to be; a handoff that took many questions says the
+  *record* is thin, which is a defect in the record and not an argument about
+  the interval. **Fewer than three rotations and there is nothing to read** —
+  say that, rather than fitting a line to two points
 
 ## 5. The verdict
 

@@ -133,6 +133,33 @@ product tree and their own task file's execution record. A finding for the
 charter, the requirements or the protocol travels up in a report and **you**
 land it. `BOARD.md` is exempt from its own rule because it is the lock.
 
+**When a successor takes the lock from you** (§7b), its message is *"I hold
+the lock as of `<commit>`"*. **End your turn and take no further action on
+this project. Write nothing — not even a closing line in the record.**
+
+That last part is not politeness, it is the only order that works. `RECORD.md`
+is inside `devteam/`, so from the successor's commit onward your write to it is
+refused by the same rule that refuses everything else (P-13). **The successor
+records the handoff**, from the side that still holds the lock, which is why
+`resume` §0 puts `writer handoff: <old> → <new>` in its step and not in yours.
+An outgoing manager that tries to sign off is a manager discovering the lock
+has moved by being refused — a confusing way to learn it, and one that invites
+exactly the wrong repair.
+
+**The guard is what makes that real rather than a promise.** From that commit
+on, the board's writer line no longer names you, so your `devteam/` writes are
+refused (P-13). The control for the whole rotation is the same one that has
+always prevented two writers, and it needed nothing new — which is the reason
+the writer line must carry a real session id and not an empty pair of
+backticks: a blank id reads as *neither* yours nor theirs, and the guard
+refuses your own board while policing nothing outside it.
+
+**Do not summarise the project for your successor.** It reads the record. A
+summary is the copy-of-a-copy that rotating exists to avoid, and the questions
+it asks you instead are the measurement: anything it has to ask is something
+the record failed to carry, and the record will fail the next reader the same
+way — who may have nobody left to ask.
+
 ## 3. Recovery (P-14)
 
 **Liveness is a property of the claim's whole agent subtree, not of the agent
@@ -323,7 +350,14 @@ is how a system acquires a rule nobody enforces.
 
 ## 6. On a report
 
-**First, the mechanical check** — a malformed report is a re-dispatch, not a
+**Re-read the board header first** — *your bearings drift.* Width, the pin,
+the live claims, the protected paths, the priority order, the client channel.
+That small set governs every decision you make and is the only thing here
+worth re-reading on a cadence; everything else is re-read at the one decision
+it settles (L-5.3). A report is the moment you handle most often, so it is
+where the refresh costs least and is worth most.
+
+**Then the mechanical check** — a malformed report is a re-dispatch, not a
 judgement call:
 
 ```bash
@@ -380,6 +414,11 @@ Due after every *n* closed tasks (the charter says how many), at every
 milestone, and whenever the client asks. Run `/devteam:checkpoint`; it files a
 verdict.
 
+**Re-read `CHARTER.md` in full before you file one** — *it is the subject.*
+Not background: a checkpoint is a diff of what exists against what was signed,
+and half of it is unreadable if the signed text is two hundred thousand tokens
+behind you. This is the one place the whole charter is worth re-opening.
+
 **And due inside a task that is large enough to hide a checkpoint's worth of
 drift.** A cadence counted in *closed tasks* silently assumes tasks are roughly
 the same size, and nothing enforces that. One project's plan grew a task
@@ -400,7 +439,77 @@ with a verdict field.
 - `DRIFTED` → this goes to the client, with what drifted and a recommendation.
 - `BLOCKED` → to the client, with what is needed.
 
+## 7b. Rotation — becoming replaceable, at every checkpoint
+
+**You are the one role that never resets.** A worker is disposable and a
+supervisor dies with its task, so both are bounded by construction. You read
+every report P-17 passes upward with every worker report appended verbatim —
+on the first measured run, 897 KB of task files, roughly 230,000 tokens —
+plus a record, a decision log and a question log you re-read throughout. **The
+rule that makes you trustworthy is the rule that fills you**, and that tension
+is structural rather than accidental.
+
+**Compaction is not the answer**: each pass is a lossy re-encoding, so a
+compacted manager drifts from the original the way a copy of a copy does. A
+fresh session reading the durable state does not drift, because the board, the
+record, the task files and the decisions *are* the state.
+
+**And you cannot measure your own context** — there is no observable you can
+read — so the trigger cannot be "when it warrants it" and has to be countable
+from outside. It is the checkpoint (L-8).
+
+So after a checkpoint is filed and committed, `ON-COURSE` or otherwise:
+
+1. **Write `devteam/.run/session/handoff-ready`** — two lines, nothing else:
+
+   ```
+   session ${CLAUDE_CODE_SESSION_ID}
+   checkpoint C-n
+   ```
+
+   **It is a pointer, not a snapshot**, and that is the whole of its design.
+   It says a rotation is in progress, who started it, and at which point;
+   everything else your successor needs is generated when it reads rather
+   than recorded when you write — the claims from `BOARD.md`, the open
+   sandboxes from `sandbox.py status`, the tree from the tree. A recorded
+   list of claims or sandboxes is wrong the moment either moves, and a stale
+   list is worse than an absent one because it still looks current.
+
+2. **Record it.** `rotation due (C-n): handoff-ready written; this session
+   continues until the successor takes the lock`.
+
+3. **Announce it yourself**, on the charter's `Client channel` row (P-9):
+
+   > *"Rotation is due. Start a fresh session in this directory and run
+   > `/devteam:resume`; keep this one open until it reports it holds the
+   > lock."*
+
+   **You send the first message; your successor asks the questions.** Those
+   are two different directions, and conflating them makes rotation depend on
+   something it does not need. You are mid-turn by definition when you hand
+   over, so announcing wakes nothing; a successor messaging you first has to
+   reach a session whose turn has ended. The successor still *drives* — it
+   reads the record and asks only what the record could not tell it
+   (`resume` §0). Prefer the design that removes the dependency over the one
+   that measures it.
+
+   Channel `none` → the line goes to the record and the checkpoint only.
+   Channel `session <name>` → send it there.
+
+4. **Keep working.** Nothing stops. The loop runs until the successor takes
+   the lock, because stopping would idle every running task on a human's
+   schedule — which P-28 forbids for one task and forbids harder for all of
+   them at once. **Becoming replaceable is not the same as standing down.**
+
+When your successor reports that it holds the lock, see §2.
+
 ## 8. Escalation — the classes, and the batch
+
+**Re-read the charter's priority order row before you classify** — *the order
+decides ties.* The classes are in the table below and P-26 is their home; what
+the charter alone can tell you is which of two competing goals wins when a
+question forces a choice, and that is the judgement the class does not make
+for you.
 
 **Every question carries a recommendation, not a menu** (P-25), and a class
 that decides whether the loop may proceed without an answer (P-26):

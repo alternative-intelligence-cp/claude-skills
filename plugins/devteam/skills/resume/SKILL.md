@@ -54,6 +54,58 @@ available at once. It is also one of the very few points where this pipeline
 looks **backwards** at what it wrote rather than forwards at what it will write
 next.
 
+### A planned rotation says so in a file, and it is a pointer
+
+`devteam/.run/session/handoff-ready` exists only when a manager rotated itself
+out at a checkpoint (`run` §7b). Two lines: `session <id>` and
+`checkpoint C-n`. That is deliberately all of it — **it tells you a rotation
+is in progress, who started it and at which point, and nothing that could be
+stale by the time you read it.** Claims come from `BOARD.md`, open sandboxes
+from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sandbox.py" status`, the tree
+from the tree. `cat` is the whole parser.
+
+If the file names **your own** session you wrote it and your successor has not
+arrived yet: keep working (`run` §7b step 4). If it names another, you are the
+successor, and the order below matters:
+
+1. **`ListAgents`.** Listed → your predecessor is alive and you are in the
+   normal case. Not listed → it has exited; reconstruct from §1, and say in
+   one line in `RECORD.md` that the handoff was announced but the predecessor
+   was gone before you arrived. **A stale socket fails loudly, not silently** —
+   a send to an exited session returns `ENOENT ... the peer process may have
+   restarted`, so you will not mistake a dead peer for a quiet one.
+
+2. **Read the record before you ask anything, and do not take the lock yet.**
+   §1 and §2 still govern: a rotation is a better position than a crash, not a
+   licence to write early. Your predecessor is still working — that is by
+   design — so what you read will move; the lock is the point at which it
+   stops moving.
+
+3. **Ask.** You drive. Only what the files could not tell you. Log every one
+   as `record defect: the incoming session had to ask <what>` under the day's
+   `RECORD.md` entry, one line each. **That list is the measurement**, and it
+   is taken at the only moment when both the record and somebody who knows
+   better are available at once.
+
+4. **Take the lock.** Write `${CLAUDE_CODE_SESSION_ID}` to
+   `devteam/.run/session/manager`, put the same id on `BOARD.md`'s
+   `**Writer.**` line, and commit: `board: writer <new id> (rotation from
+   <old id>, C-n)`. Then `writer handoff: <old> → <new>` in `RECORD.md`.
+   **The id must be a real one** — a writer line holding an empty pair of
+   backticks reads as neither yours nor anyone's and inverts the guard in both
+   directions.
+
+5. **Tell your predecessor**: *"I hold the lock as of `<commit>`. Finish
+   nothing further; end your turn."* Its `run` §2 says what it does next. From
+   that commit the guard refuses its `devteam/` writes, which is the control
+   for this whole mechanism and is the same one that has always prevented two
+   writers.
+
+6. **Remove `handoff-ready`.** `run` §9b lets a manager remove an untracked
+   file under `devteam/` — this one was created by your predecessor for
+   exactly this reader, and it has now been read. Say that in the record line
+   rather than leaving a deletion nobody can account for.
+
 If the outgoing session is gone, continue from §1 and reconstruct. That is the
 degraded case, not the normal one.
 

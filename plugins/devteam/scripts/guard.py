@@ -391,6 +391,28 @@ def load_state(project):
     return protected, live, writer
 
 
+def handoff_names(project, session):
+    """Does `handoff-ready` name this session as a rotation's OUTGOING manager?
+
+    Read only on the refusal path, so it costs nothing on the ordinary one.
+    The file is `run` §7b's pointer: `session <id>` then `checkpoint C-n`. Only
+    the session line is needed here, and an EXACT token match is used for the
+    same reason `lock_state` uses one -- a substring test hands the answer to
+    any id that happens to appear inside another.
+    """
+    path = os.path.join(project, "devteam", ".run", "session", "handoff-ready")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return False
+    for line in text.split("\n"):
+        key, _, rest = line.strip().partition(" ")
+        if key == "session":
+            return session in re.findall(r"[0-9A-Za-z_-]+", rest)
+    return False
+
+
 def lock_state(writer, session):
     """Whose run this is: `vacant`, `mine`, `theirs`, or `unknown`.
 
@@ -552,6 +574,21 @@ def judge(target, what, session, session_project, cache, category="write"):
         # handing the lock to a session that never held it.
         if state in ("vacant", "mine"):
             return None
+        # A ROTATION IS ANSWERED FIRST, because the generic advice below is
+        # actively dangerous to a manager that has just been replaced. "If
+        # that session is gone, take the lock" is right for a crash and wrong
+        # here: the session holding the lock is the successor, it is not gone,
+        # and re-taking is the two-writer failure this rule exists to prevent
+        # -- reached by following the refusal's own instructions.
+        if session and handoff_names(project, session):
+            return (f"Refused: {what} into devteam/. You have been REPLACED: "
+                    f"`devteam/.run/session/handoff-ready` names this session "
+                    f"({session}) as the outgoing manager of a rotation, and "
+                    "BOARD.md's writer line has moved to your successor. **Do not "
+                    "take the lock back** — your successor holds it and is not "
+                    "gone. End your turn and write nothing; the successor records "
+                    "the handoff from the side that still holds the lock "
+                    "(run §2, resume §0).")
         return (f"Refused: {what} into devteam/, and BOARD.md names another session "
                 f"as its writer (this session is {session or 'unknown'}). One "
                 "writer here (P-13). If that session is gone, take the lock: set "
