@@ -307,7 +307,33 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.3 — the worker inside | 100 | `18.35 M` | `$14.73` | `0.6–1.2%` (see below) |
 > | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | `~1` (read; 0–2 by tick) |
 > | 0.2.5 — rotation | 159 | `31.80 M` | `$23.92` | `91% → 92%`, one window, boost on: **~1 point** |
+> | 0.2.6 — the checks | 172 | `35.42 M` | `$25.39` | `92% → 92%`, one window, no reset, boost on: **~0 points, 0–1 by tick** |
 > 
+> **A SECOND SUBCYCLE HAS NOW SPENT HEAVILY AND MOVED THE GAUGE BY NOTHING.**
+> 0.2.6 read `92%` at open and `92%` at close — one window, no reset (confirmed
+> by the owner), boost active throughout — while spending **`$25.39` across 172
+> requests and `35.42 M` tokens**. 0.2.4 did the same for `$41.81`. So the
+> dollar column now shows **`$25.39` and `$41.81` against an identical zero**,
+> which is the same conclusion the row below reaches from the other direction
+> and reached independently.
+>
+> **THE PER-MODEL METER IS FABRICATED PER FAMILY, AND ONLY FABLE HAS ONE.**
+> Read in full on 2026-09-07: the output carries `Current week (all models)` at
+> `92%` and `Current week (Fable)` at `98%`, **and no Opus row at all**. A
+> session planning against a supposed Opus sub-cap is planning against a gauge
+> that does not exist; the binding figure for Opus work is the all-models one.
+> Read both, and do not assume a family has a meter because another one does.
+>
+> **THE TWO HALVES OF `/usage` COVER DIFFERENT WINDOWS, and nothing in the
+> output lines them up.** The meters are `Current week`, resetting 9 September.
+> The attribution below them is explicitly **`Last 24h`**. Quoting a
+> session-shape percentage beside a weekly gauge reading — which is what §8 did
+> until now — silently compares a day against a week.
+>
+> **AND THE ATTRIBUTION LINES ARE NOT A BREAKDOWN.** The output says so itself:
+> *"these are independent characteristics of your usage, not a breakdown"*.
+> They do not partition anything and must never be summed or subtracted.
+>
 > **Four rows now price the same one-point movement at `$12.23`, `$23.92` and
 > `$41.81`.** That is a 3.4× spread on an identical reading, measured rather
 > than argued, and it is the end of any conversion factor: the dollar column
