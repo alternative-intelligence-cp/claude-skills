@@ -467,6 +467,12 @@ So after a checkpoint is filed and committed, `ON-COURSE` or otherwise:
    checkpoint C-n
    ```
 
+   **Your successor appends a third line and never deletes the file** —
+   `completed <iso> by <its id>` (`resume` §0 step 6). It has to stay, because
+   after the lock moves it is the only thing that lets the guard tell *you*,
+   a manager that was replaced, from a stranger — and the two get opposite
+   advice. It stays until the next rotation overwrites it.
+
    **It is a pointer, not a snapshot**, and that is the whole of its design.
    It says a rotation is in progress, who started it, and at which point;
    everything else your successor needs is generated when it reads rather
@@ -708,6 +714,21 @@ question because nobody is answering it.
 An answer becomes `question Q-n answered:` in `RECORD.md`, the question is
 struck through with its decision number (P-24), and the task restarts with the
 answer in `NOTES:`.
+
+**Minute a SELECTED option as selected, never as the client's own words.**
+`AskUserQuestion` returns the label of an option *you* wrote, so a record line
+built from it reads as a sentence the client composed — and the difference
+matters most exactly where the option assigned somebody an action. Measured: an
+answer recorded as *"the client will remove the files"* came from a recommended
+option the client clicked, and a later reader could not tell whether they had
+committed to doing it or merely picked the cheapest of three; the incoming
+manager at the next rotation had to ask, and logged it as a record defect.
+
+So write `question Q-n answered: client selected "<the option label>"` for a
+selection, and reserve the unqualified form for words the client actually
+typed. **If the option assigns an action to the client, say that it carried no
+deadline** unless they gave one — a recommendation naming a task is not a
+promise to do it.
 
 **If an answer sounds like it applies beyond this project, offer to record it
 as a convention** (`scripts/conventions.py`). A client running several projects

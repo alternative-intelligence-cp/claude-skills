@@ -68,12 +68,22 @@ If the file names **your own** session you wrote it and your successor has not
 arrived yet: keep working (`run` §7b step 4). If it names another, you are the
 successor, and the order below matters:
 
-1. **`ListAgents`.** Listed → your predecessor is alive and you are in the
-   normal case. Not listed → it has exited; reconstruct from §1, and say in
-   one line in `RECORD.md` that the handoff was announced but the predecessor
-   was gone before you arrived. **A stale socket fails loudly, not silently** —
-   a send to an exited session returns `ENOENT ... the peer process may have
-   restarted`, so you will not mistake a dead peer for a quiet one.
+1. **`ListAgents`, and expect the identity not to join.** Listed → your
+   predecessor is alive and you are in the normal case. Not listed → it has
+   exited; reconstruct from §1, and say in one line in `RECORD.md` that the
+   handoff was announced but the predecessor was gone before you arrived. **A
+   stale socket fails loudly, not silently** — a send to an exited session
+   returns `ENOENT ... the peer process may have restarted`, so you will not
+   mistake a dead peer for a quiet one.
+
+   **`ListAgents` prints a name and a short ref; the board and `handoff-ready`
+   carry a session id; nothing carries both.** So you cannot prove the busy
+   peer named `<something>` is the session that wrote the pointer — you can
+   only ask it. **Ask in the same message as your first questions** rather
+   than discovering it as a defect afterwards: *"are you session `<id>`?"* is
+   one line and it is the join. This is the same missing join the board's
+   `Agent id` column exists to fix one layer down, and it is unfixed at the
+   session layer because a session cannot read its own name.
 
 2. **Read the record before you ask anything, and do not take the lock yet.**
    §1 and §2 still govern: a rotation is a better position than a crash, not a
@@ -95,16 +105,39 @@ successor, and the order below matters:
    backticks reads as neither yours nor anyone's and inverts the guard in both
    directions.
 
-5. **Tell your predecessor**: *"I hold the lock as of `<commit>`. Finish
-   nothing further; end your turn."* Its `run` §2 says what it does next. From
-   that commit the guard refuses its `devteam/` writes, which is the control
-   for this whole mechanism and is the same one that has always prevented two
-   writers.
+5. **Tell your predecessor, and ask it for one thing**: *"I hold the lock as
+   of `<commit>`. Finish nothing further; end your turn — and reply with the
+   sha of your last intended write."* Its `run` §2 says what it does next.
+   From that commit the guard refuses its `devteam/` writes, which is the
+   control for this whole mechanism and is the same one that has always
+   prevented two writers.
 
-6. **Remove `handoff-ready`.** `run` §9b lets a manager remove an untracked
-   file under `devteam/` — this one was created by your predecessor for
-   exactly this reader, and it has now been read. Say that in the record line
-   rather than leaving a deletion nobody can account for.
+   **The sha is asked for because the record cannot answer it.** A predecessor
+   writes nothing after being replaced (that is the design), so nothing in
+   `devteam/` says where its work stopped — and its last commit can land
+   *after* the pointer was written, so "the commit before the rotation" is not
+   the answer either. Record it: `writer handoff: <old> → <new>, predecessor's
+   last write <sha>`. Measured — the first live rotation's successor had to
+   ask this, and logged it as a record defect.
+
+6. **Rewrite `handoff-ready`; do not remove it.** Append one line:
+
+   ```
+   completed <iso> by ${CLAUDE_CODE_SESSION_ID}
+   ```
+
+   **An absent file and a file nobody wrote read the same** — the reason
+   P-14b never deletes a heartbeat, and it applies here for a sharper reason.
+   Your predecessor is still a live session that believes it was the manager.
+   If it tries to write, the guard's refusal has to be able to tell *"you were
+   replaced, do not take the lock back"* from *"a stranger holds the lock, take
+   it if they are gone"* — and the only thing that distinguishes them is this
+   file naming that session. **Deleting it turns the correct refusal into the
+   dangerous one**, measured: the first live rotation removed the file at this
+   step, and the predecessor's next write got the generic takeover recipe.
+
+   The `completed` line is what stops the *next* reader treating a finished
+   rotation as one in progress. It stays until the next rotation overwrites it.
 
 If the outgoing session is gone, continue from §1 and reconstruct. That is the
 degraded case, not the normal one.

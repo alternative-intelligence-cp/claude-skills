@@ -641,7 +641,54 @@ def main():
         ("rotation-is-recognised-with-the-lines-in-the-other-order",
          rotating(f"checkpoint C-3\nsession {OUTGOING}\n"), OUTGOING, True,
          "REPLACED", "If that session is gone"),
+        # THE CASE THE FIRST LIVE ROTATION NEEDED AND DID NOT HAVE. Every case
+        # above builds a handoff file that is mid-rotation, which is the state
+        # the mechanism was designed around and NOT the state it is used in: a
+        # replaced manager tries to write AFTER its successor has finished, and
+        # the original `resume` §0 step 6 deleted the file at exactly that
+        # point. The controls passed because they constructed the precondition
+        # the live run had already destroyed. The successor now appends
+        # `completed` instead of deleting, and this case is why.
+        ("rotation-refusal-survives-the-handoff-completing",
+         rotating(f"session {OUTGOING}\ncheckpoint C-3\n"
+                  f"completed 2026-09-07T15:53 by {SUCCESSOR}\n"), OUTGOING, True,
+         "REPLACED", "If that session is gone"),
+        ("fp-a-completed-handoff-does-not-tell-the-successor-it-was-replaced",
+         rotating(f"session {OUTGOING}\ncheckpoint C-3\n"
+                  f"completed 2026-09-07T15:53 by {SUCCESSOR}\n"), SUCCESSOR, False,
+         None, None),
+        # The `completed` line CONTAINS a session id -- the successor's. A
+        # reader that matches ids on any line rather than on the one keyed
+        # `session` would read the sitting manager's own id out of it and tell
+        # it that it had been replaced by itself. The case above cannot see
+        # that, because in the written order the `session` line is found first
+        # and returns; only the reversed order reaches the bug. Same lesson as
+        # the order case above, and it is the second time line order has hidden
+        # a live defect in this file.
     ]
+
+    # The `completed` line CONTAINS a session id -- the successor's -- so a
+    # reader matching ids on any line rather than on the one keyed `session`
+    # would tell the session that COMPLETED a rotation that it was the one
+    # REPLACED by it. The two cases above cannot reach that: the successor
+    # holds the lock, so `lock_state` returns `mine` and the parser is never
+    # called. It needs a session that is on the completed line AND does not
+    # hold the lock -- which is what a later takeover leaves behind, since a
+    # takeover does not rewrite this file.
+    def taken_over(handoff):
+        def mutate(dt):
+            open(os.path.join(dt, "BOARD.md"), "w").write(
+                "# The board\n\n**Writer.** `session-third-9` since 2026-09-08\n")
+            sess = os.path.join(dt, ".run", "session")
+            os.makedirs(sess, exist_ok=True)
+            open(os.path.join(sess, "handoff-ready"), "w").write(handoff)
+        return mutate
+
+    ROTATION_CASES.append(
+        ("fp-the-session-that-COMPLETED-a-rotation-was-not-the-one-replaced",
+         taken_over(f"completed 2026-09-07T15:53 by {SUCCESSOR}\n"
+                    f"session {OUTGOING}\ncheckpoint C-3\n"), SUCCESSOR, True,
+         "If that session is gone", "REPLACED"))
 
     for name, mutate, session, expect_deny, want, forbid in ROTATION_CASES:
         root = build(mutate)

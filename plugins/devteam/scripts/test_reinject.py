@@ -77,6 +77,14 @@ CASES = [
      dict(handoff="session \ncheckpoint C-3\n"), MANAGER, True, "MALFORMED"),
     ("rotation-malformed-when-file-is-empty",
      dict(handoff=""), MANAGER, True, "MALFORMED"),
+
+    # The successor rewrites rather than deletes, so the file outlives the
+    # rotation. A finished rotation must not keep announcing itself to the
+    # session that completed it -- that would tell the sitting manager it had
+    # been replaced, every time it compacted, forever.
+    ("fp-a-completed-rotation-announces-nothing",
+     dict(handoff=f"session {OUTGOING}\ncheckpoint C-3\ncompleted 2026-09-07T15:53 by {MANAGER}\n"),
+     MANAGER, True, None),
 ]
 
 
@@ -150,6 +158,11 @@ def main():
         (f"session {MANAGER}\ncheckpoint C-3\n", MANAGER),
         (f"checkpoint C-3\nsession {MANAGER}\n", MANAGER),
         (f"session {MANAGER}\ncheckpoint C-3\nsession someone-else\n", MANAGER),
+        # A COMPLETED rotation still names its outgoing manager to both
+        # readers. This is the case the first live rotation got wrong by
+        # deleting the file: the guard must still answer "you were replaced"
+        # long after the handoff finished.
+        (f"session {MANAGER}\ncheckpoint C-3\ncompleted 2026-09-07T15:53 by other-sess\n", MANAGER),
         ("session \ncheckpoint C-3\n", None),
         ("", None),
     ]
@@ -157,7 +170,7 @@ def main():
         root, _ = build(handoff=text)
         try:
             state, detail = reinject.handoff_state(root)
-            got = detail if state == "named" else None
+            got = detail if state in ("named", "completed") else None
             names = guard.handoff_names(root, expect_id) if expect_id else False
             wrong = guard.handoff_names(root, "an-id-that-is-not-in-the-file")
             if got != expect_id:
