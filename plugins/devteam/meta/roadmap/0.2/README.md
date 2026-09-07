@@ -304,7 +304,7 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.0 — probes | 104 | `~15.8 M` | `$12.23` | `1%` (read) |
 > | 0.2.1 — the harness | 58 | `9.34 M` | `$9.81` | `0.80%` (read) |
 > | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
-> | 0.2.3 — the worker inside | 91 | `16.01 M` | — | **pending the owner's reading** |
+> | 0.2.3 — the worker inside | 100 | `18.35 M` | `$14.73` | `0.6–1.2%` (see below) |
 >
 > **0.2.3 adds a second cost line the table has never had: `$0.3134` of live
 > model spend INSIDE the sandbox, over 8 headless runs.** From here on a
@@ -317,11 +317,29 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > turns where a probe takes 2. Budget a subcycle that dispatches by the number
 > of ROUNDS it expects, not the number of runs.
 >
-> **0.2.3's percentage is left blank rather than derived**, which is the whole
-> of what 0.2.2's correction taught: `session_cost.py --usd` existed to prevent
-> a token-derived figure and went unused, because the input it needs cannot be
-> read from inside a session and nobody asked for it. **Ask for the dollar
-> figure before writing a percentage down.**
+> **0.2.3's dollar figure is exact and its percentage is a RANGE, because the
+> two honest methods disagree and saying so is the finding.** Asked for, and
+> read from the owner's display: `$14.73`, 100 requests, and the weekly gauge
+> at `90%` where 0.2.2 left it at `89%`.
+>
+> - **Chaining the dollar anchors gives `1.20%`**, and all three agree to two
+>   decimal places (`13.51:1.10`, `12.23:1.0`, `9.81:0.80`). That agreement is
+>   an illusion: every one of those anchors descends from the same single
+>   integer tick, so they cannot disagree.
+> - **The aggregate gives `0.59%` to `1.17%`.** Four subcycles have now cost a
+>   measured `$50.28` while the display moved `87% → 90%` — 3 ticks, so true
+>   movement is in (2, 4), so `$12.57` to `$25.14` per percent. The rounding
+>   error is amortised across four readings instead of resting on one.
+>
+> **Prefer the aggregate and quote the range.** A single number here would be
+> false precision of exactly the kind this table has now been corrected for
+> twice. What the record can say without qualification is the dollars, and that
+> is what the next subcycle should be sized in.
+>
+> `session_cost.py --usd <figure> --anchor <usd>:<pct>` does this arithmetic;
+> it existed one subcycle before anyone used it, because the input it needs
+> cannot be read from inside a session. **Ask for the dollar figure before
+> writing a percentage down.**
 >
 > **The dollar figures are exact and every PERCENTAGE here is uncertain by up
 > to a factor of three. Corrected 2026-09-07 by the owner, who spotted it.**
