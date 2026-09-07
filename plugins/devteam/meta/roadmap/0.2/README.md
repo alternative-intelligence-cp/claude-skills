@@ -155,7 +155,7 @@ the worker's life to a background shell whose lifetime is not documented.
 | [0.2.2](0.2.2.md) — extraction and promotion | extraction inside the namespace; `sandbox.py promote` with its gate, its lock and its finding classes; controls | 0.2.1 | yes |
 | [0.2.3](0.2.3.md) — the worker inside | headless dispatch through the harness; credentials; the guard's parent-session identity; the inside permission set; the liveness file; measured budget | 0.2.2 | yes — **the step that matters** |
 | [0.2.4](0.2.4.md) — wiring | the skills, templates, rules, agents, docs and permissions changed to run on the sandbox; P-10b and P-12b superseded; `guard-only` degradation; CONSOLIDATION 5 and 8b closed | 0.2.3 | yes |
-| [0.2.5](0.2.5.md) — rotation | manager rotation at every checkpoint, driven from outside the session; questions-as-defects measured; point-of-use re-reads | 0.2.4 (uses measured budget) | yes |
+| [0.2.5](0.2.5.md) — rotation | **DONE** — manager rotation at every checkpoint, driven from outside the session; questions-as-defects measured and all three fixed; point-of-use re-reads | 0.2.4 (uses measured budget) | yes |
 | [0.2.6](0.2.6.md) — the checks | every finding class named against its rule (`docs/CHECKS.md` and an `unruled-finding` check); the audit namespace checked and `open-finding-at-close`; amendment re-affirms every DM; estimate model v3 | 0.2.4 | partly — the F-113 audit is core, the rest can wait |
 | [0.2.7](0.2.7.md) — two sweeps | the rule-pairs sweep and the ceremony test, each with a method, a calibration set and a deliverable | 0.2.4 | deferrable |
 | [0.2.8](0.2.8.md) — release 0.2.0 | version, self-check, controls, DESIGN §14, CONSOLIDATION rewritten, a new handoff, a fresh `setup` on a throwaway project | everything shipped | yes |
@@ -306,7 +306,12 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
 > | 0.2.3 — the worker inside | 100 | `18.35 M` | `$14.73` | `0.6–1.2%` (see below) |
 > | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | `~1` (read; 0–2 by tick) |
-> | 0.2.5 — rotation (OPEN) | 106 | `16.21 M` | `$12.28` | `91%` read at OPEN, not a close — and 0.2.4 also closed at `91%`, so this is under one point, direction unknown |
+> | 0.2.5 — rotation | 159 | `31.80 M` | `$23.92` | `91% → 92%`, one window, boost on: **~1 point** |
+> 
+> **Four rows now price the same one-point movement at `$12.23`, `$23.92` and
+> `$41.81`.** That is a 3.4× spread on an identical reading, measured rather
+> than argued, and it is the end of any conversion factor: the dollar column
+> and the percentage column are not two views of one quantity. Read the gauge.
 >
 > **The boundary that breaks comparability first is the WEEKLY RESET, not the
 > boost's expiry, and 0.2.5 got this wrong before it got it right.** The boost
@@ -354,6 +359,39 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > length, and it is the one plausible correlate of the gauge. It is free to
 > record and it is falsifiable — if output-per-point turns out as unstable as
 > dollars-per-point, that kills the hypothesis and the column can go.
+>
+> **The `/usage` output has a lower half, and it answers the question the whole
+> table has been circling.** Read in full on 2026-09-07 it said: **"52% of your
+> usage came from sessions active for 8+ hours"** and **"17% from
+> subagent-heavy sessions"**, plus a breakdown by skill and plugin. Ask for the
+> whole output, not the percentage — the top half says how much, the lower half
+> says **which behaviour**, and only the second is actionable.
+>
+> **That is external confirmation of this cycle's premise, from the vendor
+> rather than from us.** Cost scales with context size times request count, so
+> a session's usage grows superlinearly in its own length — which is exactly
+> what the cache decomposition above showed from the other direction. **More
+> than half of this account's weekly usage comes from the single thing manager
+> rotation (0.2.5) exists to prevent.**
+>
+> And it is a real reduction, not a redistribution: rotating resets context to
+> near zero before it grows again, so the same total work integrated over a
+> series of short sessions reads fewer cached tokens than over one long one.
+> CONSOLIDATION item 1 argued for rotation on *quality* grounds — compaction is
+> a copy of a copy. This says it is also the largest available lever on usage,
+> and nobody had noticed because the instrument was in the half of the output
+> nobody had pasted.
+>
+> **One caution before anyone plans against it.** A long session is not
+> *wasteful* merely for being long; it may be doing proportionally more work.
+> What the two measurements together justify is the weaker and still useful
+> claim: **length is a cost driver independent of work done**, so a session
+> that has finished a piece of work is worth ending even when it feels cheaper
+> to continue.
+>
+> **The second weekly meter is easy to miss.** The output carries a per-model
+> figure as well as "all models" — on 2026-09-07, `92%` all-models against
+> `98%` Fable. The binding limit may not be the one being read.
 >
 > **Do not sum this column.** The owner's quota was **reset twice** during the
 > week 0.2.0–0.2.4 ran. The display read `88%` at the cycle's start and `91%`
