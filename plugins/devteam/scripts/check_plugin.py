@@ -78,8 +78,6 @@ CHECK_OUTPUT = re.compile(r"`[a-z][a-z-]{3,}\s+\S+:\d+[^`]*`")
 def cited_rules(body):
     """The P-n numbers a document CITES, as opposed to merely contains."""
     out, in_fence = set(), False
-    if "```" in body:
-        return out
     for line in body.split("\n"):
         if line.lstrip().startswith("```"):
             in_fence = not in_fence
