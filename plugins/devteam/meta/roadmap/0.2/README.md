@@ -104,6 +104,13 @@ violation tracker. Its settings keys are `autoAllowBashIfSandboxed`,
 `allowUnixSockets`, `allowLocalBinding`, `allowedDomains`, and
 `filesystem.{allowWrite,denyWrite,allowRead,denyRead}`. The owner's
 `~/.claude/settings.json` has no `sandbox` key — it is off.
+**Corrected 2026-09-07 by 0.2.0**: it now has one — a `filesystem.denyWrite`
+entry naming a sibling repository, and no `enabled` — so the built-in Bash
+sandbox is still not wrapping commands, but the sentence above is no longer
+true as written and the next reader would have trusted it. The binary it was
+read from (`2.1.261`) is also no longer the installed one (`2.1.263`).
+**Re-read this section before making any flag in it a dependency**; it is a
+measurement of a moving target, and it moved within two days.
 
 Three consequences. It sandboxes **Bash only** — `Write` and `Edit` still
 execute in the harness process, which is spec §4's objection exactly. Its
@@ -143,7 +150,7 @@ the worker's life to a background shell whose lifetime is not documented.
 
 | Subcycle | What it produces | Depends on | Core? |
 |---|---|---|---|
-| [0.2.0](0.2.0.md) — probes | the baseline as a script; the overlay smoke test; the headless-worker probe; the background-lifetime probe; the nesting detector; the decision rule for the fallback branch | — | **yes — first, small, and it can change the design** |
+| [0.2.0](../done/0.2.0.md) — probes | the baseline as a script; the overlay smoke test; the headless-worker probe; the background-lifetime probe; the nesting detector; the decision rule for the fallback branch | — | **yes — first, small, and it can change the design** |
 | [0.2.1](0.2.1.md) — the harness | `scripts/sandbox.py` with `open`, `run`, `exec`, `status`, `close`; the mount plan; `test_sandbox.py` with the blocked/allowed twins and the interpreter case | 0.2.0 | yes |
 | [0.2.2](0.2.2.md) — extraction and promotion | extraction inside the namespace; `sandbox.py promote` with its gate, its lock and its finding classes; controls | 0.2.1 | yes |
 | [0.2.3](0.2.3.md) — the worker inside | headless dispatch through the harness; credentials; the guard's parent-session identity; the inside permission set; the liveness file; measured budget | 0.2.2 | yes — **the step that matters** |

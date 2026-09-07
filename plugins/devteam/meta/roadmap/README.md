@@ -7,7 +7,7 @@ controls, and the documents the manager runs on.
 | Cycle | Plugin | What it is | State |
 |---|---|---|---|
 | 0.1 | 0.1.0 | the three-layer pipeline, written 2026-09-03 and run end to end once on a CSV-to-JSON fixture (`.internal/scratch/`, private remote `alternative-intelligence-cp/devteam-run-01-csv2json`) — 149 findings, a `DRIFTED` final review the client accepted | shipped, run once |
-| [0.2](0.2/README.md) | 0.2.0 | **structural containment and the queue the run left**: workers run inside a per-worker copy-on-write sandbox and reach the host only through a promotion gate; the manager rotates instead of compacting; the checks are audited against the rule each one enforces; the rule set is swept for pairs that cannot both hold; then a second run that exercises `iterate`, rotation and the unreviewed-decision path | planned 2026-09-05 |
+| [0.2](0.2/README.md) | 0.2.0 | **structural containment and the queue the run left**: workers run inside a per-worker copy-on-write sandbox and reach the host only through a promotion gate; the manager rotates instead of compacting; the checks are audited against the rule each one enforces; the rule set is swept for pairs that cannot both hold; then a second run that exercises `iterate`, rotation and the unreviewed-decision path | planned 2026-09-05; **0.2.0 done 2026-09-07** — the composition, the headless worker inside it and the containment of git history all `MEASURED`; 0.2.1 next |
 
 Cycle numbers sort lexically only to `0.9`; this table is authoritative over
 lexical order.
