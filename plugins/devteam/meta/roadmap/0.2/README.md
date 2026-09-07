@@ -303,13 +303,21 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > |---|---|---|---|---|
 > | 0.2.0 — probes | 104 | `~15.8 M` | `$12.23` | `1%` (read) |
 > | 0.2.1 — the harness | 58 | `9.34 M` | `$9.81` | `0.80%` (read) |
-> | 0.2.2 — extraction and promotion | 71 | `11.24 M` | — | `≈0.9%` (**derived, not read**) |
+> | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
 >
-> A cold session spent 104 requests where a handed-off one spent 58 and 71, so
+> **Derive the share from DOLLARS against a dollar anchor, never from tokens
+> and never from the display's own movement.** 0.2.2 first published `≈0.9%`
+> from a token ratio and the reading said `1.10%` — the same error 0.2.1
+> recorded, one subcycle after `session_cost.py --usd` was built to prevent it,
+> because the dollar figure it needs has to be asked for. And the display
+> reports whole percent while a subcycle costs about one, so it cannot resolve
+> a single subcycle: it read `89%` before and after this one.
+>
+> A cold session spent 104 requests where a handed-off one spent 58 and 83, so
 > **the handoff removes the exploration rather than the work** — and 58 is not
 > a floor: 0.2.2 built two mechanisms and 22 controls where 0.2.1 built one and
 > 29. Size the next subcycle by what it BUILDS, and treat the handoff as
-> removing a roughly fixed 40-odd requests of orientation, not as a multiplier.
+> removing a roughly fixed block of orientation, not as a multiplier.
 
 
 `REASONED` — nothing in this cycle has been measured, and cycle 0.1's lesson
