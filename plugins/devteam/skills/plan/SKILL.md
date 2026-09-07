@@ -381,6 +381,46 @@ the project catches itself. That is precisely the quantity you must not smooth
 into a per-step figure, because the planner reading that figure would then be
 budgeting for verification never working.
 
+**Third revision: the overrun is on ROUNDS, and a per-unit figure cannot hold
+it.** C-3 §4 measured **ten tasks out of ten over estimate, at 1.78x**, after
+two revisions that both moved the per-unit figure and **neither touched the
+shape of the model**. Moving a constant a third time would have been the same
+mistake a third time. The excess is steps *run* over steps *planned* (F-101,
+F-102) — a task that needs a second and third round of the same step — and that
+is a separate term, not a bigger constant:
+
+```
+tokens = steps × unit × (1 + r) + overhead
+
+  steps     estimated step-units, as held at PLANNING time — never the steps
+            that turn out to be needed
+  unit      440,000 per estimated step-unit   sample: 6 tasks, cycle 0.1,
+                                              C-1's second revision
+  r         0.78 rounds rate                  sample: 10 tasks, cycle 0.1, C-3 §4
+  overhead  150,000 per task                  sample: cycle 0.1, T-2's note
+```
+
+**Every constant carries its sample, and the sample is part of the number.** A
+per-step figure drawn from one task is drawn from one task, and a first task is
+usually the worst case. Quoting `440,000` without `6 tasks, cycle 0.1` invites
+the next reader to treat it as a property of the pipeline rather than a
+measurement of one project.
+
+**`r` is corrected from the harness's measured budgets at every checkpoint.**
+0.2.3 made those numbers free: every dispatch's actual token count is in the
+sandbox's `meta/budget.json` and the report carries it. So the rounds rate is
+re-fitted from data already collected rather than re-argued — which is P-41's
+whole point, an estimate from a stated model corrected by measurement.
+
+**What this model still does not capture, stated so nobody fits it away.** A
+task whose extra rounds come from a **rule conflict** rather than from a defect.
+The three worst overruns in the measured set were exactly that: the work was
+correct and the loop could not accept it, because two of the pipeline's own
+rules could not both be satisfied at once. No estimate can price how often a
+project's rules contradict each other, and a constant fitted to absorb it would
+be predicting that rate — which is precisely the quantity that must stay
+visible. 0.2.7's sweep is for finding those pairs; the estimate model is not.
+
 **Write a probe as `Kind. probe`, not as an implementation task.** A probe
 discharges no requirement — that is what makes it a probe — so an
 implementation task with an invented `Discharges` field is the wrong shape and

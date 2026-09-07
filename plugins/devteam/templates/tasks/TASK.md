@@ -15,9 +15,18 @@ carries the status and is the first thing recovery reads (P-14).>
   feeling>
 - **Verify.** `<the exact command that proves the gate, and its expected summary
   line>`
-- **Estimate.** tokens=<n> minutes=<n>
+- **Estimate.** tokens=<n> minutes=<n> model=<steps>x440000x1.78+150000
 <!-- example:end -->
 
+> **The estimate names its model, not just its number (P-41).**
+> `tokens = steps × unit × (1 + r) + overhead`, with `unit` 440,000 per
+> estimated step-unit (6 tasks, cycle 0.1), `r` 0.78 (10 tasks, C-3 §4) and
+> `overhead` 150,000 per task. **Estimate the reading, not the typing** — the
+> first measured task came in at 26x because the estimate counted the code to
+> be written. A bare number can only be right or wrong; a model can be
+> corrected, and the next measurement then fixes every remaining estimate at
+> once. `r` is re-fitted at every checkpoint from the harness's own budgets.
+>
 > **`Kind.` decides what this task owes.** `implementation` (the default) owes
 > at least one requirement. A `probe` or a `spike` owes an **Informs.** naming
 > the requirement or goal it de-risks, and discharges nothing — that is what a
