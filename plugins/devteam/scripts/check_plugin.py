@@ -14,12 +14,22 @@ referenced against what exists.
   uncontrolled-check   a check script with no negative control beside it (P-35)
   broken-link          a relative markdown link whose target does not exist
   bad-manifest         plugin.json or the marketplace entry does not resolve
+  template-ships-a-finding
+                       a freshly scaffolded project reports a finding before
+                       any work has been done -- almost always an identifier in
+                       an installed template that resolves HERE and nowhere
+                       else, or one invented to illustrate a grammar
+  template-scaffold-fails
+                       setup.py could not scaffold a fresh project at all
 
 Exit 0 clean, 1 findings, 2 could not run.
 """
 import json
 import os
 import re
+import tempfile
+import subprocess
+import shutil
 import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -44,6 +54,10 @@ def walk_md(root):
         for f in files:
             if f.endswith(".md"):
                 yield os.path.join(base, f)
+
+
+class _SkipScaffold(Exception):
+    """The scaffold check's inputs are not present in this tree."""
 
 
 def main():
@@ -172,13 +186,83 @@ def main():
         except ValueError as exc:
             add("bad-manifest", "../../.claude-plugin/marketplace.json", str(exc))
 
+    # --- the templates, as a CLIENT's project sees them (roadmap 0.2.4) ----
+    #
+    # THE ONLY INSTRUMENT THAT SEES THIS CLASS IS A SCAFFOLD-AND-CHECK, and
+    # until now that was a person deciding to do it. Two live instances shipped:
+    #
+    #   PERMISSIONS.md   cited `F-100` -- a real finding IN THIS REPOSITORY,
+    #                    and a dangling citation in every project downstream
+    #   REQUIREMENTS.md  wrote `in-progress (T-2, T-5)` to illustrate the
+    #                    grammar -- ids that exist NOWHERE, in this repository
+    #                    or any other
+    #
+    # The second is the one that outlived the fix for the first, and the reason
+    # is worth stating: a reader who knows the record can spot a dangling F-n,
+    # and nothing at all marks an invented T-n as invented. The class that
+    # catches both is `any bare identifier in an installed template that
+    # survives the example strip and is not declared by the scaffold`.
+    #
+    # Neither is visible from inside this repository: `F-100` resolves here,
+    # and `T-2` is never checked here because the templates are not a project.
+    # So the check has to BE a scaffold -- install the templates the way
+    # `setup.py` does, into a throwaway, and run the client's own `check_refs`
+    # against it. Zero findings, on a project where no work has been done.
+    #
+    # It reuses `setup.py` itself rather than reimplementing the install, so
+    # the two cannot drift: a check that scaffolds differently from the
+    # scaffolder is a check that passes on a project nobody will ever have.
+    # GATED ON ITS INPUTS, AND THE SKIP IS PRINTED. This check needs the real
+    # scaffolder and the real templates; a partial plugin tree (this file's own
+    # control builds several) has neither, and reporting `scaffold failed`
+    # there would be the check answering a question nobody asked -- P-35b, in
+    # the check that exists to catch a related shape. A skip that says nothing
+    # is the other half of that mistake, so the summary line names it.
+    setup_py = os.path.join(PLUGIN, "scripts", "setup.py")
+    scaffolded = os.path.isfile(setup_py) and os.path.isdir(os.path.join(PLUGIN, "templates"))
+    tmp = tempfile.mkdtemp(prefix="devteam-template-check-") if scaffolded else None
+    try:
+        if not scaffolded:
+            raise _SkipScaffold
+        proj = os.path.join(tmp, "p")
+        os.makedirs(proj)
+        for cmd in (["init", "-q", "."], ["config", "user.name", "check"],
+                    ["config", "user.email", "check@devteam.invalid"]):
+            subprocess.run(["git", "-C", proj, *cmd], capture_output=True)
+        rc = subprocess.run([sys.executable, setup_py, proj],
+                            capture_output=True, text=True)
+        if rc.returncode != 0:
+            add("template-scaffold-fails", "scripts/setup.py",
+                f"setup.py could not scaffold a fresh project: "
+                f"{(rc.stdout + rc.stderr).strip()[:200]}")
+        else:
+            subprocess.run(["git", "-C", proj, "add", "-A"], capture_output=True)
+            subprocess.run(["git", "-C", proj, "commit", "-qm", "scaffold"],
+                           capture_output=True)
+            out = subprocess.run(
+                [sys.executable, os.path.join(PLUGIN, "scripts", "check_refs.py"), proj],
+                capture_output=True, text=True)
+            if out.returncode != 0:
+                for line in out.stdout.strip().split("\n")[1:]:
+                    if line.strip():
+                        add("template-ships-a-finding", "templates/",
+                            f"a freshly scaffolded project reports: {line.strip()}")
+    except _SkipScaffold:
+        pass
+    except OSError as exc:
+        add("template-scaffold-fails", "templates/", str(exc))
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     if findings:
         print(f"devteam plugin: {len(findings)} finding(s)")
         for kind, where, detail in sorted(findings):
             print(f"  {kind:20} {where}  {detail}")
         return 1
     print(f"devteam plugin: clean  [{len(skills)} skills, "
-          f"{len(os.listdir(agents_dir))} agents, {len(declared)} rules]")
+          f"{len(os.listdir(agents_dir))} agents, {len(declared)} rules"
+          + ("]" if scaffolded else ", scaffold check SKIPPED — no setup.py or templates/]"))
     return 0
 
 

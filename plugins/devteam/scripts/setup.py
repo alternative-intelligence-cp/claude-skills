@@ -23,6 +23,32 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 TEMPLATES = os.path.normpath(os.path.join(HERE, "..", "templates"))
 
 GITIGNORE_LINE = "devteam/.run/"
+
+# Build artifacts a project's own TEST COMMAND creates, per detected stack.
+#
+# These are here because of a measured dead end, not out of tidiness. F-37, on
+# the first live run: every suite run wrote `__pycache__/`, so
+# `git status --porcelain` was never empty again -- including immediately after
+# a verifier ran the suite, which is that verifier's own FIRST check. It could
+# not be tidied beforehand, because running the suite recreates it, and `rm` is
+# withheld by the grant. The manager fixed it by hand and the fix never became
+# a mechanism, so it recurs on every new project; roadmap 0.2.4's own
+# end-to-end reproduced it on a fresh one a whole cycle later.
+#
+# P-44 raises the cost. A dirty tree used to fail a precondition; now an
+# uncommitted remainder REFUSES THE PROMOTION, so a worker's finished step does
+# not land, for a file its own verification command created. That is a
+# supervisor reading `promote-uncommitted` and going to look at the worker.
+#
+# Proposed like everything else `detect()` finds -- printed back for the client
+# to confirm, and theirs to remove.
+STACK_IGNORES = {
+    "python": ["__pycache__/", "*.py[cod]", ".pytest_cache/"],
+    "node": ["node_modules/"],
+    "rust": ["target/"],
+    "go": [],
+    "make": [],
+}
 RUNTIME_DIRS = ("session", "locks", "env", "scratch")
 
 # The templates carry a worked example of each shape, so a human reading the
@@ -137,19 +163,44 @@ def prefill(charter, found):
     return charter
 
 
-def ensure_gitignore(project):
+def ensure_gitignore(project, stack=None):
+    """Add what the loop needs ignored. Returns the lines actually added.
+
+    Two groups, and they are separate because they are owed to different
+    parties: `devteam/.run/` is OURS and the loop cannot run without it
+    ignored (`sandbox.py dispatch` refuses otherwise), while the stack lines
+    are the PROJECT'S build artifacts and are a proposal the client may drop.
+    Both are appended only when absent, so re-running setup is a no-op and a
+    client who deleted a line does not get it back silently.
+    """
     path = os.path.join(project, ".gitignore")
     try:
         body = open(path, encoding="utf-8").read() if os.path.isfile(path) else ""
     except OSError:
-        return False
-    if GITIGNORE_LINE in body:
-        return False
+        return []
+    existing = {l.strip() for l in body.splitlines()}
+    added, chunks = [], []
+
+    if GITIGNORE_LINE not in existing:
+        chunks.append(f"\n# devteam runtime state — locks, session markers, scratch\n"
+                      f"{GITIGNORE_LINE}\n")
+        added.append(GITIGNORE_LINE)
+
+    want = [l for l in STACK_IGNORES.get(stack or "", []) if l not in existing]
+    if want:
+        chunks.append("\n# build artifacts this project's own test command creates.\n"
+                      "# Without these the tree is never clean after a test run, which\n"
+                      "# fails every verifier's first check and refuses every promotion.\n"
+                      + "".join(f"{l}\n" for l in want))
+        added += want
+
+    if not chunks:
+        return []
     with open(path, "a", encoding="utf-8") as fh:
         if body and not body.endswith("\n"):
             fh.write("\n")
-        fh.write(f"\n# devteam runtime state — locks, session markers, scratch\n{GITIGNORE_LINE}\n")
-    return True
+        fh.write("".join(chunks))
+    return added
 
 
 def main(argv):
@@ -208,12 +259,12 @@ def main(argv):
     with open(os.path.join(devteam, ".run", "detected.json"), "w", encoding="utf-8") as fh:
         json.dump(found, fh, indent=2, sort_keys=True)
 
-    added = ensure_gitignore(project)
+    added = ensure_gitignore(project, found.get("stack"))
 
     print(f"devteam/ scaffolded in {project}")
     print(f"  {installed} artifacts, empty tasks/ and checkpoints/, .run/ (untracked)")
     if added:
-        print(f"  added {GITIGNORE_LINE} to .gitignore")
+        print(f"  added to .gitignore: {', '.join(added)}")
     # A greenfield project detects `git_root` and nothing else. Printing the
     # header over an empty list reads as though detection ran and found things,
     # which is the opposite of what happened.

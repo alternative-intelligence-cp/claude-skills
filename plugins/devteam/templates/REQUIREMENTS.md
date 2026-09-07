@@ -9,7 +9,7 @@ between these three lists is mechanical and is where holes are actually found
 > reports it; it does not edit here.
 
 **`Status.` is one of:** `open` · `in-progress (T-n)` · `discharged (T-n)` ·
-`struck (D-n)`. **Name every task involved** — `in-progress (T-2, T-5)` — where
+`struck (D-n)`. **Name every task involved** — `in-progress (T-n, T-m)` — where
 one task advances a requirement and another completes it. A single id there
 would be a compromise recorded as a fact. A requirement whose task is closed is `discharged`, not `open`
 — nothing reconciles the two automatically, and a record that says `open` for
