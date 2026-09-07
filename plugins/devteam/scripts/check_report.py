@@ -413,7 +413,38 @@ def check(project, want_id):
     return findings
 
 
+# ADVISORY findings say something true about the REPORT that is not a claim
+# about the WORK, and that the party who wrote it could not have got right.
+#
+# There is exactly one, and it earned the category by breaking a live run.
+# `budget-mismatch` fires because a worker cannot see the harness's counter:
+# the first one ever metered reported `tokens=3000` against `309639`, in good
+# faith, and 0.2.4's own end-to-end reproduced it at `15000` against `571986`.
+# The number to trust is the harness's and it is already recorded; the worker's
+# is a fact about self-reporting (P-17c).
+#
+# THE PAIR THAT MADE THIS NECESSARY, because it is the shape this project keeps
+# paying for -- two rules each right alone that cannot both be satisfied:
+#   `supervise` says budget-mismatch is recorded, never corrected
+#   `verify`    treats a non-zero exit here as FAIL
+#   `supervise` says a FAIL is re-dispatched once
+# and a re-dispatch cannot help, because the new worker cannot see the counter
+# either. Perfect work, blocked forever, by a finding nobody is allowed to fix.
+# Found by a real supervisor on the first end-to-end run, which escalated it
+# rather than picking one rule to break -- exactly right, and the escalation is
+# what this flag answers.
+#
+# `model-mismatch` is deliberately NOT advisory: a report naming a model that
+# did not run is a report about a different run, and P-40 says a result is not
+# comparable across models. That one blocks.
+ADVISORY = {"budget-mismatch"}
+
+
 def main(argv):
+    argv = [a for a in argv]
+    blocking_only = "--blocking-only" in argv
+    if blocking_only:
+        argv.remove("--blocking-only")
     if len(argv) < 3:
         print(__doc__.strip().split("Usage:")[-1].strip(), file=sys.stderr)
         return 2
@@ -422,10 +453,20 @@ def main(argv):
         print(f"check_report: {task_id!r} is not a task or step id", file=sys.stderr)
         return 2
     findings = check(project, task_id)
+    blocking = [f for f in findings if f[0] not in ADVISORY]
     if findings:
         print(f"{task_id}: {len(findings)} finding(s)")
         for kind, detail in sorted(findings):
-            print(f"  {kind:18} {detail}")
+            mark = "  (advisory)" if kind in ADVISORY else ""
+            print(f"  {kind:18} {detail}{mark}")
+        # ADVISORY findings are still PRINTED under --blocking-only. Suppressing
+        # them would make the flag a way to not see something, which is how a
+        # check loses the thing it was built for; it changes the verdict, never
+        # the report.
+        if blocking_only and not blocking:
+            print(f"{task_id}: no blocking findings — every one above is advisory, "
+                  f"a fact about the report that the work does not depend on")
+            return 0
         return 1
     print(f"{task_id}: clean")
     return 0

@@ -222,6 +222,17 @@ evidence where its concurrence would have been nothing.
    saw was a worker reporting `tokens=3000` against a metered `309639` — a
    hundredfold understatement, in good faith, by a process that cannot see the
    counter. Record it; do not edit the worker's figure.
+
+   **And it does not block the step.** `budget-mismatch` is marked `(advisory)`
+   by the check and the verifier runs with `--blocking-only`, so it will not
+   FAIL on one. That is deliberate and it was a live deadlock before it was
+   fixed: this skill forbids correcting the figure, a re-dispatch cannot
+   produce a better one, and a FAIL you may not fix and cannot re-dispatch out
+   of rejects correct work permanently. **If you ever find yourself unable to
+   satisfy two of this pipeline's own rules at once, that is a defect in the
+   rules and an escalation (§5) — never a choice about which one to break.**
+   The supervisor that met this one escalated it, and it is why the flag
+   exists.
 5. **Verify it** (P-18) — dispatch `devteam:verifier` with the step id, the
    pin and the report's `checks:` lines. Nothing is accepted before `PASS`.
    **A verifier runs against the promoted host tree**, never inside a worker's

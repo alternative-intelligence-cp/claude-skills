@@ -132,8 +132,33 @@ where it might be.
    `git -C "$REPO" log -1 --format=%s` begins with the id.
 3. **The report block is well-formed and agrees with the tree:**
    ```bash
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_report.py" "$REPO" T-n
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_report.py" "$REPO" T-n --blocking-only
    ```
+
+   **`--blocking-only`, and the flag is not a way to see less.** Every finding
+   is still printed; the flag decides only which ones are *yours*. One class is
+   marked `(advisory)`: `budget-mismatch`, where the report's token or minute
+   figure disagrees with what the harness metered. **A worker cannot see that
+   counter** — the first one ever metered here reported `tokens=3000` against
+   `309639`, and a later one `15000` against `571986`, both in good faith. The
+   harness's number is authoritative and is already recorded, so the mismatch
+   is a fact about self-reporting (P-17c) and not a claim about the work.
+
+   **Copy every advisory line into your verdict.** It is evidence and it is
+   still going somewhere; it is simply not a FAIL.
+
+   **This flag exists because the rules deadlocked, and a real supervisor found
+   it rather than picking one to break.** `supervise` says a budget-mismatch is
+   recorded and never corrected; this skill said a non-zero exit is a FAIL;
+   `supervise` says a FAIL is re-dispatched once — and a re-dispatch cannot
+   help, because the next worker cannot see the counter either. Correct work,
+   rejected forever, over a finding nobody was allowed or able to fix. That is
+   the rule-pair shape this project has now met ten times, and the fix belongs
+   in the instrument rather than in whichever party was going to give way.
+
+   `model-mismatch` is deliberately **not** advisory and still FAILs: a report
+   naming a model that did not run is a report about a different run, and a
+   result is not comparable across models (P-40).
 4. **The work stayed inside its scope:**
    ```bash
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" "$REPO" T-n

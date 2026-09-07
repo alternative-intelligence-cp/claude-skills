@@ -311,6 +311,89 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- `--blocking-only`, and the deadlock it exists to break (0.2.4) ----
+    #
+    # A worker cannot see the harness's counter, so `budget-mismatch` is a
+    # finding nobody is ALLOWED to fix (`supervise`: record it, never edit the
+    # worker's figure) and nobody CAN fix (a re-dispatch produces the same
+    # estimate). With it blocking, correct work is rejected forever. Found by a
+    # real supervisor on the first end-to-end run.
+    #
+    # Every case here names the exit code AND what stayed on stdout, because
+    # the whole risk in a flag like this is that it becomes a way to not see
+    # something. It must change the verdict and never the report.
+    blocking_cases = [
+        # (name, edits, budget, want_exit, must_print, must_not_print)
+        ("blocking-only-passes-a-budget-mismatch-alone",
+         {"budget": "tokens=15000 minutes=5"},
+         {"tokens": 571986, "minutes": 1.16, "model": "claude-opus-5"},
+         0, "budget-mismatch", None),
+        # The advisory finding is STILL PRINTED. A flag that hid it would be a
+        # way to make a finding go away, which is the opposite of the point.
+        ("blocking-only-still-reports-the-advisory-finding",
+         {"budget": "tokens=15000 minutes=5"},
+         {"tokens": 571986, "minutes": 1.16, "model": "claude-opus-5"},
+         0, "advisory", None),
+        # THE ARM THAT MAKES THE FLAG MEAN ANYTHING. `model-mismatch` is not
+        # advisory: a report naming a model that did not run is a report about
+        # a different run (P-40). Without this case the flag could pass
+        # everything and every case above would still be green.
+        ("blocking-only-still-fails-a-model-mismatch",
+         {"model": "claude-sonnet-5", "budget": "tokens=15000 minutes=5"},
+         {"tokens": 571986, "minutes": 1.16, "model": "claude-haiku-4-5-20251001"},
+         1, "model-mismatch", None),
+        # And a blocking finding beside an advisory one still fails, rather
+        # than the advisory one dragging the verdict down with it.
+        ("blocking-only-fails-when-a-real-finding-sits-beside-an-advisory-one",
+         {"status": "NONSENSE", "budget": "tokens=15000 minutes=5"},
+         {"tokens": 571986, "minutes": 1.16, "model": "claude-opus-5"},
+         1, "budget-mismatch", None),
+        # fp: without the flag, the SAME report still fails. The flag is the
+        # verifier's, not a change to what the check thinks.
+        ("fp-without-the-flag-a-budget-mismatch-still-fails",
+         {"budget": "tokens=15000 minutes=5"},
+         {"tokens": 571986, "minutes": 1.16, "model": "claude-opus-5"},
+         None, "budget-mismatch", None),
+    ]
+    for name, edits, budget, want_exit, must_print, must_not in blocking_cases:
+        root = tempfile.mkdtemp(prefix="devteam-report-blocking-")
+        try:
+            report = REPORT
+            for key, val in edits.items():
+                report = re.sub(rf"^{key}: .*$", f"{key}: {val}", report,
+                                count=1, flags=re.M)
+            build(root, task_file(report=report))
+            sroot = os.path.join(root, "sbox")
+            os.makedirs(os.path.join(sroot, "meta"), exist_ok=True)
+            with open(os.path.join(sroot, "meta", "budget.json"), "w") as fh:
+                json.dump(budget, fh)
+            locks = os.path.join(root, "devteam", ".run", "locks")
+            os.makedirs(locks, exist_ok=True)
+            with open(os.path.join(locks, "T-1.sandbox"), "w") as fh:
+                fh.write(f"T-1 S-1 live2 exited 0 at 2026-09-07T04:57:06 root {sroot}\n")
+            cmd = [sys.executable, CHECK, root, "T-1"]
+            if want_exit is not None:
+                cmd.append("--blocking-only")
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            expect_rc = 1 if want_exit is None else want_exit
+            err = None
+            if proc.returncode != expect_rc:
+                err = f"exit {proc.returncode}, expected {expect_rc}"
+            elif must_print and must_print not in proc.stdout:
+                err = f"stdout never mentions {must_print!r}"
+            elif must_not and must_not in proc.stdout:
+                err = f"stdout still mentions {must_not!r}"
+            if err:
+                failed += 1
+                print(f"FAIL  {name}: {err}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n"):
+                    print(f"        | {line}")
+            else:
+                passed += 1
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    CASES.extend([(c[0],) for c in blocking_cases])
     fp = (sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
           + sum(1 for c in budget_cases if c[0].startswith("fp-")))
     print(f"\ncheck_report control: {passed} passed, {failed} failed, "
