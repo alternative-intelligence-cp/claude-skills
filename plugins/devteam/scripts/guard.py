@@ -239,7 +239,21 @@ def targets(cmd, cwd):
                            f"git {sub}" + (" --amend" if "--amend" in flags else ""),
                            "history")
                 elif sub in GIT_OUTWARD:
-                    yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "outward"
+                    # A fetch from a local BUNDLE FILE reaches nothing. It moves
+                    # objects out of a file on this disk into this repository and
+                    # updates one ref -- the index class exactly, and the same
+                    # power as the `git commit` a claim-holder already has. It is
+                    # how a sandboxed worker's commits reach the host (roadmap
+                    # 0.2.2 L-5), so a supervisor holding the claim must be able
+                    # to run it. Every OTHER fetch stays outward: `git fetch
+                    # origin` moves refs under a claim and reaches the network.
+                    # Judged on the first positional -- the source -- so that a
+                    # refspec merely ending in `.bundle` cannot launder a remote.
+                    if bare and bare[0].endswith(".bundle"):
+                        yield (resolve(gdir if gdir is not None else ".", eff),
+                               f"git {sub} <local bundle>", "index")
+                    else:
+                        yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "outward"
                 elif sub in GIT_INDEX:
                     yield resolve(gdir if gdir is not None else ".", eff), f"git {sub}", "index"
                 elif sub in GIT_TREE:

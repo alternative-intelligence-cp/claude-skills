@@ -43,6 +43,8 @@ Subcommands:
           plan as data. Refuses on a machine `sandbox_probe.py` will not pass.
   run     mount, compose, execute one command inside, extract, tear down
   exec    open + run + close, for a throwaway experiment with no task
+  promote apply this sandbox's commits to the host repository, gated by the
+          task's declared scope, under a lock, and never automatically
   status  what a sandbox is for, and whether anything is alive on it
   close   remove it, or keep it for a post-mortem
 
@@ -61,6 +63,7 @@ message from there and a harness that mixes its own voice into it hands the
 supervisor a report nobody wrote.
 """
 import argparse
+import fcntl
 import glob
 import hashlib
 import json
@@ -621,6 +624,22 @@ else
     printf 'commits-txt exit=%s\n' "$rc2" >> "$META/extract.log"
     [ "$rc2" -eq 0 ] || xrc=1
 
+    # The paths those commits touch, recorded HERE rather than derived at
+    # promotion time. Deriving them on the host would mean fetching the bundle
+    # into a ref BEFORE the gate had passed -- so `--dry-run` could no longer
+    # claim to touch nothing, and the scope would be judged against objects
+    # already admitted to the repository. As a file it is also trustworthy: a
+    # worker cannot reach meta/, because only meta/cmd.sh is bound inside, and
+    # read-only at that.
+    git -C "$MERGED" log --first-parent --format= --name-only "$BASE"..HEAD \
+        > "$META/commit-paths.raw" 2>> "$META/extract.log"
+    rc2=$?
+    sort -u "$META/commit-paths.raw" | sed '/^$/d' > "$META/commit-paths.txt"
+    rm -f "$META/commit-paths.raw"
+    printf 'commit-paths exit=%s paths=%s\n' "$rc2" \
+        "$(wc -l < "$META/commit-paths.txt")" >> "$META/extract.log"
+    [ "$rc2" -eq 0 ] || xrc=1
+
     # 4. L-2.3's evidence. A NON-ZERO exit here is DATA, not a failure: it says
     #    the base is no longer an ancestor of HEAD, which is a rewrite of shared
     #    history below the base and is what `promote-history-rewrite` refuses.
@@ -767,6 +786,7 @@ def cmd_run(args, path=None, doc=None):
     for stale in ("exit.txt", SETUP_FAILED, EXTRACT_FAILED, "status.txt",
                   "status.err", "extract.log", "commits.bundle",
                   "uncommitted-oversize.txt", "changed-names.txt",
+                  "commit-paths.txt", "commit-paths.raw", "promoted.json",
                   "commits.count", "commits.txt", "base-is-ancestor.txt",
                   "uncommitted.patch"):
         try:
@@ -960,6 +980,368 @@ def cmd_close(args):
 
 # --- cli ------------------------------------------------------------------
 
+# --- promotion -------------------------------------------------------------
+#
+# The only path by which anything a worker did reaches the host, and it is
+# never automatic (spec S-7). It is serialised on one lock per repository,
+# gated by the task's DECLARED scope, and applied by cherry-pick rather than
+# by a fast-forward -- at width above one the host HEAD has moved by the time
+# a worker finishes, so its commits must be re-applied, not merged (L-5).
+
+# A commit made inside a sandbox is cited by SUBJECT, never by hash (L-2.2),
+# because cherry-pick rewrites every hash at promotion. This is the form a
+# subject must take to belong to the task the sandbox was opened for.
+SUBJECT = re.compile(r"\A(T-\d+)(?:\.(S-\d+))?:\s+\S")
+
+PROMOTE_REF = "refs/devteam/sandbox/"
+
+
+class Gate:
+    """Every INDEPENDENT finding, and none of the findings it invalidates.
+
+    Every other check in this plugin reports all of its findings, and a caller
+    that must fix one thing, re-run, and be told the next thing pays a round
+    trip per fault. But `one fault, one finding` is a real rule too -- it is
+    why check_plugin registers a skill by its directory before parsing it -- and
+    it is about CASCADES, not about stopping. So: report everything that was
+    measured independently, and suppress what a fired finding has made
+    meaningless. If the history was rewritten below the base, the scope diff is
+    being taken over commits that are not the ones which would be applied, and
+    reporting its verdict would bury the cause among its consequences.
+    """
+
+    def __init__(self):
+        self.findings = []
+        self.dead = set()
+
+    def live(self, name):
+        return name not in self.dead
+
+    def fire(self, name, detail, invalidates=()):
+        if name in self.dead:
+            return False
+        self.findings.append((name, detail))
+        self.dead.update(invalidates)
+        return True
+
+
+def _slurp(path, default=""):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+    except OSError:
+        return default
+
+
+def declared_scope(repo, task):
+    """(state, entries) for a task's `Scope.`, through check_scope's parser.
+
+    Never a second parser: the grammar has one home, and F-118 -- an annotated
+    scope entry that parsed as nothing, and so was a grant nobody had -- is
+    what a second one produces. Also never a string-prefix match; `covers`
+    handles trailing slashes and `./` the way the guard does.
+    """
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    import check_scope
+
+    devteam = os.path.join(repo, "devteam")
+    rel = os.path.join("tasks", f"{task}.md")
+    if not os.path.exists(os.path.join(devteam, rel)):
+        return "no-task-file", []
+    loaded = check_scope.load_tasks(devteam)
+    if not loaded:
+        return "no-task-file", []
+    tasks, _unparsed = loaded
+    if task not in tasks:
+        # The file is on disk and `git ls-files` cannot see it. load_tasks
+        # enumerates tracked files only, so an uncommitted task file declares
+        # no scope at all -- and an empty scope read as a permissive one is
+        # exactly F-118's shape. Measured against the one real run, every task
+        # file was tracked; but nothing commits one at CREATION (a worker
+        # commits it when it appends its REPORT), so the window is real.
+        return "untracked", []
+    entries = []
+    for raw in tasks[task][2]:
+        e = check_scope.normalise(raw)
+        if e:
+            entries.append(e)
+    return ("ok" if entries else "no-scope"), entries
+
+
+def covers_declared(entries, path, task):
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    import check_scope
+    # A task always owns its own file: that is where its execution record and
+    # its REPORT block are appended, by the very commit being promoted (P-16).
+    if path == os.path.join("devteam", "tasks", f"{task}.md"):
+        return True
+    return check_scope.covers(entries, path)
+
+
+def cmd_promote(args):
+    path = find_sandbox(args.id, getattr(args, "repo", None))
+    meta = os.path.join(path, "meta")
+    doc = load_plan(path)
+    repo, task, base, sid = doc["repo"], doc["task"], doc["base"], doc["id"]
+    gate = Gate()
+    say = lambda m: print(m)
+
+    if not task:
+        raise SystemExit(
+            f"sandbox: {sid} was opened with no --task, so there is no declared "
+            "scope to gate a promotion against. A throwaway sandbox is not "
+            "promotable; that is what `exec` is for.")
+
+    # -- 1. was anything captured at all -----------------------------------
+    if os.path.exists(os.path.join(meta, EXTRACT_FAILED)):
+        gate.fire("promote-extraction-failed",
+                  "the extraction did not complete; see meta/extract.log. "
+                  "What the worker produced was not captured, so nothing here "
+                  "can be trusted to be all of it",
+                  invalidates=("promote-base-disagreement", "promote-no-task-file",
+                               "promote-task-file-untracked", "promote-no-scope",
+                               "promote-history-rewrite", "promote-no-commits",
+                               "promote-foreign-subject", "promote-out-of-scope",
+                               "promote-uncommitted"))
+
+    # -- 2. the base has two homes; make the disagreement a finding ---------
+    on_disk = _slurp(os.path.join(meta, "base.sha")).strip()
+    if gate.live("promote-base-disagreement") and on_disk != (base or ""):
+        gate.fire("promote-base-disagreement",
+                  f"meta/base.sha is {on_disk or '(empty)'} and "
+                  f"plan.json['base'] is {base or '(empty)'}. Two homes for one "
+                  "fact have disagreed, and every check below is taken against "
+                  "one of them",
+                  invalidates=("promote-no-task-file", "promote-task-file-untracked",
+                               "promote-no-scope", "promote-history-rewrite",
+                               "promote-no-commits", "promote-foreign-subject",
+                               "promote-out-of-scope", "promote-uncommitted"))
+
+    # -- 3. the declared scope ---------------------------------------------
+    entries = []
+    if gate.live("promote-no-task-file"):
+        state, entries = declared_scope(repo, task)
+        if state == "no-task-file":
+            gate.fire("promote-no-task-file",
+                      f"devteam/tasks/{task}.md does not exist, so this sandbox "
+                      "has no declared scope to be gated against",
+                      invalidates=("promote-task-file-untracked", "promote-no-scope",
+                                   "promote-out-of-scope"))
+        elif state == "untracked":
+            gate.fire("promote-task-file-untracked",
+                      f"devteam/tasks/{task}.md exists but git does not track it, "
+                      "so its `Scope.` is invisible to the parser and reads as "
+                      f"empty. Fix: `git -C {repo} add devteam/tasks/{task}.md` "
+                      "and commit it, then promote again",
+                      invalidates=("promote-no-scope", "promote-out-of-scope"))
+        elif state == "no-scope":
+            gate.fire("promote-no-scope",
+                      f"devteam/tasks/{task}.md declares no parseable `Scope.` "
+                      "entry. An empty scope is refused rather than read as "
+                      "permission: a grant nobody wrote is F-118",
+                      invalidates=("promote-out-of-scope",))
+
+    # -- 4. history below the base -----------------------------------------
+    anc = _slurp(os.path.join(meta, "base-is-ancestor.txt")).strip()
+    if gate.live("promote-history-rewrite") and anc != "0":
+        # Anything but 0, not just 1. `merge-base --is-ancestor` exits 128 on a
+        # base the repository does not have, which is neither "is an ancestor"
+        # nor "is not" -- and a gate written as `== 1` would read that as no
+        # finding at all and promote over an undetermined history.
+        why = ("the base is no longer an ancestor of the sandbox HEAD"
+               if anc == "1" else
+               f"the ancestry could not be determined (exit {anc or 'missing'})")
+        gate.fire("promote-history-rewrite",
+                  f"{why}. Commits at or below the base were rewritten inside "
+                  "the sandbox. Above the base a rewrite is the worker's own "
+                  "business; below it, it is the host's shared history wearing "
+                  "new work as a disguise (L-2.3, P-12b)",
+                  invalidates=("promote-foreign-subject", "promote-out-of-scope"))
+
+    # -- 5. what there is to promote ---------------------------------------
+    bundle = os.path.join(meta, "commits.bundle")
+    commits = [l for l in _slurp(os.path.join(meta, "commits.txt")).split("\n") if l.strip()]
+    remainder = _slurp(os.path.join(meta, "uncommitted.patch")).strip()
+    status = [l for l in _slurp(os.path.join(meta, "status.txt")).split("\n") if l.strip()]
+    oversize = [l for l in _slurp(os.path.join(meta, "uncommitted-oversize.txt")).split("\n")
+                if l.strip()]
+
+    if gate.live("promote-no-commits") and not os.path.exists(bundle) \
+            and not remainder and not status:
+        gate.fire("promote-no-commits",
+                  "the sandbox produced no commits and left nothing uncommitted. "
+                  "There is nothing to promote, which is a report about the "
+                  "worker rather than about this command")
+
+    # -- 6. whose commits are these ----------------------------------------
+    if gate.live("promote-foreign-subject"):
+        foreign = []
+        for line in commits:
+            sha, _, subject = line.partition(" ")
+            m = SUBJECT.match(subject)
+            if not m:
+                foreign.append(f"{sha[:8]} {subject[:60]!r} is not of the form "
+                               "`T-n: ...` or `T-n.S-m: ...`")
+            elif m.group(1) != task:
+                foreign.append(f"{sha[:8]} {subject[:60]!r} names {m.group(1)}, "
+                               f"but this sandbox was opened for {task}")
+        if foreign:
+            gate.fire("promote-foreign-subject",
+                      "a commit in this sandbox does not belong to its task: "
+                      + "; ".join(foreign))
+
+    # -- 7. the scope gate itself ------------------------------------------
+    if gate.live("promote-out-of-scope"):
+        touched = [l.strip() for l in
+                   _slurp(os.path.join(meta, "commit-paths.txt")).split("\n") if l.strip()]
+        outside = sorted(p for p in touched if not covers_declared(entries, p, task))
+        if outside:
+            gate.fire("promote-out-of-scope",
+                      f"{len(outside)} path(s) outside the declared scope "
+                      f"{entries or '[]'}: " + ", ".join(outside[:12])
+                      + (" ..." if len(outside) > 12 else ""))
+
+    # -- 8. a step that did not end committed -------------------------------
+    if gate.live("promote-uncommitted") and (remainder or status):
+        # Read from status.txt as well as the patch, deliberately. A remainder
+        # too large for git to diff leaves the patch EMPTY while the work is
+        # still sitting there, and a gate that read only the patch would then
+        # promote the commits and call a partial result complete -- which is
+        # the exact thing this finding exists to prevent.
+        detail = (f"{len(status)} path(s) uncommitted when the sandbox ended: "
+                  + ", ".join(s[3:] for s in status[:12])
+                  + (" ..." if len(status) > 12 else ""))
+        if oversize:
+            detail += (f"; {len(oversize)} of them too large to appear in "
+                       "uncommitted.patch and named in meta/uncommitted-oversize.txt")
+        gate.fire("promote-uncommitted", detail +
+                  ". A step is supposed to end committed (P-16), so this worker "
+                  "either died or stopped early; promoting its commits while "
+                  "discarding this would make a partial result look complete. "
+                  "The supervisor decides: re-dispatch, or `close --keep` and "
+                  "read the patch")
+
+    # -- 9. the host, before anything is applied ----------------------------
+    # A dirty INDEX, and only the index. MEASURED: cherry-pick exits 128 on a
+    # staged change to an unrelated file, and exits 0 with an unstaged change or
+    # an untracked file present. The manager and the supervisors share one
+    # worktree host-side, so an unrelated unstaged edit is the NORMAL state --
+    # gating on `status --porcelain` would refuse real promotions routinely, and
+    # a gate that blocks legitimate work is a gate somebody switches off.
+    # Staged work is different in kind: promoting over it is F-17's class, where
+    # the manager's own `git add -A` swept up a worker's commit.
+    unstaged, untracked = [], []
+    rc_idx, _ = _git_rc(repo, "diff", "--cached", "--quiet")
+    for line in git_out(repo, "status", "--porcelain").split("\n"):
+        if not line.strip():
+            continue
+        (untracked if line.startswith("??") else unstaged).append(line[3:])
+    if rc_idx != 0:
+        gate.fire("promote-host-index-dirty",
+                  "the host repository has staged changes. cherry-pick refuses "
+                  "over a dirty index, and promoting over somebody's staged work "
+                  "is how a commit gets stolen (F-17, F-66). Commit or reset the "
+                  "index, then promote again")
+
+    # -- report -------------------------------------------------------------
+    for name, detail in gate.findings:
+        say(f"{name}: {detail}")
+    if gate.findings:
+        say(f"promote {sid}: REFUSED -- {len(gate.findings)} finding(s). "
+            "Nothing was applied and nothing was written. The way past a "
+            "finding is a decision recorded in the task file and a re-run, "
+            "never a flag.")
+        return 1
+
+    n = len(commits)
+    if args.dry_run:
+        say(f"promote {sid}: gate clean. Would cherry-pick {n} commit(s) onto "
+            f"{git_out(repo, 'rev-parse', '--short', 'HEAD')}:")
+        for line in commits:
+            sha, _, subject = line.partition(" ")
+            say(f"  {sha[:8]} {subject}")
+        # Deliberately NOT a conflict prediction. `git merge-tree --write-tree`
+        # would give one without touching the repository, and was measured to
+        # work -- but it performs a MERGE, while the apply performs a sequence
+        # of per-commit three-way applies, and the two can disagree. A dry run
+        # that says "clean" and an apply that conflicts is worse than one that
+        # says "not determinable", because the first is believed. Measured,
+        # considered, declined.
+        say("  conflicts are not determinable without applying; this dry run "
+            "did not test for them")
+        if unstaged or untracked:
+            say(f"  host has {len(unstaged)} unstaged and {len(untracked)} "
+                "untracked path(s) -- neither blocks a cherry-pick")
+        return 0
+
+    return _apply(repo, meta, sid, base, task, commits, unstaged, untracked, say)
+
+
+def _git_rc(root, *args):
+    p = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
+    return p.returncode, (p.stdout + p.stderr).strip()
+
+
+def _apply(repo, meta, sid, base, task, commits, unstaged, untracked, say):
+    ref = PROMOTE_REF + sid
+    lockdir = os.path.join(repo, "devteam", ".run", "locks")
+    os.makedirs(lockdir, exist_ok=True)
+    lock = os.path.join(lockdir, "promote.lock")
+    # One lock per repository, held for the apply only (L-2.4). Two supervisors
+    # promoting at once cannot conflict on CONTENT -- P-12 makes their scopes
+    # disjoint -- but they race on the ref update, and the loser's cherry-pick
+    # lands on a HEAD that moved underneath it.
+    with open(lock, "w") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        lk.write(f"{os.getpid()} {sid} {time.strftime('%Y-%m-%dT%H:%M:%S')}\n")
+        lk.flush()
+        before = git_out(repo, "rev-parse", "HEAD")
+        rc, out = _git_rc(repo, "fetch", os.path.join(meta, "commits.bundle"),
+                          f"HEAD:{ref}")
+        if rc != 0:
+            say(f"promote-fetch-failed: {out}")
+            return 1
+        rc, out = _git_rc(repo, "cherry-pick", "--allow-empty",
+                          "--keep-redundant-commits", f"{base}..{ref}")
+        if rc != 0:
+            conflicted = git_out(repo, "diff", "--name-only", "--diff-filter=U")
+            _git_rc(repo, "cherry-pick", "--abort")
+            say("promote-conflict: cherry-pick stopped on "
+                + (", ".join(conflicted.split("\n")) if conflicted else "no named path")
+                + f". The host is back at {before[:8]} and {ref} is left in place "
+                "for inspection; `git -C <repo> update-ref -d " + ref +
+                "` removes it when you are done.\n  " + out.strip()[:400])
+            return 1
+        after = git_out(repo, "rev-parse", "HEAD")
+        new = [l for l in git_out(repo, "log", "--reverse", "--format=%H %s",
+                                  f"{before}..{after}").split("\n") if l.strip()]
+        _git_rc(repo, "update-ref", "-d", ref)
+
+    mapped = []
+    for i, line in enumerate(commits):
+        old, _, subject = line.partition(" ")
+        newsha = new[i].split(" ", 1)[0] if i < len(new) else None
+        mapped.append({"old": old, "new": newsha, "subject": subject})
+        say(f"promoted {old[:8]} -> {(newsha or '?')[:8]} {subject}")
+    with open(os.path.join(meta, "promoted.json"), "w") as fh:
+        json.dump({"sandbox": sid, "task": task, "base": base,
+                   "head_before": before, "head_after": after,
+                   "promoted": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                   "commits": mapped,
+                   # Recorded so a later conflict is diagnosable rather than
+                   # mysterious: neither of these blocks a cherry-pick, but
+                   # both change what the tree looked like when it happened.
+                   "host_unstaged_at_promotion": unstaged,
+                   "host_untracked_at_promotion": untracked}, fh, indent=2)
+    say(f"promote {sid}: {len(mapped)} commit(s) applied; host {before[:8]} -> "
+        f"{after[:8]}. The sandbox is NOT closed -- the supervisor decides that, "
+        "and `close --keep` preserves the worker's transcript.")
+    return 0
+
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="sandbox.py", description=__doc__.split("\n")[0],
@@ -983,6 +1365,13 @@ def main(argv=None):
     p.add_argument("--timeout", type=int)
     p.add_argument("--id")
 
+    p = sub.add_parser("promote", help="apply a sandbox's commits to the host")
+    p.add_argument("id")
+    p.add_argument("--repo")
+    p.add_argument("--dry-run", action="store_true",
+                   help="report the gate's findings and the commits that would "
+                        "be applied, and touch nothing")
+
     p = sub.add_parser("status", help="what a sandbox is for, and if it is busy")
     p.add_argument("id")
     p.add_argument("--repo")
@@ -1005,7 +1394,7 @@ def main(argv=None):
         raw, cmd = raw[:i], raw[i + 1:]
     args = ap.parse_args(raw)
     args.cmd = cmd
-    if cmd and args.verb in ("open", "status", "close"):
+    if cmd and args.verb in ("open", "status", "close", "promote"):
         raise SystemExit(f"sandbox: `{args.verb}` takes no command")
     if args.verb in ("open",):
         args.task = args.task or None
@@ -1017,6 +1406,8 @@ def main(argv=None):
     if args.verb == "exec":
         args.task = args.step = None
         return cmd_exec(args)
+    if args.verb == "promote":
+        return cmd_promote(args)
     if args.verb == "status":
         return cmd_status(args)
     return cmd_close(args)

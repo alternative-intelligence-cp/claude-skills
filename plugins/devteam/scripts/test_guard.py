@@ -99,6 +99,17 @@ CASES = [
     ("deny-git-checkout-dot-at-the-project-root", bash("git checkout ."), WRITER_SESSION, True),
     ("deny-git-push-is-outward-facing", bash("git push origin main"), WRITER_SESSION, True),
     ("deny-git-fetch-moves-refs-under-a-claim", bash("git fetch origin"), WRITER_SESSION, True),
+    # Promotion fetches a sandbox's commits out of a local bundle file (roadmap
+    # 0.2.2 L-5). That reaches nothing and must be permitted to the session
+    # holding the claim; a fetch from anywhere else must stay refused, and the
+    # pair is here so the distinction is proved rather than reasoned about.
+    ("fp-git-fetch-from-a-local-bundle-is-index-class",
+     bash("git fetch /tmp/devteam-sandbox/x/meta/commits.bundle "
+          "HEAD:refs/devteam/sandbox/x"), WRITER_SESSION, False),
+    ("deny-git-fetch-from-a-remote-with-a-refspec-is-still-outward",
+     bash("git fetch origin main:refs/devteam/sandbox/x"), WRITER_SESSION, True),
+    ("deny-git-fetch-a-refspec-ending-in-bundle-cannot-launder-a-remote",
+     bash("git fetch origin main:refs/heads/x.bundle"), WRITER_SESSION, True),
 
     # --- FALSE-POSITIVE CONTROLS: must be ALLOWED --------------------------
     # Splitting git by what it can DESTROY is the point: judged as one set,
