@@ -305,6 +305,28 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.1 — the harness | 58 | `9.34 M` | `$9.81` | `0.80%` (read) |
 > | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
 >
+> **The dollar figures are exact and every PERCENTAGE here is uncertain by up
+> to a factor of three. Corrected 2026-09-07 by the owner, who spotted it.**
+> The display read `~87%` when this cycle began and `89%` after three completed
+> subcycles whose measured costs sum to **`$35.55`**. At 0.2.0's anchor of
+> `$12.23 = 1%` that spend should have moved it about 2.9 points. It moved 2.
+>
+> The reason is that **every percentage in this record descends from a single
+> integer display tick.** 0.2.0's `1%` was the display going `87% → 88%`, which
+> at whole-percent resolution is any true value from just over 0 to just under
+> 2 — so the anchor was never as precise as three subcycles have been quoting
+> it, this table included. The aggregate is the better instrument because its
+> rounding error is amortised across three subcycles instead of resting on one
+> tick: `$35.55` for a true movement somewhere in `(1.0, 3.0)` points gives
+> **`$12` to `$35` per percent**. Every `%` below is therefore the pessimistic
+> end of a range whose optimistic end is about a third of it.
+>
+> **So quote the dollars, which are measured, and quote the percentage as a
+> range or as an upper bound.** The unit to REPORT in is still percent — it is
+> what the owner can act on — but a single subcycle's share cannot be measured
+> by a display with whole-percent granularity, and three of us in a row have
+> written one down as though it could.
+>
 > **Derive the share from DOLLARS against a dollar anchor, never from tokens
 > and never from the display's own movement.** 0.2.2 first published `≈0.9%`
 > from a token ratio and the reading said `1.10%` — the same error 0.2.1
