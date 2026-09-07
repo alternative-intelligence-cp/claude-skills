@@ -382,6 +382,22 @@ the next cycle's model can be corrected rather than re-guessed (P-41).
   Reading it is the point.
 - **Do not write outside this repository.** The owner runs concurrent sessions
   in sibling repositories; a write there is a write into work you cannot see.
+- **An authorisation is scoped by the question that obtained it, so record the
+  framing beside the grant.** Two sessions asked the owner for the same
+  permission within one hour — one in prose, one as explicit options — and got
+  two different grants. Neither answer was wrong: he answers each question as
+  asked, precisely, which is what a literal communicator does. The prose ask
+  produced "we can proceed" with no model and no ceiling, and the reader of it
+  (me) then supplied a scope he had not stated. The options ask produced a
+  model, a run count, a spend ceiling, an instruction to stop and re-ask at it,
+  and *list only, no read, no write* chosen over a read option sitting right
+  beside it.
+  **So: when the scope of a permission matters, ask with options rather than in
+  prose; the narrower, more explicit grant is the operative one; and never let
+  one session inherit another's authorisation as though it were general.** If a
+  grant turns out too narrow to make a control actually control, go back and
+  say so — do not widen it quietly because asking again is inconvenient, and do
+  not keep a control that proves nothing because widening needs another ask.
 - **When a subcycle tells you to do something impossible, stop and record it
   in the subcycle file** under a `## Findings` heading, with what you tried.
   Do not work around it; the workaround is the defect nobody will find.
