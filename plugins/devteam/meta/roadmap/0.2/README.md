@@ -294,6 +294,22 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > not only in tokens — the owner's display reports percent, so a correction
 > recorded in tokens is one he cannot check. See
 > [`../done/0.2.0.md`](../done/0.2.0.md) for the worked figures.
+>
+> **Measured so far, and what it says about sequencing.** Requests are
+> `MEASURED` by `scripts/session_cost.py` from each session's own transcript;
+> percentages come from the owner's `/usage` and are marked where they do not.
+>
+> | Subcycle | Requests | Processed | Cost | Share of a week |
+> |---|---|---|---|---|
+> | 0.2.0 — probes | 104 | `~15.8 M` | `$12.23` | `1%` (read) |
+> | 0.2.1 — the harness | 58 | `9.34 M` | `$9.81` | `0.80%` (read) |
+> | 0.2.2 — extraction and promotion | 71 | `11.24 M` | — | `≈0.9%` (**derived, not read**) |
+>
+> A cold session spent 104 requests where a handed-off one spent 58 and 71, so
+> **the handoff removes the exploration rather than the work** — and 58 is not
+> a floor: 0.2.2 built two mechanisms and 22 controls where 0.2.1 built one and
+> 29. Size the next subcycle by what it BUILDS, and treat the handoff as
+> removing a roughly fixed 40-odd requests of orientation, not as a multiplier.
 
 
 `REASONED` — nothing in this cycle has been measured, and cycle 0.1's lesson
