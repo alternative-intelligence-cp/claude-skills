@@ -315,18 +315,45 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > `0.91–1.82%`. Both predict a move that did not happen, and a prediction of
 > three points against a movement of zero is not a rounding error.
 >
-> Something other than dollars drives that gauge, or it does not resolve
-> linearly near its top, and no session can tell which from the inside. **Do not
-> fit a fifth anchor to it.** Fitting is how the four rows above acquired their
-> false precision, and a series whose largest spend produced its smallest
-> movement is not one to fit a line through.
+> **The owner supplied the reason, and it is two reasons.** He offered the cause
+> as a guess and it is labelled that way in `0.2.4.md`; what follows is enough
+> to stop anyone re-deriving the error.
+>
+> 1. **The numerator may be in the wrong currency.** `MEASURED`, from him: he
+>    pays **$200 a month** on a subscription, a single week's `/usage` total
+>    would be *"well over $200"*, and the figures matched real billing only when
+>    he had fallen through to **API overage**. His hypothesis — `REASONED`, his
+>    words, his caveat — is that the dollar column is **API-equivalent pricing**.
+>    If so it is not convertible to subscription quota by any fixed ratio,
+>    because the ratio moves with model mix and cache profile, which differ
+>    between every row above.
+> 2. **The denominator is not constant.** `MEASURED`: **a 50% limit boost is
+>    active through September 13.** A boost changes what `1%` *is* — and **not
+>    one reading in this table records whether a boost was active when it was
+>    taken.** Chaining anchors across a changed denominator produces exactly
+>    what happened: arithmetic that is internally consistent and disconnected
+>    from the display.
+>
+> Neither alone explains a zero move — a 50% boost would turn the predicted
+> `3.42%` into roughly `2.3%`. Both together do, and **neither was known to any
+> of the four sessions that quoted a percentage.**
+>
+> **Do not fit a fifth anchor to it.** Fitting is how the four rows above
+> acquired their false precision, and a series whose largest spend produced its
+> smallest movement is not one to fit a line through.
+>
+> **And never tell the owner a subcycle "cost" its dollar figure.** Under a
+> subscription that number is a valuation, not his bill. Report it as a size
+> measure comparable *between sessions*, which is the one thing it is good for.
 >
 > **What to write instead, and it is less work rather than more:**
 >
 > 1. **Dollars and requests**, both read from the owner's `/usage`. Exact, and
 >    comparable across subcycles.
-> 2. **The gauge reading before and after, as raw observations.** Do not divide
->    them by anything.
+> 2. **The gauge reading before and after, as raw observations** — **and
+>    whether a limit boost is active when you read it.** That last line is one
+>    sentence, costs nothing, and its absence is the whole reason five readings
+>    cannot be compared with each other.
 > 3. **No share of a week.** Not from tokens, not from dollars, not from a
 >    chained anchor. Every session that has computed one has been wrong.
 >
