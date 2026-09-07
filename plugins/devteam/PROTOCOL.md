@@ -599,6 +599,52 @@ does not.
 
 ---
 
+**P-45 — A task graph is acyclic, and a probe names what it de-risks.** Two
+halves of one rule: a task may not, through its `Depends-on.` closure, wait on
+itself, and a task whose `Kind.` is `probe` or `spike` carries an `Informs.`
+naming the requirement or goal it reduces uncertainty about.
+
+*Why both here.* A cycle is not a scheduling inconvenience — **no task inside
+one can ever start**, and the loop will sit at width zero reporting that it is
+waiting. And a probe that de-risks nothing identifiable is work nobody can
+judge: it cannot be verified, because there is no statement it was supposed to
+make truer, and it cannot be cut, because nobody can say what would be lost.
+
+*Written in 0.2.6.* `dependency-cycle` and `unjustified-task` were both being
+enforced by `check_trace` against no rule at all. Their false positives had
+nowhere to be adjudicated, which is the condition L-6.1 names.
+
+**P-46 — A requirement rewritten three or more times is re-opened for shape
+review, not merely rewritten again.** The count is the trigger; the review is
+the remedy. What the review asks is whether the requirement is **enumerating
+cases where it should state a rule** — the failure mode a repeatedly-patched
+requirement almost always has.
+
+*Why a rule and not a warning.* `re-litigated-requirement` shipped for a whole
+cycle with a docstring conceding it reported *"not a defect: a signal"*. A
+check that reports a non-defect is exactly what L-6.1 targets: the reader has
+no action, so the finding is either ignored or tuned away, and both outcomes
+lose the signal. Naming the action the count triggers is what makes the count
+worth measuring.
+
+**P-47 — A tracked artifact contains only what a reader can see, and no
+credential.** No absolute home path, no token, key or private key, and no
+control character outside tab and newline.
+
+*Why the two belong together.* Both are the same defect — **content that is
+present in the file and absent from the reading of it**. A credential is read
+by a machine and not by the reviewer skimming the diff; a control character is
+read by neither and can change what the surrounding text appears to say. The
+leak half has been the highest-severity class in the pipeline since cycle 0.1
+and had no rule behind it, so a project asking *why* it may not commit a home
+path had nothing to be pointed at.
+
+*Not the same as a check being unable to read a file.* A file the checker
+cannot decode is the checker unable to answer, which is exit 2, not a finding.
+0.2.6 withdrew `unreadable` and `not-utf8` from `check_refs`'s findings for
+that reason and moved them to the exit-2 path.
+
+
 ## 8. Permissions, models and budget
 
 **P-38 — Permissions are declared, minimal and justified, and the client is

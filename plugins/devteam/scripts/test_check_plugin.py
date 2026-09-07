@@ -39,7 +39,48 @@ FORMATS = """# The formats
 REFS = '''# a scanner
 KNOWN = {"R", "T"}
 EXTERNAL = {"P"}
+
+
+def scan():
+    findings = []
+    add = lambda kind, where, detail: findings.append((kind, where, detail))
+    seen = set()
+    seen.add("not-an-emit")          # set.add() is a different thing entirely
+    add("alpha-finding", "x", "y")
+    findings.append(("beta-finding", "x", 0, "y"))
+    return findings
 '''
+
+# The fixture's docs/CHECKS.md is built with a REGEX over the copied scripts,
+# not with check_plugin's own AST walker. A control that derived its expected
+# set with the instrument under test would agree with it by construction and
+# could never fail -- the vacuous-control shape 0.2.5 caught by mutating.
+CHECKS_HEAD = "# Every finding class, and the rule whose two sides it compares\n"
+
+
+def checks_md(plugin, extra_rows="", drop=()):
+    import re as _re
+    out = [CHECKS_HEAD]
+    for script in ("check_refs.py", "check_plugin.py"):
+        path = os.path.join(plugin, "scripts", script)
+        if not os.path.isfile(path):
+            continue
+        src = open(path, encoding="utf-8").read()
+        names = []
+        for m in _re.finditer(r'(?<![.\w])add\(\s*"([a-z][a-z0-9-]*)"', src):
+            if m.group(1) not in names:
+                names.append(m.group(1))
+        for m in _re.finditer(r'findings\.append\(\(\s*"([a-z][a-z0-9-]*)"', src):
+            if m.group(1) not in names:
+                names.append(m.group(1))
+        out.append(f"\n## `{script}` — {len(names)} classes\n\n")
+        out.append("| Class | Rule | The two sides | Verdict |\n|---|---|---|---|\n")
+        for n in names:
+            if n in drop:
+                continue
+            out.append(f"| `{n}` | P-1 | one list ↔ the other | `enforces` |\n")
+    out.append(extra_rows)
+    return "".join(out)
 
 AGENT = """---
 name: {name}
@@ -68,6 +109,8 @@ def build(mutate=None):
     w("scripts/test_check_refs.py", "# its control\n")
     w(".claude-plugin/plugin.json", json.dumps({"name": "devteam", "version": "0.1.0"}))
     shutil.copy2(REAL, os.path.join(plugin, "scripts", "check_plugin.py"))
+    os.makedirs(os.path.join(plugin, "docs"), exist_ok=True)
+    w("docs/CHECKS.md", checks_md(plugin))
     if mutate:
         mutate(plugin)
     return root, plugin
@@ -139,6 +182,68 @@ CASES = [
     ("fp-three-letter-prefixes-do-not-need-reserving",
      lambda p: w(p, "templates/FORMATS.md",
                  FORMATS + "\nAudit findings use `COR-n`, `SEC-n`, `HYG-n`.\n"),
+     set()),
+    # --- unruled-finding / stale-row (L-6.1, 0.2.6) -----------------------
+    # A check is legitimate only when it enforces a rule that exists. These two
+    # keep docs/CHECKS.md and the code equal in BOTH directions: a class with
+    # no row names no rule, and a row with no class sends a reader looking for
+    # a check that is not there.
+    ("unruled-finding",
+     lambda p: w(p, "docs/CHECKS.md", checks_md(p, drop=("alpha-finding",))),
+     {"unruled-finding"}),
+    ("unruled-finding-append-arm",
+     lambda p: w(p, "docs/CHECKS.md", checks_md(p, drop=("beta-finding",))),
+     {"unruled-finding"}),
+    ("stale-row",
+     lambda p: w(p, "docs/CHECKS.md", checks_md(p) +
+                 "| `ghost-finding` | P-1 | nothing ↔ nothing | `enforces` |\n"),
+     {"stale-row"}),
+    # THE TRIPWIRE. A parser that silently skipped a non-literal class name
+    # would handle set.add() and the lambda definition correctly by accident
+    # and would ALSO go blind to a genuine emit site written with a computed
+    # name -- exactly the class most likely to need a rule. It must fail loudly.
+    ("unruled-finding-computed-class-name",
+     lambda p: w(p, "scripts/check_refs.py", REFS + '''
+
+def more(kind):
+    findings = []
+    add = lambda k, w_, d: findings.append((k, w_, d))
+    add(kind, "computed", "class name is not a literal")
+    return findings
+'''),
+     {"unruled-finding"}),
+
+    # --- FALSE-POSITIVE TWINS for the above -------------------------------
+    # The skip must be real: this control's own fixtures are partial plugin
+    # trees, and reporting "CHECKS.md is missing" on a tree with no docs/ at
+    # all would be the check answering a question nobody asked (P-35b).
+    ("fp-no-docs-directory-skips-the-check",
+     lambda p: shutil.rmtree(os.path.join(p, "docs")),
+     set()),
+    ("fp-a-row-may-carry-any-rule-text",
+     lambda p: w(p, "docs/CHECKS.md",
+                 checks_md(p).replace("| P-1 |", "| `FORMATS.md` §Whatever |")),
+     set()),
+    ("fp-set-add-and-the-lambda-are-not-emit-sites",
+     lambda p: w(p, "docs/CHECKS.md", checks_md(p)),
+     set()),
+    # AN ORDINARY LIST APPEND IS NOT AN EMIT SITE, and this case exists because
+    # the first draft of the parser accepted ANY `.append((tuple))`. Two real
+    # ones -- `out.append((path, n, text))` in check_report and
+    # `unparsed.append((rel, n, line))` in check_scope -- then looked like emit
+    # sites with a computed class, and the tripwire fired against its own
+    # author on its first run. Without this case the mutation that widens the
+    # arm back out survives the whole suite: nothing else in the fixture
+    # appends a tuple to a list that is not `findings`.
+    ("fp-an-ordinary-list-append-is-not-an-emit-site",
+     lambda p: w(p, "scripts/check_refs.py", REFS + '''
+
+def collect(paths):
+    out = []
+    for n, path in enumerate(paths):
+        out.append((path, n, "not a finding"))
+    return out
+'''),
      set()),
     ("fp-rule-cited-in-prose-and-parens",
      lambda p: w(p, "PROTOCOL.md", PROTOCOL + "\nP-1 and P-2 are both cited here.\n"),

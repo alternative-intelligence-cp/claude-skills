@@ -11,21 +11,11 @@ A task is LIVE when its own title line says RUNNING. That is the same source
 of truth stale-claim recovery reads (P-14), so the two can never disagree --
 which they could if this parsed the board's table separately.
 
-Findings:
-
-  overlapping-scope   two live tasks whose declared scopes intersect. Checked
-                      BEFORE dispatch, never discovered afterwards
-  undeclared-write    a task's commits touched a path outside its scope
-  empty-scope         a task declares no scope and so cannot be claimed safely
-  scope-escapes-tree  a scope entry that leaves the project root
-  unparseable-scope-entry  a list item under `Scope.` that is not a bare path.
-                      It declared nothing and was previously skipped in
-                      silence, so the file and the checker disagreed about how
-                      many paths a task owned
-  foreign-write       an uncommitted path outside every live scope, while at
-                      least one task is claimed. Since the guard polices only
-                      this run's own agents, a write by anybody else is
-                      reported rather than refused
+The finding classes it emits, and the rule each enforces, are in
+docs/CHECKS.md -- one home (P-34). This docstring deliberately does not
+list them: it used to, and ten classes were emitted, controlled, and
+absent from the lists here. `unruled-finding` in check_plugin.py keeps
+docs/CHECKS.md and the code equal in both directions.
 
 Usage:  check_scope.py <project> [T-n]
         no task id: pairwise overlap among every live task

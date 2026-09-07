@@ -5,25 +5,15 @@ The plugin imposes a discipline on the projects it runs; this holds it to the
 same one. Every finding here is a diff between two lists (P-4) -- what is
 referenced against what exists.
 
-  missing-skill        an agent preloads a skill that does not exist
-  name-mismatch        a skill's directory and its frontmatter name disagree
-  bad-frontmatter      a skill or agent with no parseable frontmatter, or no
-                       name/description
-  missing-script       a skill, agent or hook names a script that is not there
-  unknown-rule         a P-n cited that PROTOCOL.md does not declare
-  uncontrolled-check   a check script with no negative control beside it (P-35)
-  broken-link          a relative markdown link whose target does not exist
-  bad-manifest         plugin.json or the marketplace entry does not resolve
-  template-ships-a-finding
-                       a freshly scaffolded project reports a finding before
-                       any work has been done -- almost always an identifier in
-                       an installed template that resolves HERE and nowhere
-                       else, or one invented to illustrate a grammar
-  template-scaffold-fails
-                       setup.py could not scaffold a fresh project at all
+The finding classes it emits, and the rule each enforces, are in
+docs/CHECKS.md -- one home (P-34). This docstring deliberately does not
+list them: it used to, and ten classes were emitted, controlled, and
+absent from the lists here. `unruled-finding` in check_plugin.py keeps
+docs/CHECKS.md and the code equal in both directions.
 
 Exit 0 clean, 1 findings, 2 could not run.
 """
+import ast
 import json
 import os
 import re
@@ -58,6 +48,99 @@ def walk_md(root):
 
 class _SkipScaffold(Exception):
     """The scaffold check's inputs are not present in this tree."""
+
+
+# --- docs/CHECKS.md <-> the code -------------------------------------------
+# The classes a check emits are read from its AST, never from its docstring.
+# The docstrings used to carry their own lists and TEN classes were emitted,
+# controlled, and absent from them; the parsing convention (two leading spaces,
+# a hyphenated name) silently dropped both single-word classes and the longest
+# names, giving 44, 46 or 47 depending on how it was written against 57 from
+# the AST. A check taking the docstring as its declared side would have been
+# blind to exactly the classes with no rule written -- the instrument answering
+# an adjacent question (P-35b), inside the check added to catch that shape.
+
+CHECKS_MD = os.path.join(PLUGIN, "docs", "CHECKS.md")
+EMITTERS = ("check_trace.py", "check_refs.py", "check_report.py",
+            "check_scope.py", "check_plugin.py")
+
+
+class UncountableEmit(Exception):
+    """An emit site whose class name is not a string literal."""
+
+
+def emitted_classes(path):
+    """The finding classes a check script emits, from its AST.
+
+    Matches BARE `add(...)` and `findings.append((...))` only. Two shapes look
+    like emit sites and are not: the dispatcher's own definition
+
+        add = lambda kind, where, detail: findings.append((kind, where, detail))
+
+    whose first argument is the parameter `kind`, and `set.add()` --
+    `seen.add(name)`, `discharged.add(r)` -- an unrelated method sharing the
+    name. `X.add()` is excluded by requiring a bare Name; the lambda is
+    excluded by skipping the assignment that defines it.
+
+    The append arm is bound to the list named `findings` specifically, not to
+    any `.append`. Accepting any tuple append made two ordinary list builds --
+    `out.append((path, n, text))` in check_report and `unparsed.append(...)` in
+    check_scope -- look like emit sites with a computed class. The tripwire
+    below caught that on its first run, against its author rather than against
+    the code it watches, which is the correct outcome for a loud failure.
+
+    It then RAISES on any surviving non-literal rather than skipping it. A
+    parser that skipped silently would handle both shapes correctly by
+    accident and would also skip a genuine emit site written with a computed
+    name -- blinding this check to precisely the class most likely to need a
+    rule. The assertion fires on nothing today. It is a tripwire, not a filter.
+    """
+    tree = ast.parse(open(path, encoding="utf-8").read())
+    lambda_lines = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Lambda):
+            for sub in ast.walk(node.value):
+                lambda_lines.add(getattr(sub, "lineno", None))
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or node.lineno in lambda_lines:
+            continue
+        fn = node.func
+        if isinstance(fn, ast.Name) and fn.id == "add" and node.args:
+            first = node.args[0]
+        elif (isinstance(fn, ast.Attribute) and fn.attr == "append"
+              and isinstance(fn.value, ast.Name) and fn.value.id == "findings"
+              and node.args and isinstance(node.args[0], ast.Tuple)
+              and node.args[0].elts):
+            first = node.args[0].elts[0]
+        else:
+            continue
+        if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+            raise UncountableEmit(
+                f"{os.path.basename(path)}:{node.lineno} emits a finding whose "
+                f"class is not a string literal; docs/CHECKS.md cannot be "
+                f"diffed against it")
+        out.append(first.value)
+    return dict.fromkeys(out)
+
+
+CHECKS_HEADING = re.compile(r"^## `([^`]+)`")
+CHECKS_ROW = re.compile(r"^\|\s*`([a-z][a-z0-9-]*)`")
+
+
+def checks_table(path):
+    """{source: [class, ...]} as docs/CHECKS.md declares them."""
+    table, source = {}, None
+    for line in open(path, encoding="utf-8"):
+        m = CHECKS_HEADING.match(line)
+        if m:
+            source = m.group(1)
+            table.setdefault(source, [])
+            continue
+        m = CHECKS_ROW.match(line)
+        if m and source:
+            table[source].append(m.group(1))
+    return table
 
 
 def main():
@@ -255,14 +338,75 @@ def main():
         if tmp:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    # --- unruled-finding / stale-row (L-6.1) -------------------------------
+    # A check is legitimate only when it enforces a rule that exists, and a
+    # rule exists only when something checks it. docs/CHECKS.md is one half of
+    # that pair; this is the other. Both directions, because a table that has
+    # drifted is as bad as one that is short: a row for a class nobody emits
+    # sends a reader looking for a check that is not there.
+    # GATED ON ITS INPUTS, AND THE SKIP IS PRINTED. This control's own fixtures
+    # build partial plugin trees with no docs/ at all, and reporting "CHECKS.md
+    # is missing" there would be the check answering a question nobody asked
+    # (P-35b) -- the same gate 0.2.4 had to give template-ships-a-finding, for
+    # the same reason. A tree that HAS docs/ and lacks CHECKS.md is a real
+    # finding; a tree with no docs/ is not a plugin this check can speak about.
+    ruled = os.path.isdir(os.path.join(PLUGIN, "docs"))
+    if not ruled:
+        pass
+    elif not os.path.isfile(CHECKS_MD):
+        add("unruled-finding", "docs/CHECKS.md",
+            "docs/CHECKS.md is missing; no finding class has a rule named")
+    else:
+        table = checks_table(CHECKS_MD)
+        for script in EMITTERS:
+            spath = os.path.join(PLUGIN, "scripts", script)
+            if not os.path.isfile(spath):
+                continue
+            try:
+                emits = emitted_classes(spath)
+            except (UncountableEmit, SyntaxError) as exc:
+                add("unruled-finding", f"scripts/{script}", str(exc))
+                continue
+            rows = table.get(script, [])
+            for cls in emits:
+                if cls not in rows:
+                    add("unruled-finding", f"scripts/{script}",
+                        f"`{cls}` is emitted and has no row in docs/CHECKS.md, "
+                        f"so it names no rule")
+            for cls in rows:
+                if cls not in emits:
+                    add("stale-row", "docs/CHECKS.md",
+                        f"`{cls}` has a row under {script} and no check emits it")
+        # `sandbox.py promote` carries its classes as literals rather than
+        # through add(), and FORMATS.md already declares the closed set.
+        sbx = os.path.join(PLUGIN, "scripts", "sandbox.py")
+        if os.path.isfile(sbx):
+            emits = set(re.findall(r"promote-[a-z-]+",
+                                   open(sbx, encoding="utf-8").read()))
+            rows = set(table.get("sandbox.py promote", []))
+            for cls in sorted(emits - rows):
+                add("unruled-finding", "scripts/sandbox.py",
+                    f"`{cls}` is emitted and has no row in docs/CHECKS.md")
+            for cls in sorted(rows - emits):
+                add("stale-row", "docs/CHECKS.md",
+                    f"`{cls}` has a promotion row and sandbox.py does not emit it")
+        # guard.py is deliberately NOT diffed: its refusals have no names in
+        # the code at all, so there is no second list to compare. docs/CHECKS.md
+        # names the eight families and says so.
+
     if findings:
         print(f"devteam plugin: {len(findings)} finding(s)")
         for kind, where, detail in sorted(findings):
             print(f"  {kind:20} {where}  {detail}")
         return 1
+    skipped = []
+    if not scaffolded:
+        skipped.append("scaffold check SKIPPED — no setup.py or templates/")
+    if not ruled:
+        skipped.append("unruled-finding SKIPPED — no docs/")
+    tail = ("; " + "; ".join(skipped)) if skipped else ""
     print(f"devteam plugin: clean  [{len(skills)} skills, "
-          f"{len(os.listdir(agents_dir))} agents, {len(declared)} rules"
-          + ("]" if scaffolded else ", scaffold check SKIPPED — no setup.py or templates/]"))
+          f"{len(os.listdir(agents_dir))} agents, {len(declared)} rules{tail}]")
     return 0
 
 

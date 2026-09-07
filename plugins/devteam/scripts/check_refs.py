@@ -5,16 +5,11 @@ Diffs two lists, repeatedly, because that is what finds holes: identifiers
 cited against identifiers declared, links against files, status values against
 their closed vocabularies. Reading any one document never reveals the gap.
 
-Findings:
-
-  broken-link       a relative link whose target does not exist
-  duplicate-id      one identifier declared twice
-  cited-undefined   an identifier cited that was never declared
-  defined-uncited   a DECISION declared that nothing cites -- almost always a
-                    requirement stating a rule and forgetting to attribute it,
-                    which is the whole reason this direction is checked (P-22)
-  bad-status        a status value outside its closed vocabulary
-  leak              an absolute home path or a credential in a tracked file
+The finding classes it emits, and the rule each enforces, are in
+docs/CHECKS.md -- one home (P-34). This docstring deliberately does not
+list them: it used to, and ten classes were emitted, controlled, and
+absent from the lists here. `unruled-finding` in check_plugin.py keeps
+docs/CHECKS.md and the code equal in both directions.
 
 Reads GIT-TRACKED files only, so scratch work is never a finding.
 Exit 0 clean, 1 findings, 2 could not run.
@@ -231,6 +226,21 @@ def tracked_markdown(root: str):
     return [os.path.join(root, p) for p in out.split("\0") if p]
 
 
+class CouldNotRun(Exception):
+    """A file this check cannot read or decode.
+
+    WITHDRAWN AS FINDINGS IN 0.2.6 (`unreadable`, `not-utf8`). Both reported
+    "the check could not read a file" as an exit-1 finding, and the script
+    already distinguishes that case with exit 2 -- FORMATS.md's three-way
+    contract is 0 clean, 1 findings, 2 could not run. A file the checker cannot
+    decode is not a defect in the PROJECT; it is the checker unable to answer,
+    and reporting it as a finding made a clean project and an unreadable one
+    give the same exit code to the verifier, which reads nothing else (P-19).
+
+    The information is not lost -- it moves to the path that means what it says.
+    """
+
+
 def scan(files, base):
     declared, cited, findings = {}, {}, []
     step_cited = {}
@@ -240,8 +250,7 @@ def scan(files, base):
         try:
             raw = open(path, "rb").read()
         except OSError as exc:
-            findings.append(("unreadable", rel, 0, str(exc)))
-            continue
+            raise CouldNotRun(f"{rel}: cannot read: {exc}")
 
         # A document that CONTAINS a control byte rather than naming it is
         # treated as binary by git, which then produces no diff for it -- and
@@ -253,9 +262,9 @@ def scan(files, base):
         try:
             text = raw.decode("utf-8")
         except UnicodeDecodeError as exc:
-            findings.append(("not-utf8", rel, 0,
-                             f"byte {exc.object[exc.start]:#04x} at offset {exc.start}"))
-            text = raw.decode("utf-8", errors="replace")
+            raise CouldNotRun(
+                f"{rel}: not UTF-8 — byte {exc.object[exc.start]:#04x} "
+                f"at offset {exc.start}")
         for n_, line in enumerate(text.split("\n"), 1):
             bad = {c for c in line if ord(c) < 0x20 and c not in "\t\r"}
             if bad:
@@ -430,7 +439,11 @@ def check(target: str):
     if files is None:
         print(f"check_refs: not a git repository: {target}", file=sys.stderr)
         return None
-    return scan(files, target), target
+    try:
+        return scan(files, target), target
+    except CouldNotRun as exc:
+        print(f"check_refs: could not run: {exc}", file=sys.stderr)
+        return None
 
 
 def main(argv):

@@ -7,61 +7,11 @@ the whole design leans on, because the prior art it is drawn from records that
 every hole it ever found was found by a check that diffs two lists, and none
 of them by a test.
 
-Findings:
-
-  orphan-scope           a charter goal no requirement satisfies -- promised
-                         to the client and owned by nobody
-  uncovered-requirement  a requirement no task discharges
-  unmotivated-task       a task discharging no requirement. Either scope creep,
-                         or a requirement nobody wrote down. Both matter
-  unverified-requirement a requirement with no runnable acceptance criterion.
-                         It will be declared done by opinion (P-3, P-5)
-  missing-field          a required field absent. Never defaulted: a default is
-                         a decision nobody made
-  unknown-reference      a Satisfies/Discharges/Depends-on naming something
-                         that does not exist
-  dependency-cycle       tasks that can never start, because they wait on
-                         each other
-  gate-omits-decision    a decision a requirement's Statement or Acceptance
-                         rests on, named in no discharging task's `Gate.`. A
-                         gate narrower than its requirement can only fail in
-                         the direction of shipping LESS, because the verifier
-                         reads the gate and P-18 puts it last. Existential
-                         over the discharging tasks, so partial discharge
-                         cannot defeat it -- and inert on a project whose
-                         requirements cite no decisions, which is a real limit
-  re-litigated-requirement  a requirement whose Statement or Acceptance has
-                         changed three or more times since it was written or
-                         last shape-reviewed. Not a defect: a signal that it
-                         may be enumerating cases where it should state a rule
-  board-drift            the board's `State` for a task and that task's own
-                         title disagree. The board is "live state, and the
-                         lock", and it was the one artifact in `devteam/` that
-                         no check read back
-  one-sided-link         a requirement and a task that name each other only in
-                         one direction. `Status.` names the task; `Discharges.`
-                         names the requirements; nothing compared them, so a
-                         scheduling decision could reach one artifact and not
-                         the other
-  template-drift         a charter missing a constraint row the CURRENT
-                         template declares. Every other check here diffs the
-                         project against itself; this one diffs it against the
-                         plugin, so a project older than its plugin stops
-                         silently lacking what the plugin has since learned.
-                         Covers the charter's constraints and, through the
-                         derived field lists, requirements and tasks. NOT the
-                         board, decisions, questions, permissions or
-                         checkpoints -- those templates are unmarked and their
-                         drift is still invisible
-  unrecorded-amendment   a requirement whose `Requires-write.` changed since it
-                         was first committed, with no `Requires-write amended.`
-                         naming the decision. The one list the checker's own
-                         author could tune to make the check pass
-  unreachable-acceptance a requirement whose `Requires-write.` set is not contained
-                         in the `Scope.` of any single task that discharges it.
-                         The task can make the BEHAVIOUR true and cannot make
-                         the SENTENCE true, because the criterion needs a
-                         write to something the task does not own
+The finding classes it emits, and the rule each enforces, are in
+docs/CHECKS.md -- one home (P-34). This docstring deliberately does not
+list them: it used to, and ten classes were emitted, controlled, and
+absent from the lists here. `unruled-finding` in check_plugin.py keeps
+docs/CHECKS.md and the code equal in both directions.
 
 Exit 0 clean, 1 findings, 2 could not run. Grammar: templates/FORMATS.md.
 Control: test_check_trace.py (P-35).

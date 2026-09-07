@@ -7,24 +7,11 @@ means a script can check it; two places means the record cannot quietly
 disagree with what was said. This is that script, and it runs before the
 verifier does -- a malformed report is a re-dispatch, not a judgement call.
 
-Findings:
-
-  no-file           the task file does not exist
-  no-report         no REPORT block under `## Execution record`
-  wrong-task        the last block names a different task
-  missing-field     a required key of the block is absent
-  bad-report-status a status outside the six
-  status-mismatch   the block's status and the task title disagree
-  unknown-commit    a hash under `commits:` the repository does not have
-  head-subject      HEAD's subject does not name this task on a closing status
-  dirty-tree        uncommitted paths, on a status that claims to be finished
-  unfinished-scope  a TODO, FIXME, XXX or `raise NotImplementedError` inside the
-                    task's declared scope on a closing status. The pipeline
-                    creates stubs deliberately in tests-first steps; a task
-                    reporting DONE while one survives is reporting something
-                    other than what it did
-  no-evidence       a closing status with no `checks:` lines. A requirement is
-                    discharged by evidence, never by assertion (P-5)
+The finding classes it emits, and the rule each enforces, are in
+docs/CHECKS.md -- one home (P-34). This docstring deliberately does not
+list them: it used to, and ten classes were emitted, controlled, and
+absent from the lists here. `unruled-finding` in check_plugin.py keeps
+docs/CHECKS.md and the code equal in both directions.
 
 Usage:  check_report.py <project-or-devteam> <T-n>
 Exit 0 clean, 1 findings, 2 could not run.  Control: test_check_report.py.
