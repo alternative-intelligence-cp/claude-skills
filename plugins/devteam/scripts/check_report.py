@@ -29,6 +29,7 @@ Findings:
 Usage:  check_report.py <project-or-devteam> <T-n>
 Exit 0 clean, 1 findings, 2 could not run.  Control: test_check_report.py.
 """
+import json
 import os
 import re
 import subprocess
@@ -201,6 +202,40 @@ def stub_markers(repo, scope):
                 continue
     return out
 
+def report_budget(line, field):
+    """`budget: tokens=<n> minutes=<n>` -> one number, or None."""
+    if not line:
+        return None
+    m = re.search(rf"\b{field}\s*=\s*([0-9]+(?:\.[0-9]+)?)", str(line))
+    return float(m.group(1)) if m else None
+
+
+def harness_budget(repo, task_id):
+    """What the harness metered for this task's last dispatched step, or None.
+
+    SILENT when there is nothing to compare against, which is the whole
+    contract. A `guard-only` project has no sandbox at all and a report from
+    one is not defective for lacking a budget file -- so an absent sandbox
+    must produce no finding, never a `could not run`. A check that reports its
+    own inapplicability as a problem trains people to ignore it.
+    """
+    lock = os.path.join(repo, "devteam", ".run", "locks", f"{task_id}.sandbox")
+    try:
+        with open(lock, encoding="utf-8") as fh:
+            line = fh.read().strip()
+    except OSError:
+        return None
+    m = re.search(r"\broot\s+(\S.*)$", line)
+    if not m:
+        return None
+    try:
+        with open(os.path.join(m.group(1).strip(), "meta", "budget.json")) as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
 def check(project, want_id):
     """`want_id` is `T-n` or `T-n.S-m`. A step is checked as a step: it does
     not own the task's title line, so its status is never compared to it."""
@@ -340,6 +375,40 @@ def check(project, want_id):
         if rc == 0 and not any(l.strip().lower().startswith(task_id.lower())
                                for l in log.split("\n")):
             add("head-subject", f"no commit's subject begins with {task_id}")
+
+    harness = harness_budget(repo, task_id)
+    if harness:
+        # P-17c. Both figures are self-reported today by the party least placed
+        # to know them, and MEASURED 0.2.3 a live worker reported
+        # `budget: tokens=3000 minutes=1` for a step the harness metered at
+        # 309639 tokens -- a hundredfold understatement, written in good faith
+        # by a process that cannot see the counter. So the harness's number is
+        # the one that cannot be remembered wrongly, and a mismatch is a
+        # FINDING rather than a correction: silently overwriting the worker's
+        # figure would destroy the evidence that it cannot produce one.
+        # `fields` values are LISTS -- a key's inline value plus any indented
+        # continuation lines -- because `commits:` and `checks:` are lists in
+        # the REPORT grammar. Reading one as a string is the F-2 class: right
+        # about the field, wrong one level down.
+        one = lambda k: " ".join(fields.get(k) or []).strip()
+        want_model = one("model")
+        got_model = (harness.get("model") or "").strip()
+        if want_model and got_model and want_model != got_model:
+            add("model-mismatch",
+                f"the report says `model: {want_model}` and the harness "
+                f"dispatched {got_model}")
+        # Tokens get 10% and minutes 20%, because the worker is estimating a
+        # number it genuinely cannot read, and a tolerance tight enough to fire
+        # on honest rounding is one that gets ignored.
+        for field, tol, scale in (("tokens", 0.10, 1), ("minutes", 0.20, 1)):
+            claimed = report_budget(one("budget"), field)
+            actual = harness.get(field)
+            if claimed is None or not actual:
+                continue
+            if abs(claimed - actual) > tol * abs(actual):
+                add("budget-mismatch",
+                    f"the report says {field}={claimed:g} and the harness "
+                    f"metered {actual:g} ({tol:.0%} tolerance)")
 
     return findings
 

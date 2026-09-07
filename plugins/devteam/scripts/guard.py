@@ -593,6 +593,35 @@ def main():
     session_project = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or cwd)
     cache = {}
     session = str(data.get("session_id") or "")
+    if os.environ.get("DEVTEAM_SANDBOX"):
+        # L-3.1. Inside a sandbox the payload's session id is the HEADLESS
+        # WORKER'S OWN, freshly minted by `claude -p` -- MEASURED 0.2.3: a
+        # worker dispatched by a supervisor produced `session_id
+        # b6377e0d-b921-49b6-90e0-36f2927cb31a` while the board's writer was
+        # the supervisor. A subagent inherits its parent's id and this guard's
+        # rules were all written for that; a headless process does not.
+        #
+        # Judged on its own id the worker is `theirs`, and that is wrong in
+        # BOTH directions at once: it is refused its own task file (P-13), and
+        # -- worse -- it takes the stranger exit below, so its writes to the
+        # product tree are not policed against the declared scope at all. A
+        # guard that goes quiet is the DESIGN §20 failure, and this is a new
+        # door into it.
+        #
+        # So inside a sandbox the identity is the harness's statement of the
+        # parent, and NEVER the payload's own id. Absent, it is the empty
+        # string, which `lock_state` reads as `unknown` -- which refuses
+        # devteam/ and KEEPS POLICING the scope rules. `theirs` would be the
+        # failing-open answer; `unknown` is the failing-closed one.
+        #
+        # This is a borrowed identity and it is worth being plain about the
+        # cost: any process that can set both DEVTEAM_SANDBOX and
+        # DEVTEAM_PARENT_SESSION can present itself as the run's own agent.
+        # On the host neither is ever set -- they come from the sandbox mount
+        # plan's environment allowlist, which is the whole of what crosses
+        # `--clearenv`. That is defence in depth, not proof, and no claim is
+        # made here that it withstands a process that is trying.
+        session = os.environ.get("DEVTEAM_PARENT_SESSION", "").strip()
     ti = data.get("tool_input") or {}
 
     reason = None

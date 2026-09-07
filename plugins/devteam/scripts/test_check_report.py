@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Negative control for check_report.py (P-35)."""
+import json
 import os
 import re
 import shutil
@@ -239,10 +240,83 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
-    fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
+    # --- 0.2.3 §3.6: the harness meters, the worker estimates --------------
+    # P-17c. MEASURED 0.2.3: a live Haiku implementer reported
+    # `budget: tokens=3000 minutes=1` for a step the harness metered at 309639
+    # tokens and 0.59 minutes -- a hundredfold understatement written in good
+    # faith by a process that cannot see the counter. These need a sandbox on
+    # disk, so they sit here rather than in CASES.
+    #
+    # The `fp-` cases are the load-bearing half. §3.6 says the check must be
+    # SILENT where no sandbox exists, because a `guard-only` project has none
+    # and its reports are not defective for it. A check that announced "could
+    # not run" on every such project would be noise in the common case, and
+    # noise is how a check stops being read.
+    budget_cases = [
+        # (name, report edits, sandbox {} or None, budget.json or None, expected)
+        ("budget-mismatch-on-tokens",
+         {"budget": "tokens=3000 minutes=9"},
+         True, {"tokens": 309639, "minutes": 9.0, "model": "claude-opus-5"},
+         {"budget-mismatch"}),
+        ("budget-mismatch-on-minutes",
+         {"budget": "tokens=4210 minutes=9"},
+         True, {"tokens": 4210, "minutes": 0.59, "model": "claude-opus-5"},
+         {"budget-mismatch"}),
+        ("model-mismatch-when-the-worker-names-another-model",
+         {}, True,
+         {"tokens": 4210, "minutes": 9.0, "model": "claude-haiku-4-5-20251001"},
+         {"model-mismatch"}),
+        ("fp-budget-inside-the-tolerances-is-clean",
+         {}, True, {"tokens": 4400, "minutes": 10.5, "model": "claude-opus-5"},
+         set()),
+        ("fp-no-sandbox-file-at-all-is-silent",
+         {"budget": "tokens=1 minutes=1"}, False, None, set()),
+        ("fp-a-sandbox-line-with-no-root-is-silent",
+         {"budget": "tokens=1 minutes=1"}, "no-root", None, set()),
+        ("fp-a-sandbox-root-with-no-budget-json-is-silent",
+         {"budget": "tokens=1 minutes=1"}, True, None, set()),
+    ]
+    for name, edits, sb, budget, expected in budget_cases:
+        root = tempfile.mkdtemp(prefix="devteam-report-budget-")
+        try:
+            report = REPORT
+            for key, val in edits.items():
+                report = re.sub(rf"^{key}: .*$", f"{key}: {val}", report,
+                                count=1, flags=re.M)
+            build(root, task_file(report=report))
+            sroot = os.path.join(root, "sbox")
+            os.makedirs(os.path.join(sroot, "meta"), exist_ok=True)
+            if budget is not None:
+                with open(os.path.join(sroot, "meta", "budget.json"), "w") as fh:
+                    json.dump(budget, fh)
+            if sb:
+                locks = os.path.join(root, "devteam", ".run", "locks")
+                os.makedirs(locks, exist_ok=True)
+                line = ("T-1 S-1 live2 exited 0 at 2026-09-07T04:57:06"
+                        + ("" if sb == "no-root" else f" root {sroot}"))
+                with open(os.path.join(locks, "T-1.sandbox"), "w") as fh:
+                    fh.write(line + "\n")
+            proc = subprocess.run([sys.executable, CHECK, root, "T-1"],
+                                  capture_output=True, text=True)
+            got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
+            if got == expected and proc.returncode == (1 if expected else 0):
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected {sorted(expected) or 'clean'}")
+                print(f"        got      {sorted(got) or 'clean'}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n"):
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    fp = (sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
+          + sum(1 for c in budget_cases if c[0].startswith("fp-")))
     print(f"\ncheck_report control: {passed} passed, {failed} failed, "
-          f"{len(CASES)} cases ({fp} of them false-positive controls, "
-          f"{100 * fp // len(CASES)}%)")
+          f"{len(CASES) + len(budget_cases)} cases ({fp} of them "
+          f"false-positive controls, "
+          f"{100 * fp // (len(CASES) + len(budget_cases))}%)")
     return 1 if failed else 0
 
 

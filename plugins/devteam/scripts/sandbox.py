@@ -93,12 +93,75 @@ WORKER_HOME = "/home/devteam-worker"
 # inside against `env` + this, and treat a third thing as a finding (P-4).
 SHELL_ADDED = ("PWD", "SHLVL", "_")
 
+# What stays withheld from a worker INSIDE the sandbox (L-7). Everything
+# filesystem-shaped is allowed, because an overlay makes it harmless; only the
+# outward-facing entries are withheld, and they are withheld BY NAME so the
+# list can be diffed against `templates/PERMISSIONS.md`'s "Deliberately not
+# requested" table rather than being a second opinion about it (P-4).
+#
+# `sudo` is a no-op under --cap-drop ALL and `git push` has nothing to
+# authenticate with (L-4, MEASURED 0.2.0), so these are belt and braces over a
+# structural impossibility -- which is the right order, not a redundancy: the
+# refusal names the rule, and a structural failure names nothing.
+WORKER_OUTWARD = ("Bash(git push:*)", "Bash(gh:*)", "Bash(pip install:*)",
+                  "Bash(uv add:*)", "Bash(sudo:*)")
+
 SETUP_FAILED = "setup-failed"
 # Extraction failed after the worker ran. A SEPARATE marker from SETUP_FAILED
 # because the two mean opposite things to a supervisor: setup-failed says there
 # was no worker, extract-failed says there was one and its exit code in
 # exit.txt is still good -- we just could not capture what it produced.
 EXTRACT_FAILED = "extract-failed"
+
+
+# --- the inside permission set, generated (roadmap 0.2.3 §3.3) ------------
+
+def role_tools(role):
+    """The `tools:` line of `agents/<role>.md`, as a list.
+
+    ONE HOME. DESIGN §2 records that a role's tool list is the only enforced
+    restriction the 0.1 design had, so the headless allowlist is DERIVED from
+    it rather than written beside it. F-6, F-24 and F-30 were each a grant and
+    a rule disagreeing; a second list here would be the fourth.
+    """
+    path = os.path.join(PLUGIN, "agents", f"{role}.md")
+    if not os.path.exists(path):
+        raise SystemExit(
+            f"sandbox: no agent definition at agents/{role}.md, so there is no "
+            "tool list to derive an allowlist from. A role the plugin does not "
+            "define cannot be dispatched.")
+    front, seen = [], 0
+    for line in open(path, encoding="utf-8"):
+        if line.strip() == "---":
+            seen += 1
+            if seen == 2:
+                break
+            continue
+        if seen == 1:
+            front.append(line)
+    for line in front:
+        if line.startswith("tools:"):
+            return [t.strip() for t in line.split(":", 1)[1].split(",") if t.strip()]
+    raise SystemExit(f"sandbox: agents/{role}.md declares no `tools:` line")
+
+
+def allowlist(role):
+    """(allowed, disallowed) for `--allowedTools` / `--disallowedTools`.
+
+    `Bash` is passed through bare -- inside an overlay `rm`, `python3 -c`,
+    `chmod` and `truncate` can harm nothing that outlives the sandbox, and
+    F-30, F-64, F-76 and F-100 are four findings where a command withheld for
+    the guard's sake cost a verification chain (L-7). The withholding that
+    remains is by name, in WORKER_OUTWARD.
+    """
+    return list(role_tools(role)), list(WORKER_OUTWARD)
+
+
+def cmd_allowlist(args):
+    allowed, disallowed = allowlist(args.role)
+    print("allowed: " + " ".join(allowed))
+    print("disallowed: " + " ".join(disallowed))
+    return 0
 
 
 # --- where a sandbox lives ------------------------------------------------
@@ -262,7 +325,8 @@ def toolchain_binds(repo):
     return binds, path_dirs, pin_file
 
 
-def build_mount_plan(repo, merged, home_dir, cmd_file, uid, gid, sid, env_path):
+def build_mount_plan(repo, merged, home_dir, cmd_file, uid, gid, sid, env_path,
+                     parent_session=None):
     """The ordered list bwrap is composed from. ORDER IS PART OF THE CONTRACT.
 
     bwrap applies mounts in sequence. `--tmpfs /tmp` before the repository
@@ -366,6 +430,13 @@ def build_mount_plan(repo, merged, home_dir, cmd_file, uid, gid, sid, env_path):
         "TMPDIR": "/tmp",
         "DEVTEAM_SANDBOX": sid,
     }
+    if parent_session:
+        # L-3.1. The board's writer, stated by the harness, because the
+        # headless worker's OWN session id is fresh and the guard's rules were
+        # written for a subagent that inherits its parent's. Without it the
+        # guard reads `unknown` inside -- which refuses devteam/ and keeps
+        # policing scopes, the failing-CLOSED direction. See guard.py.
+        env["DEVTEAM_PARENT_SESSION"] = parent_session
     for k, v in env.items():
         plan.append(_entry("--setenv", [k, v], "the environment allowlist is "
                            "data (§3.3); this map is the whole of it"))
@@ -460,7 +531,8 @@ def cmd_open(args, narrate=print):
             ordered.append(d)
     plan, env, pin_file = build_mount_plan(
         repo, os.path.join(path, "merged"), os.path.join(path, "home"),
-        cmd_file, os.getuid(), os.getgid(), sid, ":".join(ordered))
+        cmd_file, os.getuid(), os.getgid(), sid, ":".join(ordered),
+        getattr(args, "parent_session", None))
 
     # Recorded, not applied: the overlay does not exist until `run` mounts it,
     # so the identity is seeded inside the namespace where the repository is
@@ -476,6 +548,7 @@ def cmd_open(args, narrate=print):
         "repo": repo,
         "task": args.task,
         "step": args.step,
+        "parent_session": getattr(args, "parent_session", None),
         "base": base,
         "root": path,
         "opened": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -896,6 +969,243 @@ def cmd_run(args, path=None, doc=None):
     return rc
 
 
+# --- dispatch: a headless worker inside (roadmap 0.2.3 §3.1) --------------
+
+DISPATCH_FAILED = "dispatch-failed"
+
+
+def sandbox_lock_file(repo, task):
+    return os.path.join(repo, "devteam", ".run", "locks", f"{task}.sandbox")
+
+
+def write_liveness(repo, task, text, say):
+    """The fourth liveness signal (§3.5): written at dispatch, REWRITTEN at
+    exit, never deleted.
+
+    Never deleted for the reason the 0.1 heartbeats are never deleted: an
+    absent file and a file nobody has written are the same thing to a reader,
+    and recovery has to tell "no worker ran" from "a worker ran and we lost
+    it". `ListAgents` cannot see a headless process at all (L-2's accepted
+    cost), so this file is the only place a recovering session learns that one
+    existed.
+    """
+    if not task:
+        return None
+    path = sandbox_lock_file(repo, task)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as fh:
+            fh.write(text + "\n")
+    except OSError as e:
+        say(f"dispatch: could not write {path}: {e}")
+        return None
+    return path
+
+
+def seed_worker_home(path, role, say):
+    """Credentials and a generated settings file in the worker's HOME.
+
+    CREDENTIALS are a COPY (0.2.0 variant A, re-measured here inside
+    sandbox.py's own composition): a copy, never a bind, so a token refresh
+    inside cannot reach the host's file. It dies with the sandbox. The risk
+    that remains, and it is REASONED rather than measured: if the provider
+    rotates the refresh token when the copy refreshes, the host's copy may be
+    invalidated. 0.2.9 is where that gets watched.
+
+    SETTINGS are GENERATED, never the host's. §6 forbids passing the host's
+    `~/.claude/settings.json` in, and it is right to: it carries the
+    operator's hooks and permissions, which are not the worker's. This file
+    carries exactly two things, and the first is the load-bearing one.
+
+    THE GUARD IS REGISTERED HERE AND NOT BY THE PLUGIN, and that is measured
+    rather than chosen. `--plugin-dir` DOES read the plugin's hooks.json --
+    the CLI logs `Registered 2 hooks from 1 plugins` -- but in the same run it
+    logs `hooks modules not loaded: rollout flag (tengu_plugin_hooks_modules)
+    is off, from the default (a cold GrowthBook cache, no payload yet)`, and
+    guard.py never ran. A fresh HOME has no feature-flag cache, so the flag
+    reads its default; the sandbox's own design is what turns the plugin hook
+    route off. A settings-file hook fires there and was measured firing.
+    """
+    home = os.path.join(path, "home")
+    cdir = os.path.join(home, ".claude")
+    os.makedirs(cdir, exist_ok=True)
+
+    src = os.path.expanduser("~/.claude/.credentials.json")
+    if os.path.exists(src):
+        dst = os.path.join(cdir, ".credentials.json")
+        shutil.copyfile(src, dst)
+        os.chmod(dst, 0o600)
+        say(f"dispatch: credentials copied into the sandbox HOME "
+            f"({os.path.getsize(dst)} bytes, mode 600); the copy dies with it")
+    else:
+        say("dispatch: no ~/.claude/.credentials.json on this host -- the "
+            "worker will authenticate from the environment or not at all")
+
+    settings = {
+        "hooks": {"PreToolUse": [{
+            "matcher": "Bash|Write|Edit|NotebookEdit",
+            "hooks": [{"type": "command",
+                       "command": f"python3 {os.path.join(PLUGIN, 'scripts', 'guard.py')}",
+                       "timeout": 10}]}]},
+        # The observed key from 0.2.0 §3.3 item 6. The worker's HOME is a
+        # replacement that carries no host `sandbox` setting, so the CLI's own
+        # Bash sandbox is off inside regardless; this states it rather than
+        # relying on an absence, because an absence changes when a default does.
+        "sandbox": {"enabled": False},
+    }
+    with open(os.path.join(cdir, "settings.json"), "w") as fh:
+        json.dump(settings, fh, indent=1)
+    say("dispatch: generated HOME/.claude/settings.json -- guard registered, "
+        "the CLI's own sandbox disabled, no permission allowlist (the "
+        "allowlist is --allowedTools)")
+
+
+def cmd_dispatch(args):
+    say = lambda m: print(m, file=sys.stderr)
+    path = find_sandbox(args.id, getattr(args, "repo", None))
+    doc = load_plan(path)
+    meta = os.path.join(path, "meta")
+    repo, task, step, sid = doc["repo"], doc["task"], doc["step"], doc["id"]
+
+    if not doc.get("parent_session"):
+        # REFUSED rather than warned. Without it the guard inside reads
+        # `unknown` and refuses the worker its own task file -- so the worker
+        # would run, cost money, and fail on its first REPORT append for a
+        # reason nothing in its dispatch mentions. A structural refusal here
+        # costs nothing; discovering it inside costs a paid round.
+        raise SystemExit(
+            f"sandbox: {sid} was opened without --parent-session, so the guard "
+            "inside cannot tell this worker from a stranger and will refuse it "
+            "its own task file (L-3.1). Re-open with `--parent-session <the "
+            "board's writer id>`; a sandbox's environment is fixed at `open`.")
+    if not os.path.exists(args.dispatch):
+        raise SystemExit(f"sandbox: no dispatch file at {args.dispatch}")
+    with open(args.dispatch, encoding="utf-8") as fh:
+        body = fh.read()
+
+    allowed, disallowed = allowlist(args.role)
+    seed_worker_home(path, args.role, say)
+
+    # One line, and no more. The `work` skill IS the procedure; a prompt that
+    # restates it is a second home for it and they drift (P-34).
+    prompt = (f"You are a devteam `{args.role}`. Invoke the `devteam:work` "
+              f"skill and follow it.\n\n{body}")
+
+    argv = ["claude", "-p", prompt,
+            "--output-format", "json",
+            "--plugin-dir", PLUGIN,
+            "--model", args.model,
+            # 0.2.0 measured a sandboxed worker connecting to the owner's
+            # Google Drive in 11ms over the account's own authenticated
+            # channel. The connectors travel with the TOKEN, so clearing the
+            # environment and replacing HOME does not clear them, and no
+            # overlay touches a document store outside the machine. This flag
+            # is not optional and not a network control.
+            "--strict-mcp-config",
+            "--no-session-persistence",
+            "--allowedTools"] + allowed + ["--disallowedTools"] + list(disallowed)
+    if args.debug_hooks:
+        # Into the worker's HOME, never the repository. MEASURED 0.2.3: with
+        # the log inside the repo, `--debug-file` ALSO drops a sibling
+        # `latest` symlink beside it, and both land in the worker's
+        # uncommitted remainder -- so `promote-uncommitted` refuses a
+        # promotion because of a diagnostic the harness itself asked for. A
+        # debugging flag that changes the verdict is not a debugging flag.
+        # The symlink's target is absolute, which additionally leaves it
+        # DANGLING in the merged view during extraction (`cannot open
+        # .../merged/latest`), because that path is only real inside.
+        argv += ["--debug", "hooks", "--debug-file",
+                 os.path.join(WORKER_HOME, "dispatch-debug.log")]
+
+    started = time.strftime("%Y-%m-%dT%H:%M:%S")
+    lock = write_liveness(
+        repo, task,
+        f"{task} {step or '-'} {sid} pid - started {started} "
+        f"step-timeout {args.timeout or '-'} root {path}", say)
+    say(f"dispatch {sid}: {args.role} on {args.model}, "
+        f"{len(allowed)} tools allowed, {len(disallowed)} withheld by name"
+        + (f", liveness at {lock}" if lock else ""))
+
+    for stale in (DISPATCH_FAILED, "result.json", "report.txt", "budget.json"):
+        try:
+            os.unlink(os.path.join(meta, stale))
+        except OSError:
+            pass
+
+    # MEASURED 0.2.3: without this the CLI waits and prints `no stdin data
+    # received in 3s, proceeding without it`. Three seconds is cheap; a
+    # dispatch that BLOCKS on a stdin no supervisor will ever write is not,
+    # and a backgrounded one would look like a worker that hung.
+    argv = ["sh", "-c", 'exec "$@" < /dev/null', "sh"] + argv
+    args.cmd = argv
+    rc = cmd_run(args, path=path, doc=doc)
+
+    # -- what came back ----------------------------------------------------
+    raw = _slurp(os.path.join(meta, "stdout.txt"))
+    result = None
+    try:
+        result = json.loads(raw)
+    except Exception:
+        pass
+    if not isinstance(result, dict):
+        with open(os.path.join(meta, DISPATCH_FAILED), "w") as fh:
+            fh.write("the worker's stdout was not a JSON object\n")
+        say(f"dispatch {sid}: the worker's stdout is not JSON -- "
+            f"{len(raw)} byte(s) in meta/stdout.txt. Its own exit was {rc}.")
+        write_liveness(repo, task,
+                       f"{task} {step or '-'} {sid} exited {rc} at "
+                       f"{time.strftime('%Y-%m-%dT%H:%M:%S')} root {path}", say)
+        return rc if rc else 1
+
+    with open(os.path.join(meta, "result.json"), "w") as fh:
+        json.dump(result, fh, indent=1)
+    with open(os.path.join(meta, "report.txt"), "w") as fh:
+        fh.write(str(result.get("result") or ""))
+
+    usage = result.get("usage") or {}
+    tokens = sum(int(usage.get(k) or 0) for k in
+                 ("input_tokens", "output_tokens",
+                  "cache_creation_input_tokens", "cache_read_input_tokens"))
+    model = ""
+    for m in (result.get("modelUsage") or {}):
+        model = m
+        break
+    budget = {"tokens": tokens,
+              "minutes": round((result.get("duration_ms") or 0) / 60000.0, 2),
+              "model": model or args.model,
+              "cost_usd": result.get("total_cost_usd")}
+    with open(os.path.join(meta, "budget.json"), "w") as fh:
+        json.dump(budget, fh, indent=1)
+
+    # `is_error`, NEVER `subtype`. 0.2.0 measured a run that came back with
+    # is_error true, terminal_reason "api_error" and result "Not logged in ·
+    # Please run /login" -- carrying `subtype: "success"` in the same object.
+    # A dispatch that read subtype would hand a supervisor an unauthenticated
+    # worker's empty output as a completed step.
+    if result.get("is_error"):
+        with open(os.path.join(meta, DISPATCH_FAILED), "w") as fh:
+            fh.write(f"is_error true; subtype {result.get('subtype')!r}; "
+                     f"terminal_reason {result.get('terminal_reason')!r}\n")
+        say(f"dispatch {sid}: the worker reported is_error TRUE "
+            f"(subtype {result.get('subtype')!r}, which is not the field to "
+            f"read). {str(result.get('result'))[:160]}")
+        rc = rc or 1
+    else:
+        say(f"dispatch {sid}: is_error false, {result.get('num_turns')} turns, "
+            f"{budget['tokens']} tokens, {budget['minutes']} min, "
+            f"${budget['cost_usd']}")
+
+    # The ROOT is on the line because `check_report` has to find meta/budget.json
+    # from here (§3.6) and a sandbox root is a machine-local environment
+    # variable, not a project fact. Making the reader resolve
+    # DEVTEAM_SANDBOX_ROOT the same way the writer did would be two homes for
+    # one path, and the second home is always the one that is wrong.
+    write_liveness(repo, task,
+                   f"{task} {step or '-'} {sid} exited {rc} at "
+                   f"{time.strftime('%Y-%m-%dT%H:%M:%S')} root {path}", say)
+    return rc
+
+
 # --- exec, status, close --------------------------------------------------
 
 def cmd_exec(args):
@@ -1054,13 +1364,25 @@ def declared_scope(repo, task):
         return "no-task-file", []
     tasks, _unparsed = loaded
     if task not in tasks:
-        # The file is on disk and `git ls-files` cannot see it. load_tasks
-        # enumerates tracked files only, so an uncommitted task file declares
-        # no scope at all -- and an empty scope read as a permissive one is
-        # exactly F-118's shape. Measured against the one real run, every task
-        # file was tracked; but nothing commits one at CREATION (a worker
-        # commits it when it appends its REPORT), so the window is real.
-        return "untracked", []
+        # `load_tasks` returning nothing for this task has TWO causes and they
+        # need opposite fixes, so asking git directly is the only honest way to
+        # tell them apart. It enumerates tracked files only, so an uncommitted
+        # task file declares no scope -- and an empty scope read as permission
+        # is F-118's shape exactly. But a file git DOES track can also be
+        # dropped, silently, by failing to parse: `# T-1 - say hello` has no
+        # status segment, so the heading never matches and the task is not in
+        # the map and not in `unparsed` either.
+        #
+        # MEASURED 0.2.3: a task file that `git ls-files` printed by name was
+        # reported `untracked`, with a fix line telling the reader to `git add`
+        # a file git already had. Advice that cannot work is worse than none --
+        # somebody follows it, nothing changes, and they conclude the gate is
+        # broken rather than that their heading is. The parser's silence is not
+        # evidence about the index, so it is no longer read as any.
+        rc = subprocess.run(["git", "-C", repo, "ls-files", "--error-unmatch",
+                             "--", os.path.join("devteam", rel)],
+                            capture_output=True, text=True).returncode
+        return ("unparsed" if rc == 0 else "untracked"), []
     entries = []
     for raw in tasks[task][2]:
         e = check_scope.normalise(raw)
@@ -1135,6 +1457,15 @@ def cmd_promote(args):
                       "so its `Scope.` is invisible to the parser and reads as "
                       f"empty. Fix: `git -C {repo} add devteam/tasks/{task}.md` "
                       "and commit it, then promote again",
+                      invalidates=("promote-no-scope", "promote-out-of-scope"))
+        elif state == "unparsed":
+            gate.fire("promote-task-file-unparsed",
+                      f"devteam/tasks/{task}.md exists and git tracks it, but "
+                      "the task parser does not recognise it, so it declares no "
+                      "scope. The heading must carry a status -- "
+                      f"`# {task} - <goal> - PLANNED|RUNNING|DONE` -- and the "
+                      "scope must be a `- **Scope.**` bullet with one "
+                      "backticked path per line beneath it",
                       invalidates=("promote-no-scope", "promote-out-of-scope"))
         elif state == "no-scope":
             gate.fire("promote-no-scope",
@@ -1353,6 +1684,10 @@ def main(argv=None):
     p.add_argument("--task")
     p.add_argument("--step")
     p.add_argument("--id")
+    p.add_argument("--parent-session", metavar="ID",
+                   help="the board's writer id, so the guard inside knows this "
+                        "worker is the run's own agent and not a stranger "
+                        "(L-3.1). Required before `dispatch`.")
 
     p = sub.add_parser("run", help="run one command inside an open sandbox")
     p.add_argument("id")
@@ -1364,6 +1699,20 @@ def main(argv=None):
     p.add_argument("--keep", action="store_true")
     p.add_argument("--timeout", type=int)
     p.add_argument("--id")
+
+    p = sub.add_parser("dispatch", help="run a headless worker inside a sandbox")
+    p.add_argument("id")
+    p.add_argument("--repo")
+    p.add_argument("--role", required=True)
+    p.add_argument("--model", required=True)
+    p.add_argument("--dispatch", required=True, metavar="FILE",
+                   help="the step dispatch; its contents are the prompt")
+    p.add_argument("--timeout", type=int, default=1800)
+    p.add_argument("--debug-hooks", action="store_true",
+                   help="write the CLI's hook debug log into the overlay")
+
+    p = sub.add_parser("allowlist", help="the --allowedTools value for a role")
+    p.add_argument("--role", required=True)
 
     p = sub.add_parser("promote", help="apply a sandbox's commits to the host")
     p.add_argument("id")
@@ -1394,7 +1743,8 @@ def main(argv=None):
         raw, cmd = raw[:i], raw[i + 1:]
     args = ap.parse_args(raw)
     args.cmd = cmd
-    if cmd and args.verb in ("open", "status", "close", "promote"):
+    if cmd and args.verb in ("open", "status", "close", "promote",
+                            "dispatch", "allowlist"):
         raise SystemExit(f"sandbox: `{args.verb}` takes no command")
     if args.verb in ("open",):
         args.task = args.task or None
@@ -1406,6 +1756,10 @@ def main(argv=None):
     if args.verb == "exec":
         args.task = args.step = None
         return cmd_exec(args)
+    if args.verb == "dispatch":
+        return cmd_dispatch(args)
+    if args.verb == "allowlist":
+        return cmd_allowlist(args)
     if args.verb == "promote":
         return cmd_promote(args)
     if args.verb == "status":

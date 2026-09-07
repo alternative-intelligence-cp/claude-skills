@@ -356,14 +356,15 @@ def build(mutate=None):
     return root
 
 
-def run(root, tool, session, project_dir=None):
+def run(root, tool, session, project_dir=None, extra_env=None):
     name, ti = tool
     if name in ("Write", "Edit") and not os.path.isabs(ti.get("file_path", "")):
         ti = {**ti, "file_path": os.path.join(root, ti["file_path"])}
     payload = {"tool_name": name, "cwd": root, "session_id": session, "tool_input": ti}
     proc = subprocess.run(
         [sys.executable, GUARD], input=json.dumps(payload), capture_output=True, text=True,
-        env={**os.environ, "CLAUDE_PROJECT_DIR": project_dir or root})
+        env={**os.environ, "CLAUDE_PROJECT_DIR": project_dir or root,
+             **(extra_env or {})})
     out = proc.stdout.strip()
     if not out:
         return False, ""
@@ -410,6 +411,61 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- L-3.1: who a headless worker inside a sandbox IS ------------------
+    # These need an environment rather than a payload field, so they sit here
+    # rather than in CASES. WORKER_SESSION is a fresh id like the one `claude
+    # -p` actually minted inside a sandbox (MEASURED 0.2.3), which is the
+    # whole problem: judged on it the worker is a STRANGER to its own run.
+    #
+    # The pair that matters is `sandbox-no-parent-*`. Getting the fail-closed
+    # direction wrong -- reading an absent parent as `theirs` rather than
+    # `unknown` -- still refuses devteam/, so a control that only checked
+    # devteam/ would pass either way. It is the OUT-OF-SCOPE case that
+    # separates them, because `theirs` takes the stranger exit and stops
+    # policing scopes entirely. That is the DESIGN §20 inert-guard failure
+    # arriving through a new door, and it is invisible unless asked for here.
+    WORKER = "b6377e0d-b921-49b6-90e0-36f2927cb31a"
+    SB = {"DEVTEAM_SANDBOX": "probe1"}
+    identity_cases = [
+        # (name, tool, session, env, expect_deny)
+        ("sandbox-parent-set-owns-its-task-file",
+         write("devteam/tasks/T-1.md"), WORKER,
+         {**SB, "DEVTEAM_PARENT_SESSION": WRITER_SESSION}, False),
+        ("sandbox-no-parent-is-refused-devteam",
+         write("devteam/tasks/T-1.md"), WORKER, SB, True),
+        ("sandbox-parent-set-is-still-held-to-the-scope",
+         write("src/render/b.py"), WORKER,
+         {**SB, "DEVTEAM_PARENT_SESSION": WRITER_SESSION}, True),
+        ("sandbox-no-parent-still-polices-the-scope",
+         write("src/render/b.py"), WORKER, SB, True),
+        # False-positive twins. The first proves the host is untouched: the
+        # same fresh id, with no DEVTEAM_SANDBOX, is an ordinary stranger and
+        # its product-tree writes stay unpoliced exactly as before. Without
+        # this the change could have quietly started policing every other
+        # session on the machine, which is the over-reach the guard's own
+        # comments say turned a real team away.
+        ("fp-no-sandbox-a-stranger-is-still-not-policed",
+         write("src/render/b.py"), WORKER, {}, False),
+        ("fp-sandbox-parent-set-in-scope-is-allowed",
+         write("src/loader/a.py"), WORKER,
+         {**SB, "DEVTEAM_PARENT_SESSION": WRITER_SESSION}, False),
+    ]
+    for name, tool, session, env, expect_deny in identity_cases:
+        root = build()
+        try:
+            denied, reason = run(root, tool, session, extra_env=env)
+            if denied == expect_deny:
+                passed += 1
+            else:
+                failed += 1
+                verb = "REFUSED" if denied else "ALLOWED"
+                print(f"FAIL  {name}: {verb}, expected to "
+                      f"{'refuse' if expect_deny else 'allow'}")
+                if reason:
+                    print(f"        | {reason[:200]}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     # DEVTEAM_GUARD=off must disable it entirely.
     root = build()
     try:
@@ -427,8 +483,9 @@ def main():
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
-    total = len(all_cases) + 1
-    fp = sum(1 for c in all_cases if c[0].startswith("fp-")) + 1
+    total = len(all_cases) + 1 + len(identity_cases)
+    fp = (sum(1 for c in all_cases if c[0].startswith("fp-")) + 1
+          + sum(1 for c in identity_cases if c[0].startswith("fp-")))
     print(f"\nguard control: {passed} passed, {failed} failed, {total} cases "
           f"({fp} of them false-positive controls, {100 * fp // total}%)")
     return 1 if failed else 0

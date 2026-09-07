@@ -727,6 +727,224 @@ def promotion_extras(root, n):
     return out
 
 
+# --- 0.2.3: the allowlist, the dispatch, and the liveness file -------------
+
+# The GOLDEN. It is written out here rather than derived, because a golden
+# computed the same way as the thing it checks agrees with any bug they share
+# (P-4: a check is a diff of two lists that were arrived at differently).
+ALLOWLIST_GOLDEN = {
+    "implementer": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Skill"],
+    "tester":      ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Skill"],
+    "documenter":  ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Skill"],
+}
+OUTWARD_GOLDEN = ["Bash(git push:*)", "Bash(gh:*)", "Bash(pip install:*)",
+                  "Bash(uv add:*)", "Bash(sudo:*)"]
+
+FAKE_CLAUDE = """#!/bin/sh
+# A worker whose output this control controls. `dispatch` resolves `claude`
+# through PATH at open time and binds what it resolves to, so putting this
+# first on PATH exercises the REAL dispatch path with a known result --
+# without a model, a token, or a penny.
+cat <<'JSON'
+%s
+JSON
+exit %s
+"""
+
+
+def with_fake_claude(root, n, payload, exit_code=0):
+    d = os.path.join(root, "fakebin%02d" % n)
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, "claude")
+    with open(path, "w") as fh:
+        fh.write(FAKE_CLAUDE % (payload, exit_code))
+    os.chmod(path, 0o755)
+    return d
+
+
+def dispatch_extras(root, n):
+    """0.2.3's cases: the generated allowlist, the dispatch's reading of a
+    result, and the liveness file."""
+    out = []
+    sys.path.insert(0, HERE)
+    import importlib
+    sandbox = importlib.import_module("sandbox")
+
+    # -- the allowlist is the agent file, and nothing else ------------------
+    for role, golden in ALLOWLIST_GOLDEN.items():
+        allowed, disallowed = sandbox.allowlist(role)
+        err = None
+        if allowed != golden:
+            err = "allowlist %s: got %r, golden %r" % (role, allowed, golden)
+        elif disallowed != OUTWARD_GOLDEN:
+            err = "allowlist %s: disallowed %r, golden %r" % (role, disallowed, OUTWARD_GOLDEN)
+        out.append(("allowlist-%s-is-its-agent-file" % role, err))
+
+    # The two-declared-lists test. A golden alone cannot tell a list DERIVED
+    # from the agent file from one hardcoded to the same value, and a hardcoded
+    # one is a second home that stops tracking the agent file the day somebody
+    # edits it. So: change the agent file, demand the output change.
+    tmp_plugin = os.path.join(root, "plugin%02d" % n)
+    os.makedirs(os.path.join(tmp_plugin, "agents"), exist_ok=True)
+    with open(os.path.join(tmp_plugin, "agents", "implementer.md"), "w") as fh:
+        fh.write("---\nname: implementer\ntools: Read, Bash\n---\nbody\n")
+    real, sandbox.PLUGIN = sandbox.PLUGIN, tmp_plugin
+    try:
+        got, _ = sandbox.allowlist("implementer")
+        out.append(("allowlist-follows-the-agent-file",
+                    None if got == ["Read", "Bash"] else
+                    "editing the agent file did not change the allowlist: %r" % (got,)))
+        try:
+            sandbox.allowlist("nosuchrole")
+            err = "an undefined role produced an allowlist instead of refusing"
+        except SystemExit:
+            err = None
+        out.append(("allowlist-undefined-role-refuses", err))
+    finally:
+        sandbox.PLUGIN = real
+
+    # A false-positive twin for L-7: everything filesystem-shaped stays
+    # allowed. Four findings (F-30, F-64, F-76, F-100) were a command withheld
+    # for the guard's sake costing a verification chain, and this is the case
+    # that fails if somebody "tightens" the inside grant back up.
+    _a, d = sandbox.allowlist("implementer")
+    leaked = [x for x in d if any(k in x for k in ("rm", "chmod", "python3",
+                                                  "truncate", "mv", "git commit"))]
+    out.append(("fp-allowlist-withholds-nothing-filesystem-shaped",
+                None if not leaked else "withheld inside the sandbox: %r" % leaked))
+
+    # -- dispatch --------------------------------------------------------
+    repo, _sib = build_promo_fixture(root, 800 + n)
+    dfile = os.path.join(root, "d%02d.txt" % n)
+    with open(dfile, "w") as fh:
+        fh.write("GOAL: do nothing\n")
+
+    # Opened without --parent-session: REFUSED before a penny is spent. The
+    # worker would otherwise run, cost money, and fail on its REPORT append
+    # for a reason its dispatch never mentions.
+    sbx("open", "--repo", repo, "--task", "T-1", "--step", "S-1", "--id", "nop%02d" % n)
+    r = sbx("dispatch", "nop%02d" % n, "--repo", repo, "--role", "implementer",
+            "--model", "m", "--dispatch", dfile)
+    out.append(("dispatch-refuses-a-sandbox-with-no-parent-session",
+                None if r.returncode != 0 and "parent-session" in (r.stdout + r.stderr)
+                else "expected a refusal naming --parent-session, got: %s"
+                     % (r.stdout + r.stderr)[:200]))
+    sbx("close", "nop%02d" % n, "--repo", repo)
+
+    # THE 0.2.0 FINDING, PLANTED. A failed run reported `subtype: "success"`
+    # in the same object as `is_error: true`. A dispatch that read subtype
+    # would hand a supervisor an unauthenticated worker's empty output as a
+    # completed step. This case fails if the branch is ever moved to subtype.
+    cases = [
+        ("dispatch-reads-is_error-not-subtype",
+         '{"is_error":true,"subtype":"success","result":"Not logged in",'
+         '"usage":{"input_tokens":1},"duration_ms":60000}', 0, True),
+        ("fp-dispatch-accepts-a-run-that-really-succeeded",
+         '{"is_error":false,"subtype":"success","result":"REPORT",'
+         '"usage":{"input_tokens":10,"output_tokens":5},"duration_ms":120000,'
+         '"total_cost_usd":0.5}', 0, False),
+        ("dispatch-stdout-that-is-not-json-is-a-failure",
+         'this is not json', 0, True),
+    ]
+    for name, payload, code, want_fail in cases:
+        bindir = with_fake_claude(root, n, payload, code)
+        sid = "dsp%02d%s" % (n, name[:3])
+        env = dict(os.environ, PATH=bindir + os.pathsep + os.environ["PATH"])
+        subprocess.run([sys.executable, SANDBOX, "open", "--repo", repo,
+                        "--task", "T-1", "--step", "S-1", "--id", sid,
+                        "--parent-session", "writer-1"],
+                       capture_output=True, text=True, env=env)
+        r = subprocess.run([sys.executable, SANDBOX, "dispatch", sid, "--repo", repo,
+                            "--role", "implementer", "--model", "m",
+                            "--dispatch", dfile, "--timeout", "60"],
+                           capture_output=True, text=True, env=env)
+        meta = os.path.join(sandbox.sandbox_dir(repo, sid), "meta")
+        failed = (r.returncode != 0
+                  or os.path.exists(os.path.join(meta, sandbox.DISPATCH_FAILED)))
+        err = None
+        if failed != want_fail:
+            err = ("reported %s, expected %s -- %s"
+                   % ("failure" if failed else "success",
+                      "failure" if want_fail else "success",
+                      (r.stdout + r.stderr).strip()[:200]))
+        elif not want_fail:
+            # The harness's own numbers, not the worker's. P-17c: a live worker
+            # reported tokens=3000 for a step metered at 309639.
+            try:
+                b = json.load(open(os.path.join(meta, "budget.json")))
+            except Exception as e:
+                b, err = {}, "budget.json unreadable: %s" % e
+            if not err and b.get("tokens") != 15:
+                err = "budget.json tokens=%r, expected the harness's 15" % (b.get("tokens"),)
+            if not err and b.get("minutes") != 2.0:
+                err = "budget.json minutes=%r, expected 2.0" % (b.get("minutes"),)
+            line = _slurp_file(os.path.join(repo, "devteam", ".run", "locks", "T-1.sandbox"))
+            if not err and "exited" not in line:
+                err = "the liveness file was not rewritten at exit: %r" % line[:120]
+            if not err and " root " not in line:
+                err = "the liveness file carries no root, so check_report cannot find the budget"
+        out.append((name, err))
+        sbx("close", sid, "--repo", repo)
+
+    # -- declared_scope must not call a TRACKED file untracked --------------
+    tf = os.path.join(repo, "devteam", "tasks", "T-1.md")
+    keep = open(tf).read()
+    with open(tf, "w") as fh:
+        fh.write("# T-1 - no status segment, so the parser drops it\n\nScope. src/\n")
+    subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", repo, "commit", "-qm", "unparseable"], capture_output=True)
+    state, _ = sandbox.declared_scope(repo, "T-1")
+    out.append(("declared-scope-tracked-but-unparsed-is-not-untracked",
+                None if state == "unparsed" else
+                "a tracked-but-unparseable task file reported %r, which sends the "
+                "reader to `git add` a file git already has" % state))
+    with open(tf, "w") as fh:
+        fh.write(keep)
+    subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", repo, "commit", "-qm", "restore"], capture_output=True)
+    state, entries = sandbox.declared_scope(repo, "T-1")
+    out.append(("fp-declared-scope-reads-a-good-task-file",
+                None if state == "ok" and entries else
+                "a well-formed tracked task file reported %r/%r" % (state, entries)))
+    os.remove(tf)
+    subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", repo, "commit", "-qm", "gone"], capture_output=True)
+    state, _ = sandbox.declared_scope(repo, "T-1")
+    out.append(("declared-scope-a-missing-file-is-still-no-task-file",
+                None if state == "no-task-file" else "got %r" % state))
+
+    # -- §3.7: a verifier's mutation goes through `exec` --------------------
+    # F-100 was a verifier that could not mutate anything because the guard
+    # refused in-tree writes by a role holding no claim. Inside `exec` the
+    # whole tree is mutable and nothing survives, which is what makes a
+    # mutation test possible at all.
+    ex = os.path.join(root, "exec%02d" % n)
+    os.makedirs(ex, exist_ok=True)
+    subprocess.run(["git", "-C", ex, "init", "-q", "."], capture_output=True)
+    with open(os.path.join(ex, "m.py"), "w") as fh:
+        fh.write("def f():\n    return 1\n")
+    with open(os.path.join(ex, "t.py"), "w") as fh:
+        fh.write("import m\nassert m.f() == 1\nprint('green')\n")
+    r = sbx("exec", "--repo", ex, "--id", "mut%02d" % n, "--timeout", "120", "--",
+            "sh", "-c", "cd " + ex + " && sed -i s/return.1/return 2/ m.py && python3 t.py")
+    after = open(os.path.join(ex, "m.py")).read()
+    err = None
+    if r.returncode == 0:
+        err = "the mutated test PASSED, so the control cannot fail"
+    elif "return 1" not in after:
+        err = "the mutation escaped the sandbox and changed the host file"
+    out.append(("exec-mutates-and-the-check-fails-and-nothing-survives", err))
+    return out
+
+
+def _slurp_file(path):
+    try:
+        with open(path) as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
 def main():
     sys.path.insert(0, HERE)
     import io
@@ -742,6 +960,16 @@ def main():
         return 2
 
     root = tempfile.mkdtemp(prefix="devteam-sandbox-control-")
+    # The suite's sandboxes go UNDER its own temp root, so cleaning the root
+    # cleans them. Without this they land in `sandbox_base()` -- /tmp -- which
+    # the `finally` below does not touch, and every case that fails leaves one
+    # behind: a mutation run here left seven. A leaked sandbox with a colliding
+    # id makes the NEXT run fail with `is ambiguous -- 2 projects have one`,
+    # for a reason that has nothing to do with what is being tested. Closing
+    # each sandbox in a `finally` is what a case can do; putting them somewhere
+    # that is deleted wholesale is what the suite can do, and only the second
+    # survives a case that dies in a way nobody anticipated.
+    os.environ["DEVTEAM_SANDBOX_ROOT"] = root
     try:
         repo, sibling = build_fixture(root)
         fmt = {"repo": repo, "sibling": sibling, "home": HOME, "plugin": PLUGIN}
@@ -778,7 +1006,7 @@ def main():
                 print(f"FAIL  {case['name']}: {why}")
             else:
                 passed += 1
-        extra = promotion_extras(root, 900)
+        extra = promotion_extras(root, 900) + dispatch_extras(root, 901)
         for name, why in extra:
             if why:
                 failed += 1
