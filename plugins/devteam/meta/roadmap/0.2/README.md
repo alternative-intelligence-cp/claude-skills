@@ -277,6 +277,25 @@ why in the subcycle file and supersede it here with a new number (P-23).
 
 ## 8. Cost, as a model rather than a number
 
+> **Corrected 2026-09-07 by 0.2.0, which is the only row that has been run.**
+> The token figures below are **not** in a unit that maps to a subscription
+> quota, and reading them as if they were will mislead by more than an order
+> of magnitude. 0.2.0 is estimated here at `0.3–0.6 M`; its requests actually
+> processed `~15.8 M` tokens and cost `$12.23`, because cache reads dominate
+> and scale with conversation length rather than with work done.
+>
+> **The ratios below survive; the absolute numbers do not.** Anchor on the one
+> measured row: 0.2.0 cost **1% of a weekly window**, and this table's
+> midpoint for it is `0.45 M`. So read every row as `1%` of a week per `0.45 M`
+> of the units below, and the remaining core path (0.2.1–0.2.5, 0.2.8) is
+> **≈13% of a week** rather than any figure in tokens.
+>
+> **Write the closing cost of each subcycle in percent of a weekly window**,
+> not only in tokens — the owner's display reports percent, so a correction
+> recorded in tokens is one he cannot check. See
+> [`../done/0.2.0.md`](../done/0.2.0.md) for the worked figures.
+
+
 `REASONED` — nothing in this cycle has been measured, and cycle 0.1's lesson
 (C-3 §4) is that estimates miss on **rounds**, not typing: ten of ten tasks
 over, 1.78× in total, after two upward revisions. Model each subcycle as
