@@ -14,7 +14,15 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.realpath(__file__))
-REAL = os.path.join(HERE, "check_plugin.py")
+# THE SUBJECT IS OVERRIDABLE SO THAT MUTATION TESTING NEED NOT WRITE THE
+# SHIPPED TREE. scripts/mutate.py used to apply each mutation to the real
+# file and restore it in a `finally`, which is safe in time and not in the
+# tree: a concurrent `git add -A` read check_plugin.py mid-mutation and
+# shipped the defect, with this control green in the working tree the whole
+# while. Two trees, one report. The window is now removed rather than
+# declared -- mutate.py writes a mutated COPY and names it here.
+REAL = (os.environ.get("DEVTEAM_SUBJECT_CHECK_PLUGIN")
+       or os.path.join(HERE, "check_plugin.py"))
 
 PROTOCOL = "# The protocol\n\n**P-1 — first rule.** Because.\n\n**P-2 — second rule.** Because.\n"
 SKILL = """---

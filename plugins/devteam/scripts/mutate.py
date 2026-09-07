@@ -28,10 +28,25 @@ None was visible by asking whether the suite was green. Four of the five were
 found only by mutating the mechanism and asking WHAT ELSE WOULD MAKE THIS PASS.
 
 So this script asks that question mechanically. It applies each declared
-mutation to the shipped source, runs the control, records which cases changed
-verdict, and restores. What it prints is the thing no instrument in this
-repository recorded before: PER CASE, THE MUTATIONS THAT MOVE IT -- and,
-underneath, THE CASES NO MUTATION MOVES, which are the decorations.
+mutation to a COPY of the source, runs the control against it, and records
+which cases changed verdict. What it prints is the thing no instrument in this
+repository recorded before: PER CASE, THE MUTATIONS THAT MOVE IT.
+
+AND IT REFUSES TO GUESS WHICH UNMOVED CASES ARE DECORATION. A case no mutation
+moved is decoration only if the mutation set for its mechanism is COMPLETE;
+otherwise it is merely unasked, and the two are not distinguishable from the
+output. An earlier draft inferred the difference from case and mutation names
+and got it wrong on its first run -- it called the `unknown-rule` case
+decoration because the string "unknown" appears in four mutation names, when in
+truth no declared mutation deletes that emit at all. An instrument answering
+"which cases did MY mutations move" while appearing to answer "which cases
+control anything" is P-35b, inside the script written to catch that shape.
+
+So completeness is DECLARED, in COMPLETE_FOR below, and diffed against what was
+measured -- two lists (P-4), never a reading. A case matching a declared prefix
+and moved by nothing is a defect and exits 1. Every other unmoved case is
+printed as UNASKED, which is a statement about this file rather than about the
+case.
 
     $ python3 scripts/mutate.py                 every declared mutation
     $ python3 scripts/mutate.py --check unknown-rule    one set
@@ -44,24 +59,52 @@ below is a WRONG-BUT-PLAUSIBLE version of the mechanism: the draft that was
 actually written first, or the simplification a later reader would reach for.
 That is the population a twin has to discriminate against.
 
-IT MUTATES THE SHIPPED FILES IN PLACE and restores in a `finally`. That is a
-departure from "mutate in a scratch copy" and it is deliberate: the controls
-import and copy the real module path, so a scratch copy would test the copy.
-Two workers made this same departure independently before it was written down
-(0.2.6's session, and this one), which is DESIGN §20's second-half detector
-firing -- so the departure is recorded here rather than left to be re-derived
-a third time. The guard against the obvious hazard is that every mutation
-asserts its OLD text is present before writing, and a mutation left applied
-looks exactly like a suite that passes (0.2.3's lesson).
+IT NEVER WRITES THE SHIPPED TREE, and the first draft of it did.
 
-Exit 0 if every case is moved by at least one mutation, 1 if any case is
-moved by none, 2 if a mutation could not be applied.
+The obvious design is to apply each mutation to the real file and restore it in
+a `finally`, because the controls resolve their subject to a fixed path and a
+scratch copy would test the copy. TWO SESSIONS REACHED THAT DESIGN
+INDEPENDENTLY -- 0.2.6's and this one -- which is DESIGN §20's second-half
+detector firing, and both were wrong in the same way.
+
+A `finally` guarantees restoration IN TIME. It guarantees nothing about the
+tree A CONCURRENT READER OBSERVES. A peer session ran `git add -A` inside the
+window, and check_plugin.py shipped at 6f2f389 with mutation 4 applied --
+while this control ran green in the working tree, because by then the `finally`
+had already restored it. Two trees, one report, and nothing in either session's
+procedure distinguished them. Repaired at c4d3f26; the row is in docs/PAIRS.md.
+
+The hazard is not really the peer. The window exists whether or not anybody
+else is present -- a hook, a scheduled task, a crash-recovery path or an
+interrupted run has the same exposure, and an interrupted run leaves the
+mutation applied permanently, which looks exactly like a suite that passes
+(0.2.3's lesson).
+
+So the window is REMOVED rather than declared. Each control resolves its
+subject through `DEVTEAM_SUBJECT_<NAME>` before falling back to its shipped
+path; this script writes the mutated source to a temporary file and names it
+there. The shipped tree is never wrong, so there is no window to protect, no
+marker to remember to write, and nothing for an interrupted run to leave
+behind. Preventing the mistake structurally beats asking the next session to
+remember not to commit during it.
+
+IT ASKS THE QUESTION IN BOTH DIRECTIONS, because they are different defects.
+A case no mutation moves is a control that guards nothing. A MUTATION NO CASE
+CATCHES is a mechanism nothing guards -- the suite is green against a source
+that is broken, which is the plain reading of P-35 and is how four mutations
+survived their first drafts across 0.2.5 and 0.2.6. Both are reported; both
+exit 1.
+
+Exit 0 when every declared mutation is caught by some case and every case
+claimed in COMPLETE_FOR is moved by some mutation; 1 if either direction has a
+gap; 2 if a mutation could not be applied or the suite was not green first.
 """
 import argparse
 import os
 import re
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 
@@ -107,10 +150,33 @@ MUTATIONS = [
 ]
 
 
-def cases_failing(control):
+# Case-name prefixes whose mutation set above is claimed COMPLETE -- every
+# plausible wrong version of that mechanism is declared. A case matching one of
+# these that no mutation moves is a control that controls nothing.
+#
+# Keep this list SHORT and true. Adding a prefix here is a claim, and the claim
+# is checked: it is what turns "no mutation moved this" from an observation into
+# a verdict. The four below are 0.2.7's; the mechanism is `cited_rules` in
+# check_plugin.py and the four mutations are its three missing exemptions plus
+# the file-scoped simplification a later reader would reach for.
+COMPLETE_FOR = (
+    "fp-a-rule-number-inside-a-fenced-block",
+    "fp-a-rule-number-in-quoted-check-output",
+    "fp-the-teaching-form-of-a-rule-number",
+    "unknown-rule-still-fires-in-prose",
+)
+
+
+def subject_var(target):
+    """The env var a control reads to be pointed at a mutated copy."""
+    return "DEVTEAM_SUBJECT_" + os.path.splitext(target)[0].upper()
+
+
+def cases_failing(control, env=None):
     """The set of case names the control reports as FAIL."""
     proc = subprocess.run([sys.executable, os.path.join(HERE, control)],
-                          capture_output=True, text=True)
+                          capture_output=True, text=True,
+                          env={**os.environ, **(env or {})})
     return {m for m in re.findall(r"^FAIL\s+(\S+)", proc.stdout, re.M)}
 
 
@@ -151,23 +217,40 @@ def main():
         baseline[control] = all_cases(control)
 
     flipped = {c: {name: [] for name in baseline[c]} for c in controls}
+    uncaught = []
     for control, name, target, old, new in muts:
-        path = os.path.join(HERE, target)
-        src = open(path, encoding="utf-8").read()
+        src = open(os.path.join(HERE, target), encoding="utf-8").read()
         # ASSERTED APPLIED BEFORE THE RUN. A mutation that silently failed to
-        # apply produces a green suite and reads as a control that works.
+        # apply produces a green suite and reads as a control that works
+        # (0.2.3's lesson) -- and it is the one failure the copy does not fix,
+        # because a copy nobody mutated runs exactly like the shipped file.
         if src.count(old) != 1:
             print(f"mutate.py: {name!r} matches {src.count(old)} sites in "
                   f"{target}, expected exactly 1", file=sys.stderr)
             return 2
-        try:
-            open(path, "w", encoding="utf-8").write(src.replace(old, new, 1))
-            for case in cases_failing(control):
+        # The mutated source is a COPY in a temp directory, named to the
+        # control through the environment. The shipped tree is never written,
+        # so an interrupted run leaves nothing behind and a concurrent commit
+        # has nothing to catch.
+        with tempfile.TemporaryDirectory(prefix="devteam-mutate-") as tmp:
+            copy = os.path.join(tmp, target)
+            with open(copy, "w", encoding="utf-8") as fh:
+                fh.write(src.replace(old, new, 1))
+            caught = cases_failing(control, {subject_var(target): copy})
+            for case in caught:
                 flipped[control].setdefault(case, []).append(name)
-        finally:
-            open(path, "w", encoding="utf-8").write(src)
+            if not caught:
+                uncaught.append((control, name))
 
     rc = 0
+    if uncaught:
+        # A MUTATION NO CASE CATCHES is the other half of the question, and the
+        # more urgent half: the suite is green against a source that is broken.
+        print(f"\n{len(uncaught)} MUTATION(S) NO CASE CAUGHT — the suite is "
+              f"green against a broken source. Each needs a case:")
+        for control, name in uncaught:
+            print(f"      {control}: {name}")
+        rc = 1
     for control in controls:
         print(f"\n{control}")
         unmoved = []
@@ -178,34 +261,26 @@ def main():
                     print(f"      moved by: {n}")
             else:
                 unmoved.append(case)
-        # A CASE THIS FILE DECLARES NO MUTATION FOR IS NOT SHOWN TO BE
-        # DECORATION -- IT IS UNASKED, and the difference is the whole
-        # honesty of the instrument. An earlier draft of this script printed
-        # every unmoved case under the heading "decoration". Run over the
-        # 32-case check_plugin control with only the four 0.2.7 mutations
-        # declared, it called 28 cases decoration -- every one of which HAD
-        # been mutation-tested, by the ad-hoc harnesses of the subcycles that
-        # wrote them, which no longer exist. The instrument would have
-        # answered "which cases did MY mutations move" while appearing to
-        # answer "which cases control anything" (P-35b), inside the script
-        # built to catch that shape. So the two are separated by name, and
-        # only the first is a verdict.
-        targeted = {c for c in unmoved
-                    if any(c.split("-")[0] in m[1] or m[1].split(":")[0] in c
-                           for m in muts if m[0] == control)}
-        if targeted:
-            print(f"\n  {len(targeted)} case(s) NO MUTATION MOVED, though this "
-                  f"file declares mutations for their mechanism — decoration:")
-            for case in sorted(targeted):
+        # DECORATION IS A VERDICT AND IS ONLY REACHED THROUGH COMPLETE_FOR.
+        # Everything else unmoved is UNASKED -- a statement about this file,
+        # not about the case. Most unasked cases WERE mutation-tested by the
+        # subcycle that wrote them, with an ad-hoc harness that no longer
+        # exists; calling them decoration would be this script asserting
+        # something it did not measure.
+        claimed = [c for c in unmoved if c.startswith(COMPLETE_FOR)]
+        if claimed:
+            print(f"\n  {len(claimed)} case(s) DECORATION — the mutation set for "
+                  f"their mechanism is declared complete in COMPLETE_FOR and "
+                  f"none of it moves them:")
+            for case in sorted(claimed):
                 print(f"      {case}")
             rc = 1
-        rest = [c for c in unmoved if c not in targeted]
+        rest = [c for c in unmoved if not c.startswith(COMPLETE_FOR)]
         if rest:
-            print(f"\n  {len(rest)} case(s) NOT ASKED — no mutation declared "
-                  f"here targets them. NOT a verdict: most were mutation-tested "
-                  f"by the subcycle that wrote them, with a harness that no "
-                  f"longer exists. Declaring a mutation for one is how it "
-                  f"becomes an answer.")
+            print(f"\n  {len(rest)} case(s) UNASKED — no mutation declared here "
+                  f"targets them, and their mechanism is not in COMPLETE_FOR. "
+                  f"Not a verdict. Declaring a mutation, and then the prefix, "
+                  f"is how one becomes an answer.")
             for case in sorted(rest):
                 print(f"      {case}")
     return rc
