@@ -327,16 +327,23 @@ why in the subcycle file and supersede it here with a new number (P-23).
 >    If so it is not convertible to subscription quota by any fixed ratio,
 >    because the ratio moves with model mix and cache profile, which differ
 >    between every row above.
-> 2. **The denominator is not constant.** `MEASURED`: **a 50% limit boost is
->    active through September 13.** A boost changes what `1%` *is* — and **not
->    one reading in this table records whether a boost was active when it was
->    taken.** Chaining anchors across a changed denominator produces exactly
->    what happened: arithmetic that is internally consistent and disconnected
->    from the display.
+> 2. **The gauge is reset without warning, and the display cannot show it.**
+>    `MEASURED`, from him: his quota was **reset twice during the week 0.2.4
+>    ran** — *"this week I have actually had three weeks worth of usage in
+>    one"*. A reset zeroes the numerator, so the `90%` before and the `90%`
+>    after are **not two points on one curve**: they are readings from
+>    different windows, the second having filled to 90% again. **The comparison
+>    that produced this whole finding was never a comparison.**
 >
-> Neither alone explains a zero move — a 50% boost would turn the predicted
-> `3.42%` into roughly `2.3%`. Both together do, and **neither was known to any
-> of the four sessions that quoted a percentage.**
+> **This corrects an earlier version of this note**, which gave the second
+> reason as a moving denominator and cited the 50% boost. That was wrong: the
+> boost has run **since May**, covered all five readings uniformly, and
+> therefore explains nothing about their inconsistency. It is left visible
+> rather than replaced, because reaching a plausible cause before the owner had
+> finished describing what happened is the more instructive failure.
+>
+> **The boost still matters forward: it ends September 13**, and any reading
+> after that is against a denominator 50% smaller than every reading above.
 >
 > **Do not fit a fifth anchor to it.** Fitting is how the four rows above
 > acquired their false precision, and a series whose largest spend produced its
@@ -350,10 +357,11 @@ why in the subcycle file and supersede it here with a new number (P-23).
 >
 > 1. **Dollars and requests**, both read from the owner's `/usage`. Exact, and
 >    comparable across subcycles.
-> 2. **The gauge reading before and after, as raw observations** — **and
->    whether a limit boost is active when you read it.** That last line is one
->    sentence, costs nothing, and its absence is the whole reason five readings
->    cannot be compared with each other.
+> 2. **The gauge reading before and after, as raw observations** — **plus the
+>    boost state, and any reset you are told about.** Both are invisible in the
+>    output and both silently destroy comparability: a boost changes what `1%`
+>    is, a reset means the two numbers are not on the same curve at all. Ask;
+>    the owner knows and the display does not say.
 > 3. **No share of a week.** Not from tokens, not from dollars, not from a
 >    chained anchor. Every session that has computed one has been wrong.
 >
