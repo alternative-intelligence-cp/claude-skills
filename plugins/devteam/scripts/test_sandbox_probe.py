@@ -120,6 +120,8 @@ CASES = [
     # Undetermined, not broken: exit 2, and a human reads it.
     ("already-nested",
      machine(uid_map="         0       1000          1"), {"already-nested"}, 2),
+    # A kernel that will not show its own uid_map is not evidence of safety.
+    ("uid-map-unreadable", machine(uid_map=None), {"already-nested"}, 2),
     ("native-overlay",
      machine(bwrap_help=HEALTHY["bwrap_help"] + "  --overlay SRC RWSRC WORKDIR DEST\n"),
      {"native-overlay"}, 2),

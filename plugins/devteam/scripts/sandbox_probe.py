@@ -174,10 +174,16 @@ def rows():
     # already in the way and our mounts would compose with theirs, not replace
     # them. `enableWeakerNestedSandbox` is the harness's own name for the case.
     uid_map = read("/proc/self/uid_map")
-    fields = tuple(uid_map.split()) if uid_map else ()
-    nested = fields != HOST_UID_MAP_FIELDS
-    yield ("already inside a namespace",
-           f"{uid_map!r}" + (" -- not the host identity map" if nested else " (host)"),
+    if uid_map is None:
+        # Not knowing is the same verdict as being nested, and for the same
+        # reason: somebody has to look before a worker runs. It is not the
+        # same sentence, though -- a reader sent to check a map that could not
+        # be read will spend the trip looking for the wrong thing.
+        detail, nested = "could not be read", True
+    else:
+        nested = tuple(uid_map.split()) != HOST_UID_MAP_FIELDS
+        detail = f"{uid_map!r}" + (" -- not the host identity map" if nested else " (host)")
+    yield ("already inside a namespace", detail,
            "cat /proc/self/uid_map", "already-nested" if nested else None)
 
     root = os.environ.get("DEVTEAM_SANDBOX_ROOT") or tempfile.gettempdir()
