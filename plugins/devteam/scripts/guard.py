@@ -400,7 +400,40 @@ def lock_state(writer, session):
     identify the writer is the failure this project has already had once: the
     scope rule was inert for an entire rehearsal and nothing said so.
     """
-    if writer is None or re.search(r"\bnone\b", writer) or PLACEHOLDER.search(writer):
+    # AN ID THAT IS PRESENT BUT BLANK IS VACANT, NOT `theirs`. It carries the
+    # same information as the unfilled placeholder beside it: nobody has taken
+    # this lock.
+    #
+    # `writer` is the WHOLE REST OF THE LINE, not the id -- `WRITER` captures
+    # `(.*)$` and the exact-token match below is what picks the id out of it.
+    # That is deliberate and it is also why a blank id does not arrive here as
+    # an empty string: `**Writer.** `` since 2026-09-07` yields the writer
+    # `"`` since 2026-09-07"`, which is not empty, is not a placeholder, and
+    # tokenises to `since, 2026, 09, 07`. No session id can ever match those,
+    # so every session reads as `theirs`.
+    #
+    # MEASURED, one project, one manager session (S-MGR), three writer lines:
+    #
+    #   writer=`S-MGR`          devteam/ ALLOWED   out-of-scope REFUSED  correct
+    #   writer=``               devteam/ REFUSED   out-of-scope ALLOWED  <-- bug
+    #   writer=`<session id>`   devteam/ ALLOWED   out-of-scope REFUSED  correct
+    #
+    # The middle line is the P-13 lockout and the DESIGN §20 inert guard AT
+    # ONCE: the manager cannot write its own board, and nobody's scopes are
+    # policed at all, because `theirs` takes the stranger exit. Two directions
+    # wrong from one blank -- the same shape 0.2.3 recorded for the headless
+    # worker's identity, reached here by a different route.
+    #
+    # It is reachable by a plain typo. `run` §1 told the manager to write
+    # `${CLAUDE_SESSION_ID}`; the variable on this harness is
+    # `CLAUDE_CODE_SESSION_ID`, so an agent that ran the line literally rather
+    # than substituting by inference wrote a blank id. Found by the session
+    # taking 0.2.5 over, reading the skill it was about to extend.
+    # The first two clauses cover a board with NO `**Writer.**` line and one
+    # whose line is bare; the backtick clause is the one the typo reaches.
+    if writer is None or not writer.strip() \
+            or re.search(r"^\s*`\s*`", writer) \
+            or re.search(r"\bnone\b", writer) or PLACEHOLDER.search(writer):
         return "vacant"
     if not session:
         return "unknown"

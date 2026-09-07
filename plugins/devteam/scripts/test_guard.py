@@ -501,6 +501,45 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- an EMPTY writer line is VACANT, not `theirs` ----------------------
+    # Reachable by a plain typo: `run` §1 said `${CLAUDE_SESSION_ID}` and the
+    # variable on this harness is `CLAUDE_CODE_SESSION_ID`, so an agent that
+    # ran the line literally wrote an empty string to the board.
+    #
+    # BOTH cases are needed and the second is the one that matters. Read as
+    # `theirs`, an empty writer inverts the guard in both directions at once:
+    # the manager is locked out of its own board (P-13), AND every scope stops
+    # being policed, because `theirs` takes the stranger exit. A control that
+    # only checked `devteam/` would pass with the bug in place -- which is the
+    # same trap 0.2.3 documented for the sandbox identity, met again by a
+    # different route.
+    empty_writer = lambda dt: open(os.path.join(dt, "BOARD.md"), "w").write(
+        "**Writer.** `` since 2026-09-07\n")
+    blank_writer = lambda dt: open(os.path.join(dt, "BOARD.md"), "w").write(
+        "**Writer.** `   ` since 2026-09-07\n")
+    for label, mutate_fn in (("empty", empty_writer), ("whitespace", blank_writer)):
+        for name, tool, expect_deny, why in (
+                (f"{label}-writer-does-not-lock-the-manager-out-of-devteam",
+                 write("devteam/tasks/T-1.md"), False, None),
+                (f"{label}-writer-still-polices-the-scope",
+                 write("src/render/b.py"), True, "no live task has claimed")):
+            root = build(mutate_fn)
+            try:
+                denied, reason = run(root, tool, WRITER_SESSION)
+                if denied != expect_deny:
+                    failed += 1
+                    print(f"FAIL  {name}: {'REFUSED' if denied else 'ALLOWED'}, "
+                          f"expected to {'refuse' if expect_deny else 'allow'}")
+                    if reason:
+                        print(f"        | {reason[:180]}")
+                elif why and why not in (reason or ""):
+                    failed += 1
+                    print(f"FAIL  {name}: refused, but not for {why!r}")
+                else:
+                    passed += 1
+            finally:
+                shutil.rmtree(root, ignore_errors=True)
+
     # --- roadmap 0.2.4 §3.5, limit 3: a `cd` must not disarm the protected
     # path rule for a target INSIDE the project. That is the reachable half of
     # the `CLAUDE_PROJECT_DIR` limit the docstring states: the target-side
@@ -555,8 +594,9 @@ def main():
     # claiming to be smaller than it is -- harmless, and exactly the kind of
     # drift the next person assumes cannot happen in a control file.
     PROTECTED_CD_CASES = 3
+    EMPTY_WRITER_CASES = 4
     total = (len(all_cases) + 1 + len(identity_cases)
-             + len(message_cases) + PROTECTED_CD_CASES)
+             + len(message_cases) + PROTECTED_CD_CASES + EMPTY_WRITER_CASES)
     fp = (sum(1 for c in all_cases if c[0].startswith("fp-")) + 1
           + sum(1 for c in identity_cases if c[0].startswith("fp-"))
           + sum(1 for c in message_cases if c[0].startswith("fp-")))

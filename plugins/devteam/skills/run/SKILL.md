@@ -38,7 +38,7 @@ recovery action, re-dispatching a task whose agent is gone, is also the one that
 can destroy uncommitted work nobody knew was there.
 
 1. **Take the lock.** `mkdir -p devteam/.run/session` and write
-   `${CLAUDE_SESSION_ID}` to `devteam/.run/session/manager`. Put the same id
+   `${CLAUDE_CODE_SESSION_ID}` to `devteam/.run/session/manager`. Put the same id
    on `BOARD.md`'s `**Writer.**` line and commit: `board: writer <id>`.
 
    **If that line already names another session:** run `ListAgents`. A live
