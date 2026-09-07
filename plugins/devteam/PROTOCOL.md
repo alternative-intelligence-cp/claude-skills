@@ -654,7 +654,7 @@ worth measuring.
 
 **P-47 — A tracked artifact contains only what a reader can see, and no
 credential.** No absolute home path, no token, key or private key, and no
-control character outside tab and newline.
+control character outside tab and the line ending. A trailing `\r` is a CRLF line ending and is fine; a BARE `\r` mid-line is not, because it returns the cursor to column zero — a terminal shows what follows overwriting what came before, while a diff shows both.
 
 *Why the two belong together.* Both are the same defect — **content that is
 present in the file and absent from the reading of it**. A credential is read

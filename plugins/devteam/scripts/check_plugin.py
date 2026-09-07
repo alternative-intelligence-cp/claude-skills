@@ -31,6 +31,66 @@ RULE = re.compile(r"\bP-(\d+)\b")
 SCRIPT_REF = re.compile(r"(?:\$\{CLAUDE_PLUGIN_ROOT\}|\$\{CLAUDE_SKILL_DIR\}/\.\.)/(\S+?\.py)")
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
+# --- A MENTION IS NOT A CITATION, and this check had to learn it the hard way
+# check_refs.py worked this out for the project namespace and wrote the reason
+# in its own source; `unknown-rule` had NONE of the three exemptions, and it is
+# the check guarding the plugin's own documents -- the files most likely to
+# DISCUSS a rule that does not exist yet.
+#
+# It cost two refusals in one subcycle. A record paragraph proposing a rule by
+# number was refused, correctly: templates/FORMATS.md says proposing something
+# by number is not citing it, and the manager allocates the number on accepting.
+# Then THE CORRECTION WAS REFUSED TOO -- the rewrite said "an earlier draft
+# named the rule <that number>", which quotes the identifier, so REPORTING THE
+# FINDING CREATED THE FINDING. The author's workaround was to write "the next
+# free protocol number" instead of the number, which is precisely the
+# obfuscation FORMATS.md tells authors not to reach for. When the only way to
+# comply with one rule is to break another, the rules are the defect (P-20b).
+#
+# The three exemptions are check_refs.py's, unchanged, because the shape is
+# identical and a second answer to one question is a second home (P-34):
+#
+#   - a FENCED BLOCK is quoted material, not an assertion that a rule applies
+#     here. This is the one that resolves the case above, and it resolves it in
+#     the direction the house style already prefers: paste the check output that
+#     refused you rather than describing it in prose.
+#   - INLINE QUOTED CHECK OUTPUT, matched on the shape every check here prints
+#     -- a lowercase hyphenated kind, then a path:line. check_refs' comment
+#     records a supervisor being punished for reporting a finding accurately.
+#   - THE TEACHING FORM `P-<n>`, and any `<placeholder>` on the line. Without
+#     it the format documentation reports itself, and a check that cries wolf on
+#     its own examples is one nobody runs (P-35).
+#
+# WHAT WATCHES THE CARVE-OUT: nothing, and FORMATS.md requires that be said
+# rather than left to be discovered -- "a thing exempted from a checker for its
+# own protection is a thing the checker cannot see; name what watches it
+# instead, or record that nothing does." So, recorded: a `P-n` written inside a
+# fence, inside quoted check output, or in the teaching form is read by no check
+# in this repository, in either direction. The live cost is a rule number cited
+# from a COMMAND in a skill's fenced block, which would now go unchecked.
+# Accepted, on evidence rather than on hope: check_refs has carried exactly this
+# debt over the whole project namespace for a full cycle and it has not yet cost
+# a finding. It is the same debt, not a new class of one.
+TEACHING = re.compile(r"<[A-Za-z][^>]*>|`P-<n>`|\bPREFIX\b")
+CHECK_OUTPUT = re.compile(r"`[a-z][a-z-]{3,}\s+\S+:\d+[^`]*`")
+
+
+def cited_rules(body):
+    """The P-n numbers a document CITES, as opposed to merely contains."""
+    out, in_fence = set(), False
+    if "```" in body:
+        return out
+    for line in body.split("\n"):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or TEACHING.search(line):
+            continue
+        # Blanked before any identifier is read out of the line, so a quoted
+        # finding cannot cite anything.
+        out.update(int(x) for x in RULE.findall(CHECK_OUTPUT.sub("`quoted`", line)))
+    return out
+
 
 def field(fm, key):
     m = re.search(rf"^{key}:\s*(.+)$", fm, re.M)
@@ -192,9 +252,13 @@ def main():
 
     for path in walk_md(PLUGIN):
         body = open(path, encoding="utf-8", errors="replace").read()
-        for n in {int(x) for x in RULE.findall(body)}:
+        for n in sorted(cited_rules(body)):
             if n not in declared:
-                add("unknown-rule", rel(path), f"cites P-{n}, which PROTOCOL.md does not declare")
+                add("unknown-rule", rel(path),
+                    f"cites P-{n}, which PROTOCOL.md does not declare. If you are "
+                    "REPORTING this rather than relying on it, paste the check "
+                    "output in a fenced block instead of describing it in prose — "
+                    "do not disguise the number to get past this check")
         for script in set(SCRIPT_REF.findall(body)):
             if not os.path.isfile(os.path.join(PLUGIN, script)):
                 add("missing-script", rel(path), script)

@@ -287,7 +287,17 @@ def scan(files, base):
                 f"{rel}: not UTF-8 — byte {exc.object[exc.start]:#04x} "
                 f"at offset {exc.start}")
         for n_, line in enumerate(text.split("\n"), 1):
-            bad = {c for c in line if ord(c) < 0x20 and c not in "\t\r"}
+            # `\r` is tolerated ONLY as a line ending (a CRLF file splits on
+            # \n and leaves the CR last). A BARE CR mid-line is the exact
+            # hazard P-47 names -- content present in the file and absent from
+            # the reading of it, because a CR moves the cursor to column zero
+            # and what follows overwrites what came before ON A TERMINAL while
+            # a diff shows both. 0.2.6 shipped P-47 saying "outside tab and
+            # newline" against code that permitted CR anywhere; the rule and
+            # the code disagreed, in the subcycle whose purpose was making them
+            # agree. Found by the next session reading the rule at handoff.
+            body = line[:-1] if line.endswith("\r") else line
+            bad = {c for c in body if ord(c) < 0x20 and c != "\t"}
             if bad:
                 names = ", ".join(f"U+{ord(c):04X}" for c in sorted(bad))
                 findings.append(("control-character", rel, n_,

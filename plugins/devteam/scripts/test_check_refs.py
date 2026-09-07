@@ -160,6 +160,22 @@ CASES = [
     ("leak-token", [append("CHARTER.md", "\nToken ghp_abcdefghijklmnopqrstuvwxyz0123456789 here.\n")],
      {"leak"}),
 
+    # --- P-47: a bare CR is content the reading does not show -------------
+    # 0.2.6 shipped P-47 saying "outside tab and newline" against code that
+    # permitted CR anywhere, so a tracked file with a bare mid-line CR passed
+    # clean while the rule forbade it. The rule and the code disagreed, in the
+    # subcycle whose purpose was making them agree.
+    ("control-character-bare-cr-midline",
+     [append("CHARTER.md", "\nA line with a stray\rcarriage return.\n")],
+     {"control-character"}),
+    # A CRLF FILE IS NOT A DEFECT. Splitting on \n leaves the CR last on every
+    # line, so a rule that forbade CR outright would report every line of every
+    # file written on a platform that uses CRLF -- the false positive that gets
+    # a check disabled (P-35).
+    ("fp-crlf-line-endings-are-not-control-characters",
+     [("tracked", "notes.md", "# Notes\r\n\r\nOrdinary CRLF text.\r\n")],
+     set()),
+
     # --- the audit namespace (0.2.6) -------------------------------------
     ("undispositioned-finding-no-line",
      [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_NONE)],
@@ -421,7 +437,10 @@ S-1 is the only step.
     ("control-character-escape",
      [("tracked", "research/term.md", "ESC \x1b[2J clears the screen.\n")],
      {"control-character"}),
-    ("fp-tabs-and-carriage-returns-are-ordinary-text",
+    # Renamed in 0.2.6's repair: the CR here is a LINE ENDING, which is what
+    # makes it ordinary. A CR is not ordinary anywhere — a bare mid-line one is
+    # reported, and `control-character-bare-cr-midline` is the case for it.
+    ("fp-tabs-are-ordinary-and-a-trailing-cr-is-a-line-ending",
      [("tracked", "research/table.md", "a\tb\tc\r\nd\te\tf\n")], set()),
     ("fp-naming-a-byte-is-not-embedding-it",
      [("tracked", "research/limits.md",

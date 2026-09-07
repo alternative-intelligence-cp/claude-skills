@@ -267,6 +267,62 @@ def collect(paths):
     ("fp-rule-cited-in-prose-and-parens",
      lambda p: w(p, "PROTOCOL.md", PROTOCOL + "\nP-1 and P-2 are both cited here.\n"),
      set()),
+
+    # --- A MENTION IS NOT A CITATION (0.2.7) ------------------------------
+    # `unknown-rule` read every P-n in a raw body as a citation, so a document
+    # REPORTING a rule number could not be committed. It refused a record
+    # paragraph that proposed a rule by number -- correctly, FORMATS.md forbids
+    # that -- and then refused the paragraph describing the refusal, because
+    # describing it means quoting the identifier. Reporting the finding created
+    # the finding, and the only remaining move was to disguise the number,
+    # which FORMATS.md forbids in the same breath.
+    #
+    # EACH OF THESE FOUR HAS BEEN SHOWN TO FLIP. 0.2.6's closing finding is
+    # that a false-positive twin no mutation can move is decoration, so the
+    # mutation that moves each one is named on its case rather than assumed.
+    ("fp-a-rule-number-inside-a-fenced-block-is-not-a-citation",
+     # flips when: the fence skip is removed.
+     # This is the one that resolves the case above, and it resolves it in the
+     # direction the house style already prefers -- paste the output that
+     # refused you rather than describing it in prose.
+     lambda p: w(p, "skills/alpha/SKILL.md", SKILL.format(name="alpha") + '''
+An earlier draft proposed a rule by number and was refused:
+
+```
+unknown-rule  skills/alpha/SKILL.md  cites P-99, which PROTOCOL.md does not declare
+```
+'''),
+     set()),
+    ("fp-a-rule-number-in-quoted-check-output-is-not-a-citation",
+     # flips when: the CHECK_OUTPUT blanking is removed.
+     # check_refs learned this from a supervisor who reported a finding
+     # accurately, inline, and was punished by the scanner for doing so.
+     lambda p: w(p, "skills/alpha/SKILL.md", SKILL.format(name="alpha") +
+                 "\nIt reported `unknown-rule  PROTOCOL.md:12  cites P-98` and stopped.\n"),
+     set()),
+    ("fp-the-teaching-form-of-a-rule-number-is-not-a-citation",
+     # flips when: the TEACHING skip is removed.
+     # Without it the format documentation reports itself, and a check that
+     # cries wolf on its own examples is one nobody runs (P-35).
+     lambda p: w(p, "templates/FORMATS.md", FORMATS +
+                 "\nCite a protocol rule as `P-<n>`, so P-97 in a table header reads as a form.\n"),
+     set()),
+    # THE EXEMPTIONS MUST NOT SWALLOW THE FINDING, and this is the case that
+    # says so. A fence skip written per FILE rather than per LINE would make
+    # every document containing one fenced example blind to every citation
+    # under it -- the exemption eating the check, which is the shape FORMATS.md
+    # names: a thing exempted from a checker for its own protection is a thing
+    # the checker cannot see. Here the fenced P-99 is quoted and the prose
+    # P-96 four lines later is a real citation, in ONE file.
+    ("unknown-rule-still-fires-in-prose-below-an-exempt-fence",
+     lambda p: w(p, "skills/alpha/SKILL.md", SKILL.format(name="alpha") + '''
+```
+unknown-rule  somewhere.md  cites P-99, which PROTOCOL.md does not declare
+```
+
+This step is required by P-96.
+'''),
+     {"unknown-rule"}),
 ]
 
 
