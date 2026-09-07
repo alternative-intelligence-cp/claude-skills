@@ -941,6 +941,42 @@ def dispatch_extras(root, n):
         out.append((name, err))
         sbx("close", sid, "--repo", repo)
 
+    # -- `status` with no id LISTS, because two skills said it did ---------
+    # `supervise`'s close checklist and `resume` §3 both send a reader to
+    # `sandbox.py status` for "what is still open". It required an id and
+    # refused. MEASURED 0.2.4, on the first real end-to-end: the supervisor
+    # could not enumerate its own sandboxes and closed none of them, leaving
+    # two overlays holding unpromoted work.
+    #
+    # The alternative was to tell readers to glob DEVTEAM_SANDBOX_ROOT, which
+    # is a machine-local environment variable -- a second home for a path, and
+    # exactly what the `.sandbox` line's `root` field exists to avoid.
+    sbx("open", "--repo", repo, "--task", "T-1", "--step", "S-9",
+        "--id", "lst%02d" % n, "--parent-session", "writer-1")
+    r = sbx("status", "--repo", repo)
+    out.append(("status-with-no-id-lists-open-sandboxes",
+                None if r.returncode == 0 and ("lst%02d" % n) in r.stdout
+                else "expected a listing naming lst%02d, got exit %s: %s"
+                     % (n, r.returncode, (r.stdout + r.stderr)[:200])))
+    # It must say whether an overlay HOLDS anything. An empty sandbox and one
+    # with unpromoted work are the same line otherwise, and the second is the
+    # only thing recovery can still lose.
+    subprocess.run([sys.executable, SANDBOX, "exec", "--repo", repo, "--",
+                    "sh", "-c", "echo x > held.txt"], capture_output=True)
+    r2 = sbx("status", "--repo", repo)
+    out.append(("status-listing-says-whether-an-overlay-holds-work",
+                None if "empty" in r2.stdout or "work in upper/" in r2.stdout
+                else "the listing does not distinguish a held overlay: %s"
+                     % r2.stdout[:200]))
+    # fp: an id still gives the DETAIL view, not the listing. Without this the
+    # listing could have replaced the single-sandbox form entirely.
+    r3 = sbx("status", "lst%02d" % n, "--repo", repo)
+    out.append(("fp-status-with-an-id-still-gives-the-detail-view",
+                None if r3.returncode == 0 and "opened" in r3.stdout
+                else "an id did not produce the detail view: %s"
+                     % (r3.stdout + r3.stderr)[:200]))
+    sbx("close", "lst%02d" % n, "--repo", repo)
+
     # -- declared_scope must not call a TRACKED file untracked --------------
     tf = os.path.join(repo, "devteam", "tasks", "T-1.md")
     keep = open(tf).read()

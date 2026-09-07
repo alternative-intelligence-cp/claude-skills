@@ -1269,6 +1269,43 @@ def cmd_exec(args):
 
 
 def cmd_status(args):
+    if not args.id:
+        # LISTING, not detail. `supervise`'s close checklist and `resume` §3
+        # both ask "what is still open", and until this existed the only answer
+        # was to glob a directory under DEVTEAM_SANDBOX_ROOT -- a machine-local
+        # environment variable, which is a second home for a path and the exact
+        # thing the `.sandbox` file's `root` field exists to avoid. A closing
+        # supervisor that cannot enumerate its own sandboxes closes none of
+        # them. MEASURED 0.2.4: the skills said `sandbox.py status` lists what
+        # is open, and it refused with `the following arguments are required`.
+        roots = sorted(glob.glob(os.path.join(sandbox_base(), "*", "*")))
+        rows = []
+        for path in roots:
+            if not os.path.isdir(path):
+                continue
+            try:
+                doc = load_plan(path)
+            except (OSError, ValueError):
+                continue
+            if args.repo and os.path.realpath(doc["repo"]) != os.path.realpath(args.repo):
+                continue
+            pid, live = alive(path)
+            # A non-empty upper layer is work nobody promoted, and it is the
+            # one thing a recovering session can still lose. It is on the
+            # listing line for that reason and not for tidiness.
+            held = any(True for _ in os.walk(os.path.join(path, "upper")) for _ in _[2]) \
+                if os.path.isdir(os.path.join(path, "upper")) else False
+            rows.append((doc["id"], doc.get("task") or "-", doc.get("step") or "-",
+                         "RUNNING" if live else ("idle" if not pid else "exited"),
+                         "work in upper/" if held else "empty", path))
+        if not rows:
+            print(f"no open sandboxes under {sandbox_base()}")
+            return 0
+        w = max(len(r[0]) for r in rows)
+        for sid, task, step, state, held, path in rows:
+            print(f"{sid:<{w}}  {task} {step}  {state:<7}  {held:<14}  {path}")
+        print(f"{len(rows)} open sandbox(es) under {sandbox_base()}")
+        return 0
     path = find_sandbox(args.id, args.repo)
     doc = load_plan(path)
     pid, live = alive(path)
@@ -1768,8 +1805,9 @@ def main(argv=None):
                    help="report the gate's findings and the commits that would "
                         "be applied, and touch nothing")
 
-    p = sub.add_parser("status", help="what a sandbox is for, and if it is busy")
-    p.add_argument("id")
+    p = sub.add_parser("status", help="what a sandbox is for, and if it is busy; "
+                                      "with no id, every open sandbox")
+    p.add_argument("id", nargs="?")
     p.add_argument("--repo")
 
     p = sub.add_parser("close", help="remove a sandbox, or keep it")
