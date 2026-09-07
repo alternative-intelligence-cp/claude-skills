@@ -308,6 +308,12 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | `~1` (read; 0–2 by tick) |
 > | 0.2.5 — rotation | 159 | `31.80 M` | `$23.92` | `91% → 92%`, one window, boost on: **~1 point** |
 > | 0.2.6 — the checks | 172 | `35.42 M` | `$25.39` | `92% → 92%`, one window, no reset, boost on: **~0 points, 0–1 by tick** |
+>
+> **0.2.6 ran as one session, peaked at `348,241` tokens of context and never
+> compacted** — the shape the design intends for a single subcycle. Rotation is
+> for continuity across subcycles; the compaction budget of one is a safety
+> valve so a hard limit cannot stop a session at an arbitrary moment.
+
 > 
 > **A SECOND SUBCYCLE HAS NOW SPENT HEAVILY AND MOVED THE GAUGE BY NOTHING.**
 > 0.2.6 read `92%` at open and `92%` at close — one window, no reset (confirmed
