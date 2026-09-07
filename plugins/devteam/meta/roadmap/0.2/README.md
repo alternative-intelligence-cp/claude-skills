@@ -305,15 +305,30 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.1 — the harness | 58 | `9.34 M` | `$9.81` | `0.80%` (read) |
 > | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
 > | 0.2.3 — the worker inside | 100 | `18.35 M` | `$14.73` | `0.6–1.2%` (see below) |
-> | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | **not derivable — see below** |
+> | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | `~1` (read; 0–2 by tick) |
+>
+> **Do not sum this column.** The owner's quota was **reset twice** during the
+> week 0.2.0–0.2.4 ran. The display read `88%` at the cycle's start and `91%`
+> after all five, which invites *"five subcycles cost three points"* — **it did
+> not.** Two full window refills sit inside that span, so the real consumption
+> is three points **plus about two windows**, and a plan built on the
+> three-point figure underestimates what remains by close to an order of
+> magnitude. A reset is invisible in the output; only the owner knows one
+> happened. **Ask.**
 >
 > ### 0.2.4 retired the DERIVED percentage. The READ one stays — it is what the owner plans with.
 >
-> **`$41.81` moved the weekly display zero points.** It read `90%` at 0.2.3's
-> close and `90%` after a subcycle that cost three times as much. The anchor the
-> four rows above are quoted from predicts `3.42%`; the aggregate predicts
-> `0.91–1.82%`. Both predict a move that did not happen, and a prediction of
-> three points against a movement of zero is not a rounding error.
+> **`$41.81` moved the weekly display about one point**, against a chained-anchor
+> prediction of `3.42%` and an aggregate prediction of `0.91–1.82%`. The
+> derivation overestimates by roughly threefold.
+>
+> **The first version of this note said it moved ZERO points**, because the
+> reading was taken while the subcycle was still closing and the display had not
+> yet ticked; it read `91%` shortly after. The correction is left visible
+> because it is the most useful thing here: **a whole-percent gauge read at the
+> wrong moment is indistinguishable from a gauge that did not move**, and a
+> session that reads its own cost before it has finished paying it will record a
+> zero and believe it.
 >
 > **The owner supplied the reason, and it is two reasons.** He offered the cause
 > as a guess and it is labelled that way in `0.2.4.md`; what follows is enough
