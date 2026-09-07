@@ -389,9 +389,15 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > that has finished a piece of work is worth ending even when it feels cheaper
 > to continue.
 >
-> **The second weekly meter is easy to miss.** The output carries a per-model
-> figure as well as "all models" — on 2026-09-07, `92%` all-models against
-> `98%` Fable. The binding limit may not be the one being read.
+> **The second weekly meter is a SUB-CAP, not a separate budget.** The output
+> carries a per-model figure as well as "all models" — on 2026-09-07, `92%`
+> all-models against `98%` Fable. The owner's reading, which matches what the
+> chart shows: **a model family may consume at most half the total quota**, so
+> 100% of the Fable meter is 50% of the whole. Fable at `98%` therefore means
+> that family has taken about half the week and is nearly closed out, while the
+> account still has 8% of the total left for everything else. **Read both.** A
+> subcycle planning against the all-models figure alone can be stopped by a
+> per-family cap it never looked at.
 >
 > **Do not sum this column.** The owner's quota was **reset twice** during the
 > week 0.2.0–0.2.4 ran. The display read `88%` at the cycle's start and `91%`

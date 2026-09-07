@@ -63,6 +63,29 @@ figure. And the cadence should be set so that compaction is **rare rather than
 merely survivable**, since the whole argument for rotating is that compacting
 repeatedly degrades.
 
+**"Rare" now has a number, given by the owner 2026-09-07: the budget is ONE
+compaction.** In his words, one is not terrible; **after two you have lost a
+lot of useful context and have to go back and re-read it anyway, which defeats
+the purpose.** So the cadence is tuned to keep a manager inside roughly one
+compaction — tighter spends rotations for nothing, looser buys a summary the
+session then has to undo by re-reading the source it was summarising. He notes
+the threshold is calibrated for genuinely complex work and may be less
+noticeable on simpler projects.
+
+**And rotation has a second, independent justification that this document did
+not have when it was written: token efficiency.** Usage scales with context
+size times request count, so a session's cost grows superlinearly in its own
+length. The owner's `/usage` attributed **52% of a week to sessions active for
+8+ hours** — external confirmation, from the vendor rather than from us, that
+session length is the dominant cost driver. Rotation is a real reduction rather
+than a redistribution: resetting context to near zero before it grows again
+integrates to fewer cached tokens across the same work.
+
+**The two reasons do not always both apply, and that matters for the cadence.**
+A manager can be worth rotating on cost grounds while its context is still
+perfectly healthy. So "is compaction near?" is only half the trigger question,
+and a cadence argued purely from quality will rotate later than it should.
+
 This matters most for the case the pipeline is aimed at: a project running
 mostly unattended for days or weeks.
 

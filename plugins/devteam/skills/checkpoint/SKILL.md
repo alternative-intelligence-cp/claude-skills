@@ -182,7 +182,20 @@ whether the cadence is right. They accumulate for §4.
   tighter than it needs to be; a handoff that took many questions says the
   *record* is thin, which is a defect in the record and not an argument about
   the interval. **Fewer than three rotations and there is nothing to read** —
-  say that, rather than fitting a line to two points
+  say that, rather than fitting a line to two points.
+
+  **The target is one compaction per manager, and it is a client-stated
+  budget, not a derived one.** One compaction costs little; **after two, enough
+  useful context is gone that the session re-reads the source anyway**, which
+  is the cost the rotation was meant to avoid, paid twice. Rotating before the
+  first is usually spending a rotation for nothing.
+
+  **And judge the cadence on cost as well as on context**, because the two
+  come apart. Usage scales with context size times request count, so a
+  manager's cost grows superlinearly in its own length — measured on a real
+  account, **52% of a week's usage came from sessions running 8+ hours**. A
+  manager can therefore be worth rotating while its context is still healthy,
+  and a cadence argued only from compaction risk will rotate too late
 
 ## 5. The verdict
 
