@@ -813,6 +813,41 @@ def resolve(target):
     return target
 
 
+def is_project(devteam):
+    """Is this actually a devteam project, or just a directory?
+
+    check_scope refuses a target that is not a devteam project. THIS CHECK HAD
+    NO SUCH GATE, and answered anyway. Run against the repository that builds
+    the plugin -- which has no devteam/ directory -- it read a CHARTER.md that
+    does not exist as a charter with every row missing and reported SIXTEEN
+    template-drift findings:
+
+        $ python3 scripts/check_trace.py .
+        .: 16 finding(s)  [0 goals, 0 requirements, 0 tasks]
+          template-drift  CHARTER.md  the charter has no `Budget ceiling` row …
+
+    Every one false, and each reads exactly like a true one. The tell -- `[0
+    goals, 0 requirements, 0 tasks]` -- is on a different line from the
+    findings, so a reader grepping the finding lines, which is what a verifier
+    does, sees sixteen charter defects on a project with no charter. That is
+    P-35b at the level of the check suite: an instrument returning an answer
+    for a question it was never wired to ask.
+
+    The right answer is the one FORMATS.md §"What each check reads" already
+    defines and this script already implements for two other conditions -- exit
+    2, COULD NOT RUN. 0.2.6 used exactly this reasoning to withdraw two
+    check_refs classes: a clean project and an unreadable one must not give the
+    verifier the same exit code, because the exit code is the only thing it
+    reads (P-19).
+
+    The discriminator is `resolve()`'s own: it appends `devteam` when it finds
+    one, so a resolved path whose basename is not `devteam` means there was
+    none to find. No new notion of "is a project" is introduced -- a second one
+    would be a second home (P-34).
+    """
+    return os.path.basename(devteam) == "devteam"
+
+
 def main(argv):
     # Before planning, no task exists, so EVERY requirement is uncovered by
     # construction. Reporting that at the onboarding gate makes a clean run
@@ -828,6 +863,10 @@ def main(argv):
         devteam = resolve(t)
         if not os.path.isdir(devteam):
             print(f"check_trace: not a directory: {devteam}", file=sys.stderr)
+            return 2
+        if not is_project(devteam):
+            print(f"check_trace: not a devteam project: {devteam} holds no "
+                  f"devteam/ directory", file=sys.stderr)
             return 2
         got = check(devteam)
         if got is None:

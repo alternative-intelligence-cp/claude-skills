@@ -764,10 +764,56 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
-    fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
+    # THE PROJECT GATE (0.2.7, docs/PAIRS.md row 21). These two run outside the
+    # CASES loop because that loop always builds a devteam/ directory and hands
+    # it over, so it structurally cannot express "there is no project here" --
+    # which is precisely why the gap survived a full cycle.
+    #
+    # The pair matters more than either half. The first alone would pass if the
+    # check refused EVERYTHING; the second alone would pass if it refused
+    # nothing, which is the shipped behaviour being corrected. Only together do
+    # they discriminate.
+    # THE TARGET MUST BE A GIT REPOSITORY OR THIS CASE IS VACUOUS, and the
+    # first draft of it was. `check()` returns None for a non-repository and
+    # main() already exits 2 for that -- so a bare mkdtemp exits 2 whether the
+    # project gate exists or not, and the case passed against the mutation that
+    # deletes the gate. An earlier branch returning before the code under test
+    # runs is 0.2.5's vacuous-control shape, and this is its sixth instance.
+    def _bare_repo(root):
+        subprocess.run(["git", "init", "-q", root], check=True)
+        return root
+
+    gate = [
+        ("not-a-devteam-project-is-exit-2-not-sixteen-findings",
+         _bare_repo, 2),
+        ("fp-a-real-project-still-reports-its-real-findings",
+         lambda root: build(root, {"CHARTER.md": CHARTER.replace("G-2", "G-9")}), 1),
+    ]
+    for name, make, want_exit in gate:
+        root = tempfile.mkdtemp(prefix="devteam-trace-gate-")
+        try:
+            target = make(root)
+            proc = subprocess.run([sys.executable, CHECK, target],
+                                  capture_output=True, text=True)
+            if proc.returncode == want_exit:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected exit {want_exit}, got {proc.returncode}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n")[:4]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # COUNTED FROM WHAT RAN, not from len(CASES). The gate cases above are not
+    # in that list, and a hand-maintained total that disagrees with the number
+    # of cases executed is the exact defect docs/CHECKS.md exists to stop.
+    total = passed + failed
+    fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean") + 1
     print(f"\ncheck_trace control: {passed} passed, {failed} failed, "
-          f"{len(CASES)} cases ({fp} of them false-positive controls, "
-          f"{100 * fp // len(CASES)}%)")
+          f"{total} cases ({fp} of them false-positive controls, "
+          f"{100 * fp // total}%)")
     return 1 if failed else 0
 
 

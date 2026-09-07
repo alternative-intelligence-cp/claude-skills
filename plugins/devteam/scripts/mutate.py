@@ -147,6 +147,22 @@ MUTATIONS = [
      "    if \"```\" in body:\n"
      "        return out\n"
      "    for line in body.split(\"\\n\"):"),
+
+    # --- check_trace's project gate (0.2.7, docs/PAIRS.md row 21) ---------
+    # The shipped state was NO gate: run against a directory with no devteam/,
+    # the check read a charter that does not exist and reported sixteen
+    # template-drift findings. The opposite error is a gate that refuses a real
+    # project, which is how a check gets disabled by whoever it obstructs
+    # (P-35). Neither case alone discriminates -- the first passes a check that
+    # refuses everything, the second passes one that refuses nothing.
+    ("test_check_trace.py", "check_trace: the project gate is removed",
+     "check_trace.py",
+     "        if not is_project(devteam):",
+     "        if False:"),
+    ("test_check_trace.py", "check_trace: the project gate refuses every target",
+     "check_trace.py",
+     "    return os.path.basename(devteam) == \"devteam\"",
+     "    return False"),
 ]
 
 
@@ -164,6 +180,8 @@ COMPLETE_FOR = (
     "fp-a-rule-number-in-quoted-check-output",
     "fp-the-teaching-form-of-a-rule-number",
     "unknown-rule-still-fires-in-prose",
+    "not-a-devteam-project-is-exit-2",
+    "fp-a-real-project-still-reports",
 )
 
 
@@ -228,19 +246,41 @@ def main():
             print(f"mutate.py: {name!r} matches {src.count(old)} sites in "
                   f"{target}, expected exactly 1", file=sys.stderr)
             return 2
-        # The mutated source is a COPY in a temp directory, named to the
-        # control through the environment. The shipped tree is never written,
-        # so an interrupted run leaves nothing behind and a concurrent commit
-        # has nothing to catch.
-        with tempfile.TemporaryDirectory(prefix="devteam-mutate-") as tmp:
-            copy = os.path.join(tmp, target)
-            with open(copy, "w", encoding="utf-8") as fh:
+        # THE COPY GOES BESIDE THE ORIGINAL, UNDER A NEW NAME, and the first
+        # version of this put it in a temp directory instead. That was wrong
+        # for a reason worth keeping: the checks resolve plugin resources
+        # relative to their own __file__ -- check_trace reads the constraint
+        # rows out of ../templates/CHARTER.md -- so a copy running from /tmp
+        # found no template, declared no rows, and could not emit
+        # template-drift at all.
+        #
+        # THE HARNESS THEREFORE REPORTED THE RELOCATION AS THE MUTATION. Two
+        # cases "moved" under a mutation that cannot affect them, and the case
+        # actually written for that mutation did not move. Predicted and
+        # measured disagreed, which is the only reason it was caught -- the
+        # output was clean, plausible and wrong, which is P-35b exactly, in the
+        # second instrument this subcycle built to catch it.
+        #
+        # A NEW FILE IS NOT THE HAZARD A MODIFIED ONE IS. The failure this
+        # script was rewritten for was a concurrent `git add -A` reading a
+        # TRACKED file mid-mutation and shipping the defect. An untracked file
+        # swept into a commit adds something obviously foreign instead of
+        # corrupting something real -- and because the name still begins with
+        # `check_`, a leftover is reported loudly by check_plugin's own
+        # `uncontrolled-check`. The failure mode is a stray file that announces
+        # itself, not a silent defect inside a real one.
+        mutant = os.path.join(HERE, "check_MUTANT_" + target)
+        try:
+            with open(mutant, "w", encoding="utf-8") as fh:
                 fh.write(src.replace(old, new, 1))
-            caught = cases_failing(control, {subject_var(target): copy})
+            caught = cases_failing(control, {subject_var(target): mutant})
             for case in caught:
                 flipped[control].setdefault(case, []).append(name)
             if not caught:
                 uncaught.append((control, name))
+        finally:
+            if os.path.exists(mutant):
+                os.remove(mutant)
 
     rc = 0
     if uncaught:
