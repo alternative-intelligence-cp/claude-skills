@@ -306,6 +306,21 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
 > | 0.2.3 — the worker inside | 100 | `18.35 M` | `$14.73` | `0.6–1.2%` (see below) |
 > | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | `~1` (read; 0–2 by tick) |
+> | 0.2.5 — rotation (OPEN) | 106 | `16.21 M` | `$12.28` | `91%` read at OPEN, not a close — and 0.2.4 also closed at `91%`, so this is under one point, direction unknown |
+>
+> **The boundary that breaks comparability first is the WEEKLY RESET, not the
+> boost's expiry, and 0.2.5 got this wrong before it got it right.** The boost
+> ends **13 September** and that date is salient, so it became the thing to
+> plan around. But the window itself **resets on 9 September, 7:59pm** — four
+> days earlier. A subcycle whose opening and closing readings sit either side
+> of a reset has two readings of two different windows, and subtracting them is
+> the same error as summing this column. **Check the reset date in the same
+> breath as asking for the reading**; it is printed directly under it, and
+> neither number means anything without the other.
+>
+> So the boost's expiry falls inside the window that begins on **9 September**.
+> Whichever subcycle runs in that window inherits a denominator that changes
+> mid-flight, and should be told so before it writes a row rather than after.
 >
 > **Do not sum this column.** The owner's quota was **reset twice** during the
 > week 0.2.0–0.2.4 ran. The display read `88%` at the cycle's start and `91%`
