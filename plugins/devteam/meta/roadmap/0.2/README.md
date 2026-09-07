@@ -304,6 +304,24 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.0 — probes | 104 | `~15.8 M` | `$12.23` | `1%` (read) |
 > | 0.2.1 — the harness | 58 | `9.34 M` | `$9.81` | `0.80%` (read) |
 > | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
+> | 0.2.3 — the worker inside | 91 | `16.01 M` | — | **pending the owner's reading** |
+>
+> **0.2.3 adds a second cost line the table has never had: `$0.3134` of live
+> model spend INSIDE the sandbox, over 8 headless runs.** From here on a
+> subcycle can spend the quota twice — once as the session, once as the workers
+> it dispatches — and the two are metered differently and must be reported
+> separately: the session's from the owner's `/usage`, the workers' by summing
+> `total_cost_usd` across each sandbox's `meta/budget.json`. A real worker is
+> not a probe: 0.2.0's four probes cost `$0.062` between them, and one
+> implementer doing one real step cost `$0.117` on its own, because it took 20
+> turns where a probe takes 2. Budget a subcycle that dispatches by the number
+> of ROUNDS it expects, not the number of runs.
+>
+> **0.2.3's percentage is left blank rather than derived**, which is the whole
+> of what 0.2.2's correction taught: `session_cost.py --usd` existed to prevent
+> a token-derived figure and went unused, because the input it needs cannot be
+> read from inside a session and nobody asked for it. **Ask for the dollar
+> figure before writing a percentage down.**
 >
 > **The dollar figures are exact and every PERCENTAGE here is uncertain by up
 > to a factor of three. Corrected 2026-09-07 by the owner, who spotted it.**
