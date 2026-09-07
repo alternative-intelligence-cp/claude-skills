@@ -305,6 +305,46 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.1 — the harness | 58 | `9.34 M` | `$9.81` | `0.80%` (read) |
 > | 0.2.2 — extraction and promotion | 83 | `14.73 M` | `$13.51` | `1.10%` (read) |
 > | 0.2.3 — the worker inside | 100 | `18.35 M` | `$14.73` | `0.6–1.2%` (see below) |
+> | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | **not derivable — see below** |
+>
+> ### 0.2.4 RETIRED THE PERCENTAGE COLUMN. Read this before writing a row.
+>
+> **`$41.81` moved the weekly display zero points.** It read `90%` at 0.2.3's
+> close and `90%` after a subcycle that cost three times as much. The anchor the
+> four rows above are quoted from predicts `3.42%`; the aggregate predicts
+> `0.91–1.82%`. Both predict a move that did not happen, and a prediction of
+> three points against a movement of zero is not a rounding error.
+>
+> Something other than dollars drives that gauge, or it does not resolve
+> linearly near its top, and no session can tell which from the inside. **Do not
+> fit a fifth anchor to it.** Fitting is how the four rows above acquired their
+> false precision, and a series whose largest spend produced its smallest
+> movement is not one to fit a line through.
+>
+> **What to write instead, and it is less work rather than more:**
+>
+> 1. **Dollars and requests**, both read from the owner's `/usage`. Exact, and
+>    comparable across subcycles.
+> 2. **The gauge reading before and after, as raw observations.** Do not divide
+>    them by anything.
+> 3. **No share of a week.** Not from tokens, not from dollars, not from a
+>    chained anchor. Every session that has computed one has been wrong.
+>
+> **Keep asking for the dollar figure.** That instruction is what produced this
+> finding: a session deriving its own number would have written `3.42%` into
+> this table and the fifth reader in a row would have inherited it.
+>
+> **The one thing worth watching:** 0.2.4 was 98.8% cache reads over `66.4 M`
+> cache-read tokens — expensive in dollars, possibly cheap in whatever the gauge
+> meters. A subcycle with a different cache profile that *does* move the display
+> is the measurement that would settle it. Nobody should model it before then.
+>
+> **And size the next subcycle in dollars, from what it BUILDS.** 0.2.4 cost
+> `2.8x` 0.2.3 for `2.6x` the requests: it rewrote six rules, eight skills,
+> four templates, three agents, five documents and four scripts, added a
+> thirteenth control, and ran a live end-to-end. A handed-off subcycle that
+> builds one mechanism has cost `$10-15`; one that rewires the whole pipeline
+> costs `$40`.
 >
 > **0.2.3 adds a second cost line the table has never had: `$0.3134` of live
 > model spend INSIDE the sandbox, over 8 headless runs.** From here on a
@@ -392,7 +432,7 @@ before it passes.
 | 0.2.1 | 1 | 0.8–1.5 M |
 | 0.2.2 | 1 | 0.6–1.2 M |
 | 0.2.3 | 1–2 | 0.8–1.5 M |
-| 0.2.4 | 1–2 | 1.0–2.0 M — many files, each small |
+| 0.2.4 | 1–2 | 1.0–2.0 M — many files, each small · **MEASURED: 1 session, 67.4 M processed, `$41.81`.** The token estimate is out by more than an order of magnitude for the same reason 0.2.0's was: cache reads scale with conversation length, not with work done. "Many files, each small" was right about the work and told nobody anything about the cost |
 | 0.2.5 | 1 | 0.5–1.0 M |
 | 0.2.6 | 1 | 0.8–1.5 M |
 | 0.2.7 | 1 | 0.8–1.5 M |
