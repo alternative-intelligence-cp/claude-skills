@@ -179,9 +179,28 @@ CASES = [
     ("namespace-drift-scanner-ahead-of-table",
      lambda p: w(p, "scripts/check_refs.py", REFS.replace('{"R", "T"}', '{"R", "T", "ZZ"}')),
      {"namespace-drift"}),
-    ("fp-three-letter-prefixes-do-not-need-reserving",
+    # DELIBERATELY INVERTED IN 0.2.6. This case used to assert that a
+    # three-letter prefix needs no reserving, which was true while the scanner
+    # could not see one. Five are now reserved and checked, so the property
+    # worth pinning is the opposite: a RESERVED three-letter prefix must be
+    # resolved in both directions, and every other one must still be ignored.
+    #
+    # The reason for keeping the second half is F-63/F-64: widening a grammar
+    # without asking what it newly matches turned a green tree into 62
+    # `cited-undefined` at once. `UTF-8` alone occurs 639 times in one
+    # project's record and matches [A-Z]{3}-\d+ perfectly.
+    ("namespace-drift-audit-prefix-reserved-not-recognised",
      lambda p: w(p, "templates/FORMATS.md",
-                 FORMATS + "\nAudit findings use `COR-n`, `SEC-n`, `HYG-n`.\n"),
+                 FORMATS + "| `COR-` | a correctness finding | audits/ |\n"),
+     {"namespace-drift"}),
+    ("namespace-drift-audit-prefix-recognised-not-reserved",
+     lambda p: w(p, "scripts/check_refs.py",
+                 REFS.replace('KNOWN = {"R", "T"}',
+                              'KNOWN = {"R", "T"}\nAUDIT = {"COR"}')),
+     {"namespace-drift"}),
+    ("fp-unreserved-three-letter-prefixes-still-need-no-reserving",
+     lambda p: w(p, "templates/FORMATS.md",
+                 FORMATS + "\nEncoded UTF-8 per RFC-2119; see ABC-1 and XYZ-9.\n"),
      set()),
     # --- unruled-finding / stale-row (L-6.1, 0.2.6) -----------------------
     # A check is legitimate only when it enforces a rule that exists. These two

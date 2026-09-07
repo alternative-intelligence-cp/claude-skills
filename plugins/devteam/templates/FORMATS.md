@@ -69,6 +69,19 @@ directions (P-22).
 | `C-` | a checkpoint | `checkpoints/` |
 | `F-` | a finding against the pipeline or the project | `RECORD.md`, as `- **F-n** — <one line>` |
 | `P-` | a protocol rule | the plugin's `PROTOCOL.md` — **external**, cited here, never declared here |
+| `COR-` | a correctness audit finding | `audits/*.md`, as `## COR-n — <title>` |
+| `SEC-` | a security audit finding | `audits/*.md`, as `## SEC-n — <title>` |
+| `HYG-` | a hygiene audit finding | `audits/*.md`, as `## HYG-n — <title>` |
+| `REV-` | a review finding | `audits/*.md`, as `## REV-n — <title>` |
+| `CNV-` | a project-family convention | outside any project; cited from the decision that adopts or declines it |
+
+**The five three-letter prefixes above are CHECKED, and no others are.**
+`check_refs` resolves them in both directions exactly as it does `D-n`, and
+`check_plugin`'s `namespace-drift` diffs this table against the scanner's own
+sets so the two cannot part company. **Every other three-letter prefix is still
+ignored**, deliberately and by name: the scanner reads `[A-Z]{1,3}` and then
+discards anything whose prefix is not reserved, which is why `UTF-8` — 639
+occurrences in one project's record — is not a citation.
 
 **The rule: anything else that numbers something uses a prefix of three or
 more letters.** `COR-1`, `SEC-5`, `HYG-3` for audit findings by dimension;
@@ -82,18 +95,31 @@ from a citation* — there is no syntax that says "this is my own numbering, not
 a reference to yours". A three-letter prefix cannot match, so it is safe
 without any further agreement.
 
-**And "safe from collision" also means "unseen", which is the half this said
-nothing about.** The scanner that cannot mistake `COR-6` for a citation also
-cannot check it. So a three-letter namespace has **no citation integrity at
-all, in either direction**: an audit may cite `COR-99`, which exists nowhere,
-and nothing reports it; an audit finding may be declared and referenced by
-nobody, and nothing reports that either. The exemption that protects the
-namespace is the same fact that blinds every tool to it.
+**"Safe from collision" also meant "unseen", and 0.2.6 closed that half.** The
+scanner that cannot mistake `COR-6` for a citation also could not check it, so
+the audit namespace had **no citation integrity at all, in either direction**.
+That was not hypothetical. Run over one project's record the first time the
+scanner was widened, it reported **thirteen dangling citations** — including
+`COR-13`, `COR-14` and `COR-15` cited from a task file and declared nowhere,
+and `SEC-2` cited from `DECISIONS.md`. Every one had been invisible for the
+whole of cycle 0.1.
 
-That is a fair trade only if something else watches the namespace. For audit
-findings that is now the `Disposition.` field, and it is the **only** thing
-watching — so treat a namespace exemption as a debt rather than a solution, and
-say what is covering it.
+**What watches the namespace now, and what still does not.** `cited-undefined`
+and `duplicate-id` apply to these five as they do to `D-n`. `defined-uncited`
+deliberately does **not**: a finding nobody cites is the ordinary state of one
+still `Disposition. open`. In its place is `undispositioned-finding` — a
+finding whose `Disposition.` is `open` or missing.
+
+**And the citation is not an escape from the disposition, which is the part
+that took a measurement to get right.** The obvious rule is *"cited, **or**
+dispositioned"*. Measured over a real project it reports **zero**, against five
+findings that carry no `Disposition.` line at all — because they are mentioned
+in `RECORD.md`, `QUESTIONS.md` and the charter. **Mention is not disposition.**
+A finding logged in the record and never routed is exactly the case the field
+was added for, so a citation cannot excuse a missing one.
+
+Treat a namespace exemption as a debt rather than a solution, and say what is
+covering it.
 
 **The general form, because it will recur:** a thing exempted from a checker
 for its own protection is a thing the checker cannot see. Whenever you carve

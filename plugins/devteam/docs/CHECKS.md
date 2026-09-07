@@ -53,7 +53,7 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 17 classes
+## `check_trace.py` — 18 classes
 
 Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`. Diffs goals ↔ requirements
 ↔ tasks ↔ acceptance criteria.
@@ -76,9 +76,10 @@ Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`. Diffs goals ↔ requirement
 | `unreachable-acceptance` | P-10 — a worker writes only inside its declared scope; P-5 | a requirement's `Requires-write.` ↔ the `Scope.` of each single discharging task | `enforces` |
 | `unparseable-task` | `FORMATS.md` §"Status vocabularies", task title | the file's first line ↔ the `# T-n — <title> — <status>` grammar | `enforces` |
 | `bad-kind` | `FORMATS.md` §"Status vocabularies", task `Kind.` | the declared `Kind.` ↔ the closed set `implementation · probe · spike · chore` | `enforces` |
+| `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values ↔ the audited task's title status | `enforces` |
 | `unjustified-task` | P-45 — a probe names what it de-risks | a probe/spike's `Informs.` ↔ the declared requirements and goals | `enforces` (P-45, written here) |
 
-## `check_refs.py` — 7 classes
+## `check_refs.py` — 8 classes
 
 Reads every git-tracked `.md` under `devteam/`. Diffs citations ↔ declarations,
 links ↔ files, and scans for leaks.
@@ -92,6 +93,7 @@ links ↔ files, and scans for leaks.
 | `bad-status` | `FORMATS.md` §"Status vocabularies" | a written status value ↔ its closed set | `enforces` |
 | `leak` | P-47 — a tracked artifact contains only what a reader can see, and no credential | tracked file content ↔ the absolute-path and credential patterns | `enforces` |
 | `control-character` | P-47 | file bytes ↔ the printable set, outside tab and newline | `enforces` |
+| `undispositioned-finding` | CONSOLIDATION 7; `FORMATS.md` §"The namespace" — an exemption is a debt, and something must watch it | an audit finding's `Disposition.` ↔ the set of dispositions that are not `open` | `enforces` |
 
 ## `check_report.py` — 13 classes
 

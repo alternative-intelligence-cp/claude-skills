@@ -197,11 +197,26 @@ how a real finding ends up referred to in prose and then lost.
 `declined (D-n)` — and a finding still reading `open` when the audited task
 closes is one nobody decided about.
 
+**A finding is DECLARED BY ITS HEADING**, which is the form `check_refs`
+resolves and the form the audits that carry `Disposition.` already use:
+
 ```
-- **COR-6.** <one line: what is wrong>
-  - **Needs.** `csv2json/reader.py`, `tests/test_headers.py`
-  - **Disposition.** open
+## COR-6 — <one line: what is wrong>
+
+- **Needs.** `csv2json/reader.py`, `tests/test_headers.py`
+- **Disposition.** open
 ```
+
+**This corrects a form nobody ever used.** Until 0.2.6 this skill prescribed
+`- **COR-6.** <one line>` as a list item. Measured across a real project's four
+audit files: **zero used it.** Two used a bold line, two used the heading above,
+and the heading is the one that matches how `R-`, `D-`, `Q-`, `T-` and `C-` are
+declared everywhere else in the grammar. A form that appears only in the
+document prescribing it is not a grammar, and building the checker against it
+would have made every audit finding ever written undeclared.
+
+**An audit written in the old bold form is migrated by changing `**COR-n — …**`
+to `## COR-n — …`**; nothing else about the file changes.
 
 **`Needs.` is what makes `routed T-n` mean something**, and without it the word
 degrades to "mentioned". Measured, immediately: a finding was reported as

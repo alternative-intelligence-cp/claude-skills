@@ -221,13 +221,18 @@ def main():
     refs = os.path.join(HERE, "check_refs.py")
     if os.path.isfile(formats) and os.path.isfile(refs):
         body = open(formats, encoding="utf-8").read()
-        documented = set(re.findall(r"^\|\s*`([A-Z]{1,2})-`\s*\|", body, re.M))
+        # WIDENED WITH THE SCANNER IN 0.2.6. When the audit namespace became
+        # checked, leaving this at two letters would have made namespace-drift
+        # silently stop covering the five prefixes just reserved -- the
+        # "carved out means unseen" failure, one level up, inside the check
+        # that exists to catch it.
+        documented = set(re.findall(r"^\|\s*`([A-Z]{1,3})-`\s*\|", body, re.M))
         src = open(refs, encoding="utf-8").read()
         recognised = set()
-        for name in ("KNOWN", "EXTERNAL"):
+        for name in ("KNOWN", "EXTERNAL", "AUDIT"):
             m = re.search(rf"^{name}\s*=\s*\{{([^}}]*)\}}", src, re.M)
             if m:
-                recognised |= set(re.findall(r'"([A-Z]{1,2})"', m.group(1)))
+                recognised |= set(re.findall(r'"([A-Z]{1,3})"', m.group(1)))
         if documented and recognised:
             for p_ in sorted(documented - recognised):
                 add("namespace-drift", "templates/FORMATS.md",

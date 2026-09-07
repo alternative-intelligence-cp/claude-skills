@@ -654,7 +654,60 @@ def check(devteam):
         if colour[t] == WHITE:
             walk(t, [t])
 
+    # --- open-finding-at-close (CONSOLIDATION 7, 0.2.6) ---------------------
+    # An audit finding still `Disposition. open` when the task it audited has
+    # closed. THE MEASURED GAP: two audits produced fifteen findings, three
+    # became client questions, one entered a task brief, and eleven were never
+    # dispositioned -- filed in a report nothing pointed at again. P-31 puts the
+    # audit BEFORE the close, so a task that closed over an open finding closed
+    # over evidence it had itself commissioned.
+    #
+    # Two declared lists: the audit file's `Disposition.` values against the
+    # task's own title status. The task id comes from the FILENAME, which the
+    # audit skill already fixes as `T-n-<dimension>-<date>.md`, so nothing is
+    # read out of prose.
+    audits_dir = os.path.join(devteam, "audits")
+    if os.path.isdir(audits_dir):
+        for name in sorted(os.listdir(audits_dir)):
+            m = AUDIT_FILE.match(name)
+            if not m:
+                continue
+            tid = f"T-{m.group(1)}"
+            if tid not in tasks:
+                continue
+            phase = (tasks[tid][2].split() or [""])[0].strip().upper()
+            if phase not in ("DONE", "ACCEPTED"):
+                continue
+            rel_a = os.path.join("audits", name)
+            current, n_at, disposed = None, 0, False
+            for n, line in enumerate(
+                    open(os.path.join(audits_dir, name), encoding="utf-8",
+                         errors="replace").read().split("\n"), 1):
+                h = AUDIT_HEADING.match(line)
+                if h:
+                    if current and not disposed:
+                        add("open-finding-at-close", f"{rel_a}:{n_at}",
+                            f"{current} is still open and {tid} is {phase} — "
+                            f"P-31 puts the audit before the close, so this "
+                            f"task closed over a finding it commissioned")
+                    current, n_at, disposed = f"{h.group(1)}-{h.group(2)}", n, False
+                    continue
+                d = AUDIT_DISPOSITION.match(line)
+                if d and current and not OPEN_DISP.match(d.group(1)):
+                    disposed = True
+            if current and not disposed:
+                add("open-finding-at-close", f"{rel_a}:{n_at}",
+                    f"{current} is still open and {tid} is {phase} — P-31 puts "
+                    f"the audit before the close, so this task closed over a "
+                    f"finding it commissioned")
+
     return findings, len(goals), len(reqs), len(tasks)
+
+
+AUDIT_FILE = re.compile(r"^T-(\d+)-[a-z]+-\d{4}-\d{2}-\d{2}\.md$")
+AUDIT_HEADING = re.compile(r"^#{2,3}\s+(COR|SEC|HYG|REV|CNV)-(\d+)\s*[\u2014\u2013-]")
+AUDIT_DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
+OPEN_DISP = re.compile(r"^\**open\**\.?\s*$", re.I)
 
 
 def resolve(target):

@@ -89,6 +89,34 @@ T2 = """# T-2 — write the README — PLANNED
 - **Estimate.** tokens=500 minutes=5
 """
 
+
+# --- open-finding-at-close (0.2.6) ---------------------------------------
+# P-31 puts the audit BEFORE the close, so a task that closed over a finding
+# it commissioned closed over its own evidence. The measured gap: two audits
+# produced fifteen findings and ELEVEN were never dispositioned.
+
+AUDIT_OPEN = """# T-1 correctness audit
+
+## COR-1 — the parser accepts a trailing comma
+
+- **Disposition.** open
+
+Prose.
+"""
+
+# Closing T-1 without closing R-1 fires `one-sided-link`, which would make
+# every case below report a class it is not about.
+REQS_R1_DONE = REQS.replace("- **Status.** open", "- **Status.** discharged (T-1)", 1)
+
+AUDIT_ROUTED = """# T-1 correctness audit
+
+## COR-1 — the parser accepts a trailing comma
+
+- **Disposition.** routed T-2
+
+Prose.
+"""
+
 FIXTURE = {"CHARTER.md": CHARTER, "REQUIREMENTS.md": REQS,
            "tasks/T-1.md": T1, "tasks/T-2.md": T2}
 
@@ -101,6 +129,45 @@ BOARD = """# The board
 """
 
 CASES = [
+    # --- open-finding-at-close (0.2.6) ------------------------------------
+    ("open-finding-at-close",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/T-1-correctness-2026-09-04.md": AUDIT_OPEN,
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     {"open-finding-at-close"}),
+    ("open-finding-at-close-no-disposition-line",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/T-1-correctness-2026-09-04.md":
+          AUDIT_OPEN.replace("- **Disposition.** open\n", ""),
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     {"open-finding-at-close"}),
+
+    # --- FALSE-POSITIVE TWINS ---------------------------------------------
+    # A finding that WAS routed is the ordinary case and must stay silent.
+    ("fp-routed-finding-at-close-is-clean",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/T-1-correctness-2026-09-04.md": AUDIT_ROUTED,
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     set()),
+    # AN OPEN FINDING ON AN OPEN TASK IS NOT A DEFECT. It is the normal state
+    # between the audit and the close, and reporting it would make the check
+    # fire on every project mid-audit -- the false positive that gets a check
+    # disabled (P-35).
+    ("fp-open-finding-while-the-task-is-still-open",
+     {"audits/T-1-correctness-2026-09-04.md": AUDIT_OPEN},
+     set()),
+    # The task id is read from the FILENAME, which the audit skill fixes as
+    # `T-n-<dimension>-<date>.md`. A file that does not match names no task,
+    # so nothing is inferred from prose.
+    ("fp-audit-filename-outside-the-grammar-is-ignored",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/notes-about-T-1.md": AUDIT_OPEN,
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     set()),
     # --- board-drift: the one artifact no check read back ------------------
     # A board saying a task was CLAIMED with a live in-flight row, two hours
     # after that task closed, passed all four checks. `check_scope` reads the

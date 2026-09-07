@@ -38,9 +38,21 @@ DECLARATIONS = (
     re.compile(r"^-\s+\*\*(G|DM|F)-(\d+)\*\*\s*" + DASH),    # goals, done-means, findings
     re.compile(r"^#\s+(T|C)-(\d+)\s*" + DASH),               # a task or checkpoint title
     re.compile(r"^-\s+\[[ x~]\]\s+\*\*(S)-(\d+)\*\*"),       # a step inside a task
+    # An audit finding, declared by a heading in devteam/audits/*.md. The
+    # HEADING form is canonical because it is what the audits carrying
+    # `Disposition.` already use and it matches the idiom R/D/Q and T/C use.
+    # The audit SKILL prescribed `- **COR-6.** <one line>`, a form no audit
+    # has ever written; that is corrected rather than the tree.
+    re.compile(r"^#{2,3}\s+(COR|SEC|HYG|REV|CNV)-(\d+)\s*" + DASH),
 )
 
-KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F"}
+# The audit namespace. Three-letter prefixes were chosen BECAUSE the scanner
+# could not mistake them for citations -- which is the same fact as the scanner
+# being unable to check them, so the namespace had no citation integrity in
+# either direction. 0.2.6 reserves these five and watches them. Nothing
+# three-letter beyond this set is resolved; everything else is still ignored.
+AUDIT = {"COR", "SEC", "HYG", "REV", "CNV"}
+KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F"} | AUDIT
 TASK_FILE = re.compile(r"(^|/)tasks/[^/]+\.md$")
 # `T-4.S-2` -- the only form that names which task's step it means.
 QUALIFIED_STEP = re.compile(r"\bT-(\d+)(?:'s)?[.\s]\s*(?=S-)S-(\d+)\b")
@@ -87,7 +99,7 @@ EXTERNAL = {"P"}
 # else references is ordinary; an uncited DECISION is the valuable finding.
 MUST_BE_CITED = {"D"}
 
-CITATION = re.compile(r"\b([A-Z]{1,2})-(\d+)\b")
+CITATION = re.compile(r"\b([A-Z]{1,3})-(\d+)\b")
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 # The identifier grammar governs the ARTIFACTS and nothing else. Paths are
@@ -101,6 +113,9 @@ ARTIFACTS = re.compile(
     r"|^tasks/T-\d+\.md$"
     r"|^checkpoints/C-\d+[^/]*\.md$"
     r"|^research/(?!README\.md$)[^/]+\.md$"
+    # Audit reports were outside the identifier grammar entirely, which is why
+    # a COR-n could be declared and nothing ever resolved it.
+    r"|^audits/(?!README\.md$)[^/]+\.md$"
 )
 
 # Each entry is scoped to the file it governs. `Status.` means different
@@ -182,7 +197,7 @@ LEAKS = (
 # A line that is teaching the grammar rather than using it. Without this the
 # format documentation and the templates report themselves, and a check that
 # cries wolf on its own examples is one nobody runs.
-TEACHING = re.compile(r"<[A-Za-z][^>]*>|`[A-Z]{1,2}-<n>`|\bPREFIX\b")
+TEACHING = re.compile(r"<[A-Za-z][^>]*>|`[A-Z]{1,3}-<n>`|\bPREFIX\b")
 
 
 
@@ -241,9 +256,15 @@ class CouldNotRun(Exception):
     """
 
 
+DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
+OPEN_DISPOSITION = re.compile(r"^\**open\**\.?\s*$", re.I)
+
+
 def scan(files, base):
     declared, cited, findings = {}, {}, []
     step_cited = {}
+    # ident -> (file:line, disposition-text-or-None) for audit findings only.
+    audit_findings = {}
 
     for path in files:
         rel = os.path.relpath(path, base)
@@ -277,6 +298,7 @@ def scan(files, base):
 
         is_artifact = bool(ARTIFACTS.match(rel.replace(os.sep, "/")))
         in_fence = False
+        current_audit = None
         for n, line in enumerate(lines, 1):
             if line.lstrip().startswith("```"):
                 in_fence = not in_fence
@@ -296,6 +318,12 @@ def scan(files, base):
                     continue
                 if not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(path), target))):
                     findings.append(("broken-link", rel, n, target))
+
+            if is_artifact and current_audit:
+                md = DISPOSITION.match(line)
+                if md and audit_findings.get(current_audit, (None, None))[1] is None:
+                    audit_findings[current_audit] = (
+                        audit_findings[current_audit][0], md.group(1))
 
             if not is_artifact:
                 continue
@@ -336,6 +364,11 @@ def scan(files, base):
                     break
 
             if decl:
+                # An audit finding opens a block: the `Disposition.` line that
+                # follows belongs to it, until the next finding heading.
+                if decl.split("-")[0] in AUDIT:
+                    current_audit = decl
+                    audit_findings.setdefault(decl, (f"{rel}:{n}", None))
                 # Steps are numbered per task, so they are keyed by their file.
                 key = f"{rel}:{decl}" if decl.startswith("S-") else decl
                 if key in declared:
@@ -425,6 +458,43 @@ def scan(files, base):
             f, n = where.rsplit(":", 1)
             findings.append(("defined-uncited", f, int(n),
                              f"{ident} is declared but nothing cites it"))
+
+    # `defined-uncited` IS WRONG FOR AN AUDIT FINDING, which is why audit
+    # prefixes are not in MUST_BE_CITED. A finding nobody cites is the normal
+    # state of one still under `Disposition. open` -- it has been filed and not
+    # yet routed, which is a stage, not a defect.
+    #
+    # The real gap is the other one, and it was measured: two audits produced
+    # fifteen findings, three became client questions, one entered a task
+    # brief, and ELEVEN were never dispositioned. A "declared here, cited
+    # nowhere" rule reports ZERO on that project, because all eleven were
+    # mentioned -- the manager had logged them in the record. MENTION IS NOT
+    # DISPOSITION, and the difference is invisible in a citation graph.
+    #
+    # THE RULE IS DISPOSITION ALONE, AND THE CITATION HALF IS DELIBERATELY NOT
+    # AN ESCAPE. 0.2.6 planned it as "cited OR dispositioned" and measured both
+    # over the fixture corpus:
+    #
+    #     cited OR non-open Disposition  ->  0 findings
+    #     non-open Disposition alone     ->  5 findings, every one real
+    #
+    # The corpus has sixteen findings with no `Disposition.` line at all, and
+    # the planned rule reported NONE of them -- because they are cited, in
+    # RECORD.md, QUESTIONS.md and CHARTER.md. That is the same defect
+    # CONSOLIDATION item 7 measured and warned about in the same paragraph:
+    # all eleven undispositioned findings on that project WERE mentioned, and
+    # a citation-based rule scored zero. Letting a citation excuse a missing
+    # disposition rebuilds the hole the field exists to close.
+    for ident, (where, disp) in sorted(audit_findings.items()):
+        if disp is not None and not OPEN_DISPOSITION.match(disp):
+            continue
+        f, n = where.rsplit(":", 1)
+        why = ("carries no **Disposition.** line at all" if disp is None
+               else "is still **Disposition.** open")
+        findings.append(("undispositioned-finding", f, int(n),
+                         f"{ident} {why} and nothing cites it — filed is not "
+                         f"routed; disposition is `routed T-n`, `raised Q-n` "
+                         f"or `declined (D-n)`"))
     return findings
 
 

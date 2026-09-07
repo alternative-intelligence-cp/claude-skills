@@ -106,6 +106,38 @@ def replace(name, old, new):
     return ("replace", name, old, new)
 
 
+
+# --- the audit namespace (0.2.6) -----------------------------------------
+# Three-letter prefixes were chosen BECAUSE the scanner could not mistake them
+# for citations, which is the same fact as the scanner being unable to check
+# them. 0.2.6 reserved five and watches them; everything else three-letter is
+# still ignored, and these cases pin BOTH halves.
+
+AUDIT_OPEN = """# T-1 security audit
+
+## SEC-1 — the input is not bounded
+
+- **Disposition.** open
+
+Prose about the finding.
+"""
+
+AUDIT_NONE = """# T-1 security audit
+
+## SEC-1 — the input is not bounded
+
+Prose about the finding, and no disposition line anywhere.
+"""
+
+AUDIT_ROUTED = """# T-1 security audit
+
+## SEC-1 — the input is not bounded
+
+- **Disposition.** routed T-1
+
+Prose about the finding.
+"""
+
 # (case name, [mutations], expected finding kinds)
 CASES = [
     # --- one fault per class, and exactly that class back -----------------
@@ -127,6 +159,54 @@ CASES = [
      {"leak"}),
     ("leak-token", [append("CHARTER.md", "\nToken ghp_abcdefghijklmnopqrstuvwxyz0123456789 here.\n")],
      {"leak"}),
+
+    # --- the audit namespace (0.2.6) -------------------------------------
+    ("undispositioned-finding-no-line",
+     [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_NONE)],
+     {"undispositioned-finding"}),
+    ("undispositioned-finding-still-open",
+     [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_OPEN)],
+     {"undispositioned-finding"}),
+    ("cited-undefined-audit-finding",
+     [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_ROUTED),
+      append("CHARTER.md", "\nThis rests on COR-99.\n")],
+     {"cited-undefined"}),
+    ("duplicate-id-audit-finding",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_ROUTED + "\n## SEC-1 — declared twice\n\n- **Disposition.** routed T-1\n")],
+     {"duplicate-id"}),
+
+    # --- FALSE-POSITIVE CONTROLS for the namespace ------------------------
+    ("fp-audit-finding-routed-is-clean",
+     [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_ROUTED)],
+     set()),
+    # `defined-uncited` MUST NOT fire on an audit finding. A finding nobody
+    # cites is the ordinary state of one that has been filed; the thing that
+    # matters is whether it was DISPOSITIONED. Audit prefixes are therefore
+    # kept out of MUST_BE_CITED, and this case is what says so.
+    ("fp-dispositioned-and-uncited-is-not-defined-uncited",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_ROUTED.replace("routed T-1", "declined (D-1)"))],
+     set()),
+    # A CITATION IS NOT AN ESCAPE FROM A DISPOSITION, and this is the case that
+    # pins it. 0.2.6 planned the rule as "cited OR dispositioned" and measured
+    # it over a real project: ZERO findings, against five that carried no
+    # Disposition line at all -- because every one was mentioned in RECORD.md.
+    # Mention is not disposition (CONSOLIDATION 7). If the citation half is
+    # ever restored as an escape, this case fails.
+    ("undispositioned-even-though-cited",
+     [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_OPEN),
+      append("RECORD.md", "\nThe audit raised SEC-1 and we discussed it.\n")],
+     {"undispositioned-finding"}),
+    # EVERY OTHER THREE-LETTER PREFIX IS STILL IGNORED, deliberately and by
+    # name. The scanner reads [A-Z]{1,3} and then discards anything whose
+    # prefix is not reserved -- which is why `UTF-8` is not a citation. Widening
+    # the regex without this half is what turns a green tree into dozens of
+    # findings at once (F-63, F-64).
+    ("fp-unreserved-three-letter-prefixes-are-ignored",
+     [append("CHARTER.md",
+             "\nEncoded as UTF-8 per RFC-2119, hashed with SHA-256, see ABC-1.\n")],
+     set()),
 
     # --- FALSE-POSITIVE CONTROLS: legitimate work, must stay clean --------
     # A check that reports these is a check somebody will disable (P-35).
