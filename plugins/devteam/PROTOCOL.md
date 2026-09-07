@@ -599,6 +599,31 @@ does not.
 
 ---
 
+**P-48 — An amendment re-affirms every done-means condition and every
+constraint row, by enumerating them.** An amendment entry carries a
+`Re-affirmed.` block listing every `DM-n` in §Done means and every row label in
+§Constraints, each with exactly one of `holds`, `amended (this entry)`, or
+`struck (D-n, <why>)`.
+
+*Why enumeration and not judgement.* Whether a decision has made a done-means
+condition undischargeable is a semantic reading, and this project refuses those
+everywhere (P-4: the diff is mechanical). Whether an entry **lists** every
+condition with a verdict is not a reading at all — it is two declared lists,
+and `amendment-omits-condition` diffs them.
+
+*The measured failure it exists for.* C-3 §2: the final review found `DM-7`
+undischargeable because D-37 had changed the project's nature and **three later
+amendments never re-read it**. Each of those amendments was correct about what
+it changed. None was wrong; the charter drifted anyway, because a project
+**learns forward only** — a condition signed before a decision is never
+revisited by the decision.
+
+*What the mechanism buys, stated honestly.* It cannot tell that `DM-7` became
+undischargeable. What it can do is make the omission impossible and the
+assertion visible: a reader can then see `DM-7 — holds` recorded under an
+amendment made **the same day as D-37**, and ask the question a script cannot.
+The rule converts a silent gap into a claim somebody signed.
+
 **P-45 — A task graph is acyclic, and a probe names what it de-risks.** Two
 halves of one rule: a task may not, through its `Depends-on.` closure, wait on
 itself, and a task whose `Kind.` is `probe` or `spike` carries an `Informs.`

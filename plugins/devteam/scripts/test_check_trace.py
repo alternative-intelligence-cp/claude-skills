@@ -117,6 +117,35 @@ AUDIT_ROUTED = """# T-1 correctness audit
 Prose.
 """
 
+
+# --- the amendment re-affirmation (P-48, 0.2.6) --------------------------
+# A project learns forward only: a done-means condition signed before a
+# decision is never revisited by it. Enumeration, not judgement.
+
+_DMS = ["DM-1", "DM-2"]
+CHARTER_DM = CHARTER.replace(
+    "## Constraints",
+    "## Done means\n\n"
+    + "\n".join(f"- **{d}** — an observable condition" for d in _DMS)
+    + "\n\n## Constraints", 1)
+
+# Built from the SAME two lists the check reads, so the fixture cannot fall out
+# of step with the template's row set the way a hand-written block would.
+_REAFFIRM = "\n".join(
+    [f"  - {d} — holds" for d in _DMS]
+    + [f"  - {r} — holds" for r in _template_rows()])
+
+CHARTER_AMENDED = CHARTER_DM + f"""
+## Amendments
+
+### Version 2 — 2026-09-07 — the test command changed
+
+**Carried by D-1.**
+
+- **Re-affirmed.**
+{_REAFFIRM}
+"""
+
 FIXTURE = {"CHARTER.md": CHARTER, "REQUIREMENTS.md": REQS,
            "tasks/T-1.md": T1, "tasks/T-2.md": T2}
 
@@ -129,6 +158,47 @@ BOARD = """# The board
 """
 
 CASES = [
+    # --- amendment-omits-condition / amendment-names-unknown (P-48) -------
+    ("amendment-omits-condition",
+     {"CHARTER.md": CHARTER_AMENDED.replace("  - DM-1 — holds\n", "")},
+     {"amendment-omits-condition"}),
+    ("amendment-omits-condition-bad-verdict",
+     {"CHARTER.md": CHARTER_AMENDED.replace("DM-1 — holds", "DM-1 — probably fine")},
+     {"amendment-omits-condition"}),
+    ("amendment-names-unknown",
+     {"CHARTER.md": CHARTER_AMENDED.replace(
+         "  - DM-1 — holds\n", "  - DM-1 — holds\n  - DM-99 — holds\n")},
+     {"amendment-names-unknown"}),
+    # THE LATEST ENTRY IS THE HIGHEST VERSION, NOT THE LAST IN THE FILE.
+    # Charters are written newest-first, so the first draft of this check read
+    # Version 2 of a charter at Version 17 and reported against the oldest
+    # entry in the document.
+    # The newer entry is COMPLETE and the older one is DEFICIENT, which is the
+    # only arrangement that tells the two selection rules apart: by position
+    # the deficient Version 2 is chosen and the check fires; by version the
+    # complete Version 3 is chosen and it is clean.
+    ("amendment-latest-is-by-version-not-position",
+     {"CHARTER.md": CHARTER_DM + "\n## Amendments\n\n"
+      "### Version 3 — 2026-09-08 — later, and complete\n\n"
+      "**Carried by D-1.**\n\n- **Re-affirmed.**\n" + _REAFFIRM + "\n\n"
+      "### Version 2 — 2026-09-07 — earlier, and deficient\n\n"
+      "**Carried by D-1.**\n\n- **Re-affirmed.**\n  - DM-1 — holds\n"},
+     set()),
+
+    # --- FALSE-POSITIVE TWINS ---------------------------------------------
+    ("fp-complete-reaffirmation-is-clean",
+     {"CHARTER.md": CHARTER_AMENDED},
+     set()),
+    # A CHARTER WITH NO AMENDMENTS HAS NOTHING TO RE-AFFIRM. Reporting here
+    # would fire on every project on its first day.
+    ("fp-no-amendments-yet",
+     {}, set()),
+    # THE GATE IS ON THE SECTION, NOT ON FINDING NO HEADINGS. Without this the
+    # mutation that drops the `## Amendments` gate survives the whole suite,
+    # because the fixture charter happens to contain no `###` line at all.
+    ("fp-charter-subheadings-outside-an-amendments-section",
+     {"CHARTER.md": CHARTER_DM + "\n### A note about scope\n\nProse.\n"},
+     set()),
     # --- open-finding-at-close (0.2.6) ------------------------------------
     ("open-finding-at-close",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),

@@ -100,6 +100,25 @@ CHARTER_ROWS = template_names("CHARTER.md", "row") or []
 
 STRUCK = re.compile(r"^struck\b", re.I)
 
+# --- the amendment re-affirmation (P-48) ---------------------------------
+DM_DECL = re.compile(r"^-\s+\*\*(DM-\d+)\*\*\s*" + DASH)
+SECTION = re.compile(r"^##\s+(.+?)\s*$")
+AMENDMENT_ENTRY = re.compile(r"^###\s+(.+?)\s*$")
+# WHICH ENTRY IS "THE LATEST" IS A DECLARED FIELD, NOT A POSITION. Charters
+# write amendments NEWEST FIRST, so taking the last `###` in the section picks
+# the OLDEST -- which is what the first draft of this check did, reporting
+# against Version 2 of a charter at Version 17. The version number is parsed
+# and the maximum wins; document order is only the fallback, and then it is
+# the FIRST entry.
+AMENDMENT_VERSION = re.compile(r"^Version\s+(\d+)\b", re.I)
+REAFFIRM_OPEN = re.compile(r"^-\s+\*\*Re-affirmed\.\*\*\s*$")
+# `  - <name> — <verdict>` under that block. The name may itself contain a
+# hyphen (`DM-1`, `Lint / format command`), so the separator is a dash with
+# whitespace on both sides -- the same rule every other title in this grammar
+# uses, and for the same reason.
+REAFFIRM_ITEM = re.compile(r"^\s+-\s+(.+?)" + SEP + r"(.+?)\s*$")
+REAFFIRM_VERDICT = re.compile(r"^(holds|amended \(this entry\)|struck \(D-\d+[^)]*\))\.?\s*$", re.I)
+
 
 
 # A path list is written ONE WAY everywhere: the field, then indented backticked
@@ -315,6 +334,83 @@ def check(devteam):
                 f"the charter has no `{row}` row, which the current template "
                 "declares. A charter signed before the template gained a row "
                 "never acquires it, and nothing else would ever say so")
+
+    # --- amendment-omits-condition / amendment-names-unknown (P-48) --------
+    # A PROJECT LEARNS FORWARD ONLY. C-3 §2: the final review found DM-7
+    # undischargeable because a decision had changed the project's nature and
+    # three later amendments never re-read it. Each amendment was correct about
+    # what it changed; the charter drifted anyway.
+    #
+    # Two declared lists, never a reading: the charter's CURRENT done-means and
+    # constraint labels against the LATEST amendment entry's enumeration.
+    # Whether `holds` is TRUE is a question for a person -- this only makes the
+    # claim exist, so the person has something to disagree with.
+    section, dm_ids, constraint_rows = None, [], []
+    amend_start = None
+    for n, line in enumerate(charter, 1):
+        ms = SECTION.match(line)
+        if ms:
+            section = ms.group(1).strip().lower()
+            if section.startswith("amendment"):
+                amend_start = n
+            continue
+        if section == "done means":
+            md = DM_DECL.match(line)
+            if md:
+                dm_ids.append(md.group(1))
+        elif section == "constraints":
+            mr = TPL_ROW.match(line)
+            if mr:
+                label = mr.group(1).strip()
+                if label and label.lower() != "constraint" and not set(label) <= set("-: "):
+                    constraint_rows.append(label)
+
+    if amend_start is not None:
+        tail = charter[amend_start:]
+        entries = [i for i, l in enumerate(tail) if AMENDMENT_ENTRY.match(l)]
+        if entries:
+            versions = {}
+            for i in entries:
+                mv = AMENDMENT_VERSION.match(
+                    AMENDMENT_ENTRY.match(tail[i]).group(1))
+                if mv:
+                    versions[i] = int(mv.group(1))
+            pick = (max(versions, key=versions.get) if len(versions) == len(entries)
+                    else entries[0])
+            last = tail[pick:]
+            title = AMENDMENT_ENTRY.match(last[0]).group(1)
+            where = f"CHARTER.md:{amend_start + pick + 1}"
+            named, collecting = {}, False
+            for line in last[1:]:
+                if REAFFIRM_OPEN.match(line):
+                    collecting = True
+                    continue
+                if collecting:
+                    mi = REAFFIRM_ITEM.match(line)
+                    if mi:
+                        named[mi.group(1).strip()] = mi.group(2).strip()
+                        continue
+                    if line.strip():
+                        collecting = False
+            wanted = dm_ids + constraint_rows
+            missing = [w for w in wanted if w not in named]
+            if missing:
+                add("amendment-omits-condition", where,
+                    f"the latest amendment ({title[:40]}) re-affirms "
+                    f"{len(named)} of {len(wanted)} — omits "
+                    f"{', '.join(missing[:6])}"
+                    + (f" and {len(missing) - 6} more" if len(missing) > 6 else "")
+                    + ". Backfill with ONE entry, dated today, citing P-48 and "
+                    "enumerating the charter's current state.")
+            for name, verdict in sorted(named.items()):
+                if name not in wanted:
+                    add("amendment-names-unknown", where,
+                        f"the latest amendment re-affirms {name!r}, which the "
+                        f"charter no longer has")
+                elif not REAFFIRM_VERDICT.match(verdict):
+                    add("amendment-omits-condition", where,
+                        f"{name} is re-affirmed as {verdict!r} — wanted "
+                        f"`holds`, `amended (this entry)` or `struck (D-n, why)`")
 
     req_lines = read(devteam, "REQUIREMENTS.md")
     req_blocks = blocks_of(req_lines, REQ)

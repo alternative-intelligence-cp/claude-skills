@@ -231,6 +231,17 @@ this project has recorded, five times over, in the document written *last* —
 by whoever has just spent a run cataloguing that failure and is therefore most
 likely to believe they are immune to it.
 
+**The backwards pass has a mechanical half now, and it runs before the reading
+half.** `check_trace`'s `amendment-omits-condition` diffs the charter's current
+done-means and constraint rows against the latest amendment's `Re-affirmed.`
+enumeration (P-48), so *"an amendment forgot a condition"* is answered by a
+script rather than by this document noticing. **Run it first and paste the
+output.** What it cannot answer is whether a condition re-affirmed as `holds`
+actually still holds — that is the reading half, and it is the questions below.
+The check exists because a project learns forward only: three amendments in a
+row once left a done-means condition undischargeable, and every one of them was
+correct about what it changed.
+
 1. **Every count is produced by a command run at the moment of writing, with
    the command named beside the number.** Never a figure carried down from
    earlier in the record: every one of those was true when it was written.

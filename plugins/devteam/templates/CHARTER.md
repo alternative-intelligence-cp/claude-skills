@@ -111,4 +111,38 @@ treated as a discovery. Each with the reason it was accepted.>
 <Each amendment is a new dated entry naming what changed, why, and the decision
 that carries it. The superseded text stays (P-23).>
 
+<**Entries are numbered `Version <n>` and written NEWEST FIRST.** The number is
+what identifies the latest entry — a checker that took the last one in the file
+would read the oldest, which is exactly what happened the first time this was
+written.>
+
+<**Every entry re-affirms the whole charter (P-48).** A project learns forward
+only: a done-means condition signed before a decision is never revisited by
+that decision, and three amendments in a row once left one undischargeable
+without anyone noticing. The `Re-affirmed.` block lists EVERY `DM-n` and EVERY
+constraint row label with one of `holds`, `amended (this entry)` or
+`struck (D-n, <why>)`. Enumeration, not judgement — a script checks that the
+list is complete; a reader checks whether `holds` is true.>
+
+<!-- example:begin -->
+### Version 2 — <date> — <one line: what changed>
+
+**Carried by D-<n>. Answers Q-<n>. Signed by the client.**
+
+**What changed.** <one line>
+
+**Why.** <the measured reason>
+
+**Superseded text, kept per P-23:**
+
+> <the old text>
+
+- **Re-affirmed.**
+  - DM-1 — holds
+  - DM-2 — struck (D-<n>, the project no longer produces a CLI)
+  - Language / runtime — holds
+  - Test command — amended (this entry)
+  - <...every remaining DM-n and constraint row label...>
+<!-- example:end -->
+
 _None yet._

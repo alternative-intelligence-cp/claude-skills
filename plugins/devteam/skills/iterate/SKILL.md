@@ -68,8 +68,13 @@ between cycles, legitimately. It moves *silently* between cycles, illegitimately
 ## 4. Amend; never rewrite
 
 - **The charter gets a new `Version.`**, a new dated entry under `##
-  Amendments` saying what changed and why, and **the previous text stays**
-  (P-23). A reader must be able to see what the project was asked to be at
+  Amendments` saying what changed and why, **a `Re-affirmed.` block
+  enumerating every `DM-n` and every constraint row** (P-48), and **the
+  previous text stays** (P-23). The enumeration is the backwards pass: a
+  project learns forward only, and a done-means signed before a decision is
+  never revisited by that decision unless something makes the re-reading
+  compulsory. `check_trace` reports the omission; only you can say whether
+  `holds` is true. A reader must be able to see what the project was asked to be at
   each point, or the checkpoints of earlier cycles become unreadable.
 - **Requirements keep their numbers.** A requirement that changes is
   **superseded by a new one** that says what it replaces; it is not edited.

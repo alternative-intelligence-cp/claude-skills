@@ -53,7 +53,7 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 18 classes
+## `check_trace.py` — 20 classes
 
 Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`. Diffs goals ↔ requirements
 ↔ tasks ↔ acceptance criteria.
@@ -72,6 +72,8 @@ Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`. Diffs goals ↔ requirement
 | `board-drift` | P-11 — the board is the lock; P-34 — facts have one home | `BOARD.md`'s `State` column ↔ each task file's own title status | `enforces` |
 | `one-sided-link` | P-4 | a requirement's `Status.` task list ↔ that task's `Discharges.` | `enforces` |
 | `template-drift` | `FORMATS.md` §"An artifact conforms to the template it came from, at the current version" | the charter's constraint rows ↔ the **current** template's rows | `enforces` |
+| `amendment-omits-condition` | P-48 — an amendment re-affirms every done-means and constraint row | the charter's current `DM-n` list and constraint row labels ↔ the latest amendment's `Re-affirmed.` enumeration | `enforces` |
+| `amendment-names-unknown` | P-48 | the latest amendment's `Re-affirmed.` names ↔ the charter's current conditions | `enforces` |
 | `unrecorded-amendment` | P-2 — changing what is being built is a charter amendment | a requirement's committed `Requires-write.` ↔ its current one | `enforces` |
 | `unreachable-acceptance` | P-10 — a worker writes only inside its declared scope; P-5 | a requirement's `Requires-write.` ↔ the `Scope.` of each single discharging task | `enforces` |
 | `unparseable-task` | `FORMATS.md` §"Status vocabularies", task title | the file's first line ↔ the `# T-n — <title> — <status>` grammar | `enforces` |
