@@ -33,10 +33,15 @@ finds the work has drifted from the charter.
 > not merely built — so several rows below name a mechanism that shipped
 > and say what has not yet measured it.
 >
-> Version 0.2.0. Fifteen skills, nine agents, 48 numbered rules, and 551
-> control cases green across 13 controls, 251 of them false-positive
-> controls (46%) — `python3 scripts/run_controls.py`, read from the tree,
+> Version **0.2.0-rc**. Fifteen skills, nine agents, 48 numbered rules, and
+> 575 control cases green across 14 controls, 262 of them false-positive
+> controls (45%) — `python3 scripts/run_controls.py`, read from the tree,
 > not carried from memory.
+>
+> **`-rc`, and the suffix is load-bearing.** Every mechanism here ships with
+> negative controls and none has run on a real project. `/devteam:iterate`
+> has never run; P-27 has never fired; rotation has never rotated a project.
+> The tag stays `-rc` until a real run says otherwise.
 
 ## Read these
 

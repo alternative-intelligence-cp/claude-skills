@@ -16,9 +16,9 @@ claim checkable.
 ls plugins/devteam/skills | wc -l                     ->  15 skills
 ls plugins/devteam/agents | wc -l                     ->   9 agents
 grep -c '^\*\*P-[0-9]* ' plugins/devteam/PROTOCOL.md  ->  48 numbered rules
-ls plugins/devteam/scripts/*.py | grep -vc '/test_'   ->  15 scripts
-python3 plugins/devteam/scripts/run_controls.py       ->  all 13 controls green,
-                                                          558 cases, 251 of them
+ls plugins/devteam/scripts/*.py | grep -vc '/test_'   ->  16 scripts
+python3 plugins/devteam/scripts/run_controls.py       ->  all 14 controls green,
+                                                          575 cases, 262 of them
                                                           false-positive (45%)
 python3 plugins/devteam/scripts/check_plugin.py       ->  clean
 python3 plugins/devteam/scripts/check_refs.py         ->  clean
@@ -49,7 +49,7 @@ which nobody had ever done.
 
 | Path | What |
 |---|---|
-| `plugins/devteam/` | **the product.** 15 skills, 9 agents, 15 scripts, 558 control cases |
+| `plugins/devteam/` | **the product.** 15 skills, 9 agents, 16 scripts, 575 control cases |
 | `plugins/devteam/docs/CONSOLIDATION.md` | **the work queue.** The first run's nine items each answered; six new ones from 0.2 |
 | `plugins/devteam/docs/CHECKS.md` | every finding class against the rule it enforces. The best single map of the plugin |
 | `plugins/devteam/docs/PAIRS.md` | 17 moments where two imperatives bind at once, 21 pairs. **Read row 12 and row 20 whatever else you skip** |

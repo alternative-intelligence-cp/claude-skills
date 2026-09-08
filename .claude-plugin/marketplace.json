@@ -15,7 +15,7 @@
         "name": "Randy"
       },
       "category": "workflow",
-      "version": "0.2.0",
+      "version": "0.2.0-rc",
       "source": "./plugins/devteam",
       "keywords": [
         "multi-agent",
