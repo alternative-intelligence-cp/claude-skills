@@ -330,6 +330,53 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > never bound (4% at 0.2.7's close), but a subcycle planning against the weekly
 > figure alone is planning against two of three.
 >
+> ### 0.2.8's opening reading, and TWO MORE INSTRUMENTS THIS SECTION HAS NEVER RECORDED
+>
+> Read in full 2026-09-07, ~2 hours after 0.2.7 closed. All models `93%`,
+> resets **Sep 9, 7:59pm**; Fable `98%`; **session meter `5%`** (it was `4%`);
+> boost `+50% through Sep 13`. Attribution, `Last 24h`: **`83%` at >150k
+> context** and **`21%` from subagent-heavy sessions** — 0.2.7 read `85%` and
+> `20%`, so the shape is stable and the exact figures drift; quote them as
+> read and do not treat a two-point move as a finding.
+>
+> **No reset between 0.2.7's close and this reading, INFERRED rather than
+> told, and flagged as such.** The gauge read `93%` at both. A reset zeroes
+> the numerator, so a reset inside that window would have required climbing
+> back to 93% in about two hours — implausible against every measured rate
+> here. That is good evidence, and it is still not the owner saying so, which
+> is what this section asks for everywhere else.
+>
+> **INSTRUMENT 1 — the `Prompt cache (main)` line, which MEASURES what this
+> section derived.** In full: *"82 requests · 98% of input tokens from cache ·
+> 1 miss (last 29m 21s ago — likely cause: idle past the 1h TTL, 30.0k tokens
+> re-cached) · warm (1h TTL, last activity 57s ago)"*.
+>
+> This section spent four subcycles inferring cache dominance by solving rates
+> out of the dollar column against Opus 5's published prices, and reached
+> "about two-thirds of the dollar figure is re-reading the conversation". The
+> display states it directly: **98% of input tokens came from cache.** The
+> derivation was pointing the right way and the instrument was in the output
+> the whole time. It also prices something nothing here had modelled: **going
+> idle past the 1-hour TTL costs a re-cache** — `30.0k tokens` for one gap.
+> A session left open across a long pause pays to resume, so an interruption
+> has a cost even when nothing happens during it.
+>
+> **INSTRUMENT 2 — the per-skill and per-plugin breakdown, with numbers, and
+> it says something surprising.** `/devteam:run 1%`, `/devteam:checkpoint 1%`,
+> plugin `devteam 2%` — while cycle 0.2's own sessions are the dominant
+> activity on this machine. **The breakdown counts the pipeline being USED,
+> not the pipeline being BUILT.** L-9 says this cycle is implemented directly
+> by sessions rather than by running `devteam` on itself, so almost none of
+> this cycle's spend is attributable to a devteam skill and the `2%` is the
+> fixture work, not the construction. A later reader who finds `devteam 2%`
+> and concludes the pipeline is cheap will have read a number that answers a
+> different question.
+>
+> **This session, mid-flight, for scale rather than as a row:** `$9.88` over
+> `82` requests, `11.3 M` cache read, `214.6k` cache write, `82.4k` output,
+> Opus 5 only. API duration `18m 54s` against `1h 44m` wall — the gap is the
+> owner reading and answering, and it is most of the clock.
+>
 > **THE ATTRIBUTION LINE HAS CHANGED, AND THE NEW ONE NAMES THE MECHANISM.**
 > 0.2.5 recorded *"52% of your usage came from sessions active for 8+ hours"*.
 > On 2026-09-07 the same section read **"85% of your usage was at >150k
