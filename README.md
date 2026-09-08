@@ -29,6 +29,26 @@ claude --plugin-dir ~/path/to/claude-skills/plugins/devteam
 |---|---|
 | [**devteam**](plugins/devteam/) | A three-layer development pipeline — project manager, task supervisors, specialist workers — that takes a project from a client's idea to a working product under a signed charter, with numbered requirements traced to tasks and tests, independent verification of every report, scheduled checkpoints that diff the built thing against the charter, and escalations classified by reversibility so the loop keeps running without guessing on anything that matters. **Status:** run end to end once, on a fixture; its [known problems](plugins/devteam/README.md#known-problems) and [the plan for cycle 0.2](plugins/devteam/meta/roadmap/README.md) are in its README |
 
+## What is in this repository
+
+Everything at the repository root is listed here, and
+[`check_plugin.py`](plugins/devteam/scripts/check_plugin.py) reports an entry
+that is not — so this table is the source of truth and the tree is what is
+checked against it. **Temporary scripts, probes and experiments belong in
+`.internal/scratch/`**, which is ignored. Two mechanisms cover the root and
+they catch different things: a Python file at the root is ignored by
+[`.gitignore`](.gitignore) and so never reaches the remote but stays invisible
+locally; anything else appears here as a finding.
+
+| Entry | What |
+|---|---|
+| `.claude-plugin/` | the marketplace manifest that makes this repository installable |
+| `.gitignore` | what never reaches the remote, with the reasoning in its comments |
+| `HANDOFF.md` | the state of the work for whoever picks it up next |
+| `LICENSE` | Apache 2.0 |
+| `plugins/` | the plugins themselves — one directory each |
+| `README.md` | this file |
+
 ## The ideas these are built on
 
 Every plugin here shares a small number of convictions, learned from running

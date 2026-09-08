@@ -139,6 +139,46 @@ def roadmap(plugin, files):
           title + "\n\nBody, which the check never reads.\n")
 
 
+def root_tree(plugin, rows, tracked=(), untracked=(), gitignore=None):
+    """Make the throwaway root a git repository carrying a README root table.
+
+    check_plugin's root check diffs WHAT GIT WOULD PUBLISH against the README's
+    table, so a control needs both sides real: an actual repository with an
+    actual commit, and a table to diff it against. Faking either side would
+    test the parser and not the check.
+
+    Built in the scratch tree and NEVER against this repository. A control that
+    mutates the tree it is checking is exactly the window PAIRS row 12 removed:
+    a concurrent `git add` reads the mutated state and ships it while the
+    control, run in the working tree, reports green.
+    """
+    root = os.path.normpath(os.path.join(plugin, "..", ".."))
+    if gitignore is not None:
+        open(os.path.join(root, ".gitignore"), "w", encoding="utf-8").write(gitignore)
+    for name in tracked:
+        open(os.path.join(root, name), "w", encoding="utf-8").write("tracked\n")
+    body = ["# fixture", "", "## What is in this repository", "",
+            "| Entry | What |", "|---|---|"]
+    body += [f"| `{r}` | a row |" for r in rows]
+    open(os.path.join(root, "README.md"), "w", encoding="utf-8").write("\n".join(body) + "\n")
+    git = lambda *a: subprocess.run(["git", "-C", root] + list(a),
+                                    capture_output=True, text=True, check=True)
+    git("init", "-q", "-b", "main")
+    git("add", "-A")
+    git("-c", "user.name=control", "-c", "user.email=control@example.invalid",
+        "commit", "-qm", "fixture")
+    # Untracked entries are written AFTER the commit, which is what makes them
+    # untracked. Written before, `add -A` would take them and the case would
+    # silently become the tracked one.
+    for name in untracked:
+        open(os.path.join(root, name), "w", encoding="utf-8").write("untracked\n")
+
+
+# The root table's own rows for a bare fixture: `git add -A` takes the README
+# and the plugin tree, and nothing else exists unless a case makes it.
+BARE_ROOT = ["README.md", "plugins/"]
+
+
 CASES = [
     ("clean", None, set()),
     ("missing-skill",
@@ -263,6 +303,30 @@ CASES = [
     # would handle set.add() and the lambda definition correctly by accident
     # and would ALSO go blind to a genuine emit site written with a computed
     # name -- exactly the class most likely to need a rule. It must fail loudly.
+    # THE ROOT TREE AGAINST THE README'S TABLE (0.2.10). Two mechanisms cover
+    # the root and they catch different things, so both halves are controlled:
+    # the check reports a stray, and stays SILENT about the one `.gitignore`
+    # already handles. A check that reported what the ignore rule handles is a
+    # check that gets switched off.
+    ("fp-root-table-matches-tree",
+     lambda p: root_tree(p, BARE_ROOT),
+     set()),
+    ("stray-root-entry-tracked",
+     lambda p: root_tree(p, BARE_ROOT, tracked=["stray.md"]),
+     {"stray-root-entry"}),
+    ("stray-root-entry-untracked",
+     lambda p: root_tree(p, BARE_ROOT, untracked=["loose.md"]),
+     {"stray-root-entry"}),
+    # THE FALSE-POSITIVE TWIN, and the reason L-10.2 reads "what git would
+    # publish" rather than "what is on disk": a root-level .py is ignored, so
+    # it never reaches the remote and this check must not mention it.
+    ("fp-root-ignored-py-is-gitignores-half",
+     lambda p: root_tree(p, [".gitignore"] + BARE_ROOT,
+                         gitignore="/*.py\n", untracked=["stray.py"]),
+     set()),
+    ("stale-root-row",
+     lambda p: root_tree(p, BARE_ROOT + ["gone.md"]),
+     {"stale-root-row"}),
     ("unruled-finding-computed-class-name",
      lambda p: w(p, "scripts/check_refs.py", REFS + '''
 

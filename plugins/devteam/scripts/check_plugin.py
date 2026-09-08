@@ -32,6 +32,11 @@ SCRIPT_REF = re.compile(r"(?:\$\{CLAUDE_PLUGIN_ROOT\}|\$\{CLAUDE_SKILL_DIR\}/\.\
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 SUBCYCLE_FILE = re.compile(r"\A\d+\.\d+\.\d+\.md\Z")
 SUBCYCLE_STATE = re.compile(r"[\u2014\u2013-]\s*(PLANNED|IN-PROGRESS|DONE|STOPPED)\b")
+# The root table's section, and its rows. The section ends at the next `## `
+# or at end of file -- anchoring only on a following heading would make the
+# check silently stop reading if the table were ever moved last.
+ROOT_SECTION = re.compile(r"^## What is in this repository\n(.*?)(?=^## |\Z)", re.S | re.M)
+ROOT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.M)
 
 # --- A MENTION IS NOT A CITATION, and this check had to learn it the hard way
 # check_refs.py worked this out for the project namespace and wrote the reason
@@ -508,6 +513,67 @@ def main():
         # the code at all, so there is no second list to compare. docs/CHECKS.md
         # names the eight families and says so.
 
+    # THE REPOSITORY ROOT AGAINST THE README'S TABLE (0.2.10).
+    #
+    # The stated pain is a root that fills with temporary scripts until the
+    # README sits pages down the GitHub file tree, and every clean-up means
+    # stopping work. TWO MECHANISMS COVER IT AND THEY CATCH DIFFERENT THINGS:
+    # `.gitignore` keeps a root-level *.py off the remote and shows nothing in
+    # `git status`, so it is invisible locally; this reports everything else.
+    # Reporting what the ignore rule already handles would be a check that
+    # gets switched off, so the ignored half is deliberately not read here --
+    # `git` has already excluded it from both commands below.
+    #
+    # THE README IS THE SOURCE OF TRUTH AND THE TREE IS CHECKED AGAINST IT.
+    # Saying which way round is the whole difference between a check and a
+    # spell-checker (DESIGN 20). The allowlist is NOT duplicated in this file:
+    # two copies would be diffed against each other rather than against the
+    # tree, and would agree with each other while both were wrong.
+    root_rows = None
+    readme = os.path.join(REPO, "README.md")
+    if os.path.isfile(readme):
+        body = open(readme, encoding="utf-8").read()
+        m = ROOT_SECTION.search(body)
+        if m:
+            # A trailing slash is how a directory is written for a reader;
+            # git never emits one. Strip it here rather than asking the author
+            # to write the table in git's shape.
+            root_rows = {r.rstrip("/") for r in ROOT_ROW.findall(m.group(1))}
+
+    if root_rows:
+        present, readable = set(), True
+        for args, pick in ((["ls-tree", "--name-only", "HEAD"], lambda l: l),
+                           (["status", "--porcelain", "-uall"],
+                            lambda l: l[3:].split("/")[0] if l.startswith("??") else None)):
+            try:
+                out = subprocess.run(["git", "-C", REPO] + args,
+                                     capture_output=True, text=True, timeout=60)
+            except (OSError, subprocess.SubprocessError):
+                readable = False
+                break
+            if out.returncode != 0:
+                readable = False
+                break
+            for line in out.stdout.splitlines():
+                name = pick(line.rstrip())
+                if name:
+                    present.add(name.strip('"'))
+        # A FAILED GIT CALL MUST NOT LOOK LIKE AN EMPTY TREE. Without this,
+        # `present` stays empty and every documented row is reported as
+        # `stale-root-row` -- a check reporting the whole table because it
+        # could not read the repository, which is the loudest possible way to
+        # be wrong about the quietest possible cause.
+        if not readable:
+            print("check_plugin: cannot read the repository root from git", file=sys.stderr)
+            return 2
+        for name in sorted(present - root_rows):
+            add("stray-root-entry", name,
+                "not listed in README.md's root table — a temporary file "
+                "belongs in .internal/scratch/; a permanent one gets a row")
+        for name in sorted(root_rows - present):
+            add("stale-root-row", "README.md",
+                f"the root table lists `{name}` and the tree does not have it")
+
     if findings:
         print(f"devteam plugin: {len(findings)} finding(s)")
         for kind, where, detail in sorted(findings):
@@ -518,9 +584,13 @@ def main():
         skipped.append("scaffold check SKIPPED — no setup.py or templates/")
     if not ruled:
         skipped.append("unruled-finding SKIPPED — no docs/")
+    if root_rows is None:
+        skipped.append("root-table check SKIPPED — no `## What is in this repository` in README.md")
+    root_note = f", {len(root_rows)} root entries" if root_rows else ""
     tail = ("; " + "; ".join(skipped)) if skipped else ""
     print(f"devteam plugin: clean  [{len(skills)} skills, "
-          f"{len(os.listdir(agents_dir))} agents, {len(declared)} rules{tail}]")
+          f"{len(os.listdir(agents_dir))} agents, {len(declared)} rules"
+          f"{root_note}{tail}]")
     return 0
 
 

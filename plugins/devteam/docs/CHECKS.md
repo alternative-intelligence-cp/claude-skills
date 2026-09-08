@@ -142,7 +142,7 @@ was written.
 | `foreign-write` | P-12 | uncommitted paths ↔ the union of every live scope | `enforces` |
 | `misattributed-write` | P-10, P-12 | a commit's touched paths ↔ the live scope of a task that did **not** author it | `enforces` |
 
-## `check_plugin.py` — 16 classes
+## `check_plugin.py` — 18 classes
 
 Internal consistency of the plugin itself. Every finding is a diff between two
 lists (P-4).
@@ -165,6 +165,8 @@ lists (P-4).
 | `stranded-done-subcycle` | `meta/roadmap/README.md` — *"when a subcycle reaches `DONE`, move its file to `done/`"* | a subcycle file's title-line state ↔ the directory it sits in | `enforces` |
 | `undone-subcycle-in-done` | `meta/roadmap/README.md` — *"`ls done/` is what happened"* | the contents of `done/` ↔ each title line reading `DONE` | `enforces` |
 | `subcycle-without-state` | `meta/roadmap/README.md` — *"the title line of a subcycle file is the one home for its state"* | a subcycle file's title line ↔ the four declared states | `enforces` |
+| `stray-root-entry` | `README.md` §"What is in this repository" — *"everything at the repository root is listed here"* | what git would publish at the root ↔ the README's root table | `enforces` |
+| `stale-root-row` | `README.md` §"What is in this repository" — the same sentence, read the other way | the README's root table ↔ what git would publish at the root | `enforces` |
 
 ## `sandbox.py promote` — 14 classes
 
