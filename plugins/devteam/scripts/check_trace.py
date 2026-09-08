@@ -24,6 +24,12 @@ import sys
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXAMPLE = re.compile(r"<!--\s*example:begin\s*-->(.*?)<!--\s*example:end\s*-->", re.S)
+# A template declares a name in one of two blocks, and the difference is what
+# SETUP does with them, not what this check does: an `example:` block is
+# stripped from an installed artifact, a `schema:` block ships with its marker
+# lines removed. Both declare. Reading only `example:` is what made the
+# charter's constraints table unable to be both shipped and checked.
+SCHEMA = re.compile(r"<!--\s*schema:begin\s*-->(.*?)<!--\s*schema:end\s*-->", re.S)
 TPL_FIELD = re.compile(r"^-\s+\*\*([A-Za-z][A-Za-z -]*)\.\*\*", re.M)
 TPL_ROW = re.compile(r"^\|\s*([A-Za-z][^|]*?)\s*\|", re.M)
 
@@ -49,7 +55,7 @@ def template_names(rel, kind):
     except OSError:
         return None
     out, seen = [], set()
-    for block in EXAMPLE.findall(body):
+    for block in EXAMPLE.findall(body) + SCHEMA.findall(body):
         pat = TPL_FIELD if kind == "field" else TPL_ROW
         for name in pat.findall(block):
             name = name.strip()

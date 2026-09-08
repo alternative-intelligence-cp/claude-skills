@@ -58,6 +58,20 @@ RUNTIME_DIRS = ("session", "locks", "env", "scratch")
 # noise. Setup strips them; the plugin keeps them.
 EXAMPLE = re.compile(r"^<!-- example:begin -->\n.*?^<!-- example:end -->\n", re.S | re.M)
 
+# TWO MARKERS, BECAUSE ONE WAS BEING READ TWO OPPOSITE WAYS.
+# `example:` means "this is an illustration of ours; do not ship it". But
+# check_trace's `template_names()` read the SAME marker to learn which rows a
+# charter must have, so the block meant "strip this" to setup and "this is the
+# required schema" to the drift check. The charter's constraints table is where
+# the conflict bites, because it has to do both: ship, so a client has a table
+# to fill in, and be declared, so `template-drift` can tell a charter that
+# predates a row. 0.2.8 found it by removing the markers -- the table then
+# shipped and `template-drift` went permanently silent, which no check caught
+# because the check that went quiet was the one being disarmed.
+# `schema:` is the second reading with its own name: the CONTENT ships, the
+# marker lines do not.
+SCHEMA_MARK = re.compile(r"^<!-- schema:(?:begin|end) -->\n", re.M)
+
 # Forms that are instantiated per item live with the plugin, not in the
 # project: the planner copies TASK.md when it creates a task. Installing them
 # under tasks/ would make a blank form look like a real task.
@@ -236,13 +250,13 @@ def main(argv):
             os.makedirs(dst, exist_ok=True)
             for inner in sorted(os.listdir(src)):
                 with open(os.path.join(src, inner), encoding="utf-8") as fh:
-                    body = EXAMPLE.sub("", fh.read())
+                    body = SCHEMA_MARK.sub("", EXAMPLE.sub("", fh.read()))
                 with open(os.path.join(dst, inner), "w", encoding="utf-8") as fh:
                     fh.write(body)
                 installed += 1
         else:
             with open(src, encoding="utf-8") as fh:
-                body = EXAMPLE.sub("", fh.read())
+                body = SCHEMA_MARK.sub("", EXAMPLE.sub("", fh.read()))
             if name == "CHARTER.md":
                 body = prefill(body, found)
             with open(dst, "w", encoding="utf-8") as fh:

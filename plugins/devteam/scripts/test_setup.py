@@ -137,6 +137,13 @@ def main():
         case("charter-ships-no-example-markers",
              "example:begin" not in charter and "example:end" not in charter,
              "an example marker survived into a client's charter")
+        # A `schema:` block ships its CONTENT and not its markers. Without this
+        # case the split between the two markers is only half proved: the rows
+        # would arrive with `<!-- schema:begin -->` sitting above them in a
+        # document a client signs.
+        case("charter-ships-no-schema-markers",
+             "schema:begin" not in charter and "schema:end" not in charter,
+             "a schema marker survived into a client's charter")
         case("charter-strips-the-goal-examples",
              "**G-1**" not in charter,
              "this repository's example goals shipped into a client's charter")
