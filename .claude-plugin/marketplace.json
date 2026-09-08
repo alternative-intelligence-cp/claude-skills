@@ -10,12 +10,12 @@
     {
       "name": "devteam",
       "displayName": "Development Team",
-      "description": "A three-layer development pipeline that carries a project from a client's idea to a working product: an interview that produces a signed charter, numbered requirements traced to tasks and tests, supervisors that dispatch and verify specialist workers, independent verification of every report, scheduled checkpoints that diff the built thing against the charter, and escalations classified by reversibility so the loop keeps running without guessing on anything that matters.",
+      "description": "A three-layer development pipeline that carries a project from a client's idea to a working product: an interview that produces a signed charter, numbered requirements traced to tasks and tests, supervisors that dispatch specialist workers into per-worker copy-on-write sandboxes whose commits are promoted only after a gate diffs what they touched against what the task declared, independent verification of every report, scheduled checkpoints that diff the built thing against the charter, and escalations classified by reversibility so the loop keeps running without guessing on anything that matters.",
       "author": {
         "name": "Randy"
       },
       "category": "workflow",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "source": "./plugins/devteam",
       "keywords": [
         "multi-agent",

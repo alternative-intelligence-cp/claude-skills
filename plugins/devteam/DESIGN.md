@@ -70,7 +70,7 @@ escalation batch.
 
 ## 2. The roster
 
-Nine agents, thirteen skills. Every agent preloads the skill that is its
+Nine agents, fifteen skills. Every agent preloads the skill that is its
 procedure, so the procedure has one home (P-34) and the agent definition holds
 only what a tool list can enforce.
 
@@ -93,6 +93,23 @@ an agent definition's tool list actually removes the tool, so neither *can*
 write, whatever it decides. Everything else in the table is discipline plus the
 guard (§8). A skill's `allowed-tools` only pre-approves; it never restricts,
 and pretending otherwise is how a system acquires a rule nobody enforces.
+
+**Which roles run headless, and it is a property of the dispatch rather than
+of the agent.** Under `Containment: structural` the three roles that write
+product code — `implementer`, `tester`, `documenter` — are dispatched by
+`sandbox.py dispatch` as headless processes inside their own copy-on-write
+overlay, and their commits reach the host only through promotion (P-43, P-44).
+`verifier`, `auditor`, `reviewer` and `researcher` go through the `Agent` tool
+as before, because none of them writes; one that must mutate to do its job
+uses `sandbox.py exec`. Under `guard-only` every role goes through the `Agent`
+tool and the guard is the whole of the coverage (P-10b).
+
+The `Model` column is unchanged by any of this — a role's model is a property
+of its work, not of where the process runs. What *does* change is visibility:
+**`ListAgents` cannot see a headless worker**, so liveness is a file the worker
+touches rather than a question the supervisor asks (P-14b). That cost was
+accepted deliberately; it is recorded in the cycle's L-2 rather than left to be
+rediscovered by whoever first wonders why a supervisor polls a file.
 
 **There is no interviewer agent, deliberately.** The brief asks for one, but a
 subagent cannot ask the client a question — only the main session can. So the
@@ -117,6 +134,8 @@ departure.
 | `review` | reviewer | pull requests: what to check and what to say |
 | `research` | any | one dated, sourced digest from a primary source (P-36) |
 | `check` | all | the mechanical scripts: traceability, references, reports, leaks |
+| `resume` | manager | pick the project up after a crash, a reboot or a day away — reconcile the record against the tree, and confirm with the client before re-dispatching anything that could destroy work |
+| `iterate` | manager | open a second or later cycle — carry the charter, decisions, record and audits forward, re-interview only what using the thing taught, and amend rather than start over |
 
 ---
 
