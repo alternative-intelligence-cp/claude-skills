@@ -131,6 +131,46 @@ on the operator remembering it fails exactly when the operator is busy. The
 answer is never *be careful about citations*; it is a declared structure in
 which an uncited claim or an unanswered question **shows up as a finding**.
 
+### 4.2 The worked case, and it inverts where you would look
+
+The owner's best example is in the Nikola repository today. An engineering
+report was built in stages — deep research per topic, an overall design, more
+specific design — and then **aggregated into a draft**. That aggregation went
+*well*: *"it mostly was. there were a few ommissions that i had to put back in
+and some fluff that was not neccessary and some reordering but it wasn't bad
+overall."*
+
+**The lossy stage was the next one, and it is the one nobody suspects.** The
+draft was then *"polish[ed] up and format[ted] well"* into the engineering
+report proper — **904 pages**. A stage whose entire job was presentation
+dropped a great deal of content, silently.
+
+**Detection came at implementation, which is the latest and most expensive
+point available.** *"I only discovered just how much had been omitted when we
+started building and the implementer started to ask me questions that i know
+should have been answered in the report."* The remedy was to abandon the
+polished artifact and hand the implementer the **draft**, so the polishing
+effort was not merely wasted but negative.
+
+**Three design consequences, and the third is a finding about `devteam`
+itself:**
+
+1. **Check the transformation nobody thinks is lossy.** Aggregation is expected
+   to lose things, so it gets checked. Polishing, reformatting, tidying and
+   summarising are expected to *preserve*, so they are not — which is where the
+   loss happened. **Every transformation stage must be diffable against its
+   input:** each section, claim or requirement going in appears coming out, or
+   is listed as dropped with a reason. Two declared lists again.
+2. **A polished artifact suppresses the question it should provoke.** 904 well
+   formatted pages read as thorough, and apparent completeness actively
+   discourages anyone from asking what is missing. A rough draft invites the
+   question; a finished document forbids it. This is the same shape as an
+   instrument that passes while answering an adjacent question, at document
+   scale.
+3. **A downstream consumer asking a question the specification should have
+   answered is a measurement, and `devteam` currently throws it away.** See
+   [`CONSOLIDATION.md`](../docs/CONSOLIDATION.md) N-7.
+
 ## 5. `maintainanceTeam` — the one real structural difference
 
 **`devteam` is project-shaped: charter, requirements, task graph, GATE 4, the

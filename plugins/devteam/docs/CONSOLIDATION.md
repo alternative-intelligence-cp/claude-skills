@@ -344,3 +344,47 @@ Recorded because the repair is not "be careful". The general shape — *a check
 whose exit code is discarded by the shape of the invocation* — is the same
 family as the unexpanded-variable trap and N-4, and it is the one where the
 operator is a session under time pressure, which is every session.
+
+## N-7. A worker's question is answered, and never measured — the rule exists one layer up
+
+`resume` §0 states the principle exactly: **"Every question you have to ask is
+a defect in the record… Treat the questions as a measurement: anything you had
+to ask about is something the written state failed to carry, and it will fail
+to carry it again for the next reader, who may not have anybody to ask."** It is
+applied to an incoming session at a handoff, and to a manager at a rotation.
+
+**It is not applied to a worker asking about the specification.** `run`'s
+disposition table routes `NEEDS-DECISION` — *"the task stops; the question and
+its recommendation go to the table"* — and the client answers it. Nothing
+anywhere records that `REQUIREMENTS.md` should have answered it and did not. So
+the pipeline measures the completeness of its own record and **not** the
+completeness of the thing it is building against.
+
+**The evidence is the owner's, from outside this project, and it is the worst
+case of it anybody here has.** A 904-page engineering report, polished from a
+draft, lost a great deal of content in the *polishing* stage. It was discovered
+only when implementation began *"and the implementer started to ask me
+questions that i know should have been answered in the report"* — after which
+the polished report was abandoned and the draft used instead. **That question
+stream was the only detector that ever fired, and it fired at the most
+expensive possible moment.** A pipeline that logged it as a defect in the
+specification would have had a running count of the report's incompleteness
+from the first task onward.
+
+**Why this passes the F-113 test:** the two sides are the questions a worker
+had to escalate and the requirement set that was supposed to answer them. Both
+are declared and both are already written down — `QUESTIONS.md` and
+`REQUIREMENTS.md` — so the finding is a diff rather than a reading.
+
+**What it is not.** Not every escalation is a specification defect: a genuine
+`CHARTER`-class question about what the client *wants* is new information, not
+a gap. The distinction is whether the answer, once given, belongs in the
+requirements — and that is a judgement, so the mechanism should **record and
+count** rather than classify, and let the checkpoint read the list. A count
+that rises across a cycle is the signal; the individual rows are the evidence.
+
+**Trigger: it has already fired, outside this repository, and nothing watches
+it.** Recorded here rather than built, because 0.2.9 is a run rather than a
+build subcycle — and because 0.2.9 will produce the first real corpus of worker
+questions this project has ever had, which is exactly what a check like this
+should be calibrated against before it is written.
