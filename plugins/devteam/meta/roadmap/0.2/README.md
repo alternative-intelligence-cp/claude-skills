@@ -159,8 +159,8 @@ the worker's life to a background shell whose lifetime is not documented.
 | [0.2.6](../done/0.2.6.md) — the checks | every finding class named against its rule (`docs/CHECKS.md` and an `unruled-finding` check); the audit namespace checked and `open-finding-at-close`; amendment re-affirms every DM; estimate model v3 | 0.2.4 | partly — the F-113 audit is core, the rest can wait |
 | [0.2.7](../done/0.2.7.md) — two sweeps | the rule-pairs sweep and the ceremony test, each with a method, a calibration set and a deliverable | 0.2.4 | deferrable |
 | [0.2.8](../done/0.2.8.md) — release 0.2.0 | version, self-check, controls, DESIGN §14, CONSOLIDATION rewritten, a new handoff, a fresh `setup` on a throwaway project | everything shipped | yes |
-| [0.2.9](0.2.9.md) — the second run | cycle 2 on the fixture through `/devteam:iterate`, client channel set so P-27 fires, rotation at a checkpoint, sandboxed workers at width 2–3, a budget ceiling; what to measure and when to stop | 0.2.8 | yes — it is what the cycle is for |
-| [0.2.10](0.2.10.md) — the root-tree allowlist | a declared table of what the repository root holds, a `check_plugin` finding pair that diffs the tree against it, and a hook that refuses a stray write at the root; the mechanism behind the `.gitignore` line | — | small, independent; any time |
+| [0.2.9](0.2.9.md) — the second run | **two cycles on a small real project of the owner's, with him as its client** — cycle 1 builds, he uses it, cycle 2 runs `/devteam:iterate`; rotation at a checkpoint, sandboxed workers at width 2–3, a one-hour escalation window so P-27 fires, a budget ceiling; what to measure and when to stop. **Retargeted 2026-09-07: the fixture has no principal** | 0.2.8 | yes — it is what the cycle is for |
+| [0.2.10](../done/0.2.10.md) — the root-tree allowlist | a declared table of what the repository root holds, a `check_plugin` finding pair that diffs the tree against it, and a hook that refuses a stray write at the root; the mechanism behind the `.gitignore` line | — | small, independent; any time |
 
 **Order.** 0.2.0 → 0.2.1 → 0.2.2 → 0.2.3 → 0.2.4 → 0.2.8 is the shortest
 path to a shippable 0.2.0 with structural containment; 0.2.5 fits before 0.2.8
@@ -310,6 +310,7 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.6 — the checks | 172 | `35.42 M` | `$25.39` | `92% → 92%`, one window, no reset, boost on: **~0 points, 0–1 by tick** |
 > | 0.2.7 — two sweeps | 147 | `34.07 M` | `$23.84` | `92% → 93%`, one window, no reset, boost on: **1 point**. Output `148,048` |
 > | 0.2.8 — release 0.2.0 | 202 | `46.66 M` | `$31.46` | `93% → 94%`, one window, **no reset (asked and confirmed)**, boost on: **1 point**. Output `189,500` |
+> | 0.2.9 replan + 0.2.10 — one session | see note | `27.4 M` | `$24.55` | `94% → 95%`, one window, no reset, boost on: **1 point**. Output `193,600` |
 >
 > **0.2.6 ran as one session, peaked at `348,241` tokens of context and never
 > compacted** — the shape the design intends for a single subcycle. Rotation is
@@ -440,6 +441,39 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > with conversation length; this one does not. It is free to record and it is
 > the first candidate correlate that measures the work rather than the reading
 > of it. **Record it from here on, beside output tokens.**
+>
+> **RETRACTED 2026-09-08, ON ITS SECOND READING. It measures work done through
+> a particular TOOL, not work.** At 0.2.10's close the display read `99 lines
+> added, 0 lines removed`. `git diff --shortstat` over the same twelve commits
+> read **`14 files changed, 1320 insertions(+), 141 deletions(-)`** — thirteen
+> times under, with the deletions reported as zero when there were 141.
+>
+> The cause is not a defect in the counter. That session wrote almost
+> everything through `Bash` heredocs and inline `python3 -` scripts instead of
+> `Write` and `Edit`, and the counter follows the tools; 0.2.8 read `423/399`
+> because it edited differently. **Two sessions doing identical work with
+> different habits report figures an order of magnitude apart**, so the column
+> is not comparable between rows — which was the entire reason for wanting it.
+>
+> **Use `git diff --shortstat <base>..HEAD` over the subcycle's own commits
+> instead.** It is read from the tree rather than from the client, it counts
+> every write however it was made, and it is exact. Record the display's figure
+> too if you like, but as a measure of editing style rather than of work.
+>
+> **This is the fourth instrument in this section to have been believed before
+> it was diffed against a second source**, after the dollar-to-percent
+> derivations, the request count, and the attribution line. The pattern is
+> stable enough to state as a rule: **a number in this display means what a
+> second, independent reading of the same quantity says it means, and nothing
+> more.**
+>
+> **And a restart splits the fields unevenly.** 0.2.10's session was restarted
+> mid-way to load a hook. Cost and wall-clock accumulated across it (`$4.29 /
+> 2h 29m` before, `$24.55 / 4h 39m` after) while `Prompt cache (main)` reset
+> its request count (`36` before, `15` after). **A request count read after a
+> restart is not the session's request count**, and this table has quoted that
+> field for four subcycles as though it were — which is why 0.2.9's row above
+> says "see note" rather than a number.
 >
 > **Two more readings of the cache line, and the idle cost repeats.** `99% of
 > input tokens from cache` at close (`98%` at open), and a second `1 miss …
