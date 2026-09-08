@@ -141,7 +141,7 @@ was written.
 | `foreign-write` | P-12 | uncommitted paths ↔ the union of every live scope | `enforces` |
 | `misattributed-write` | P-10, P-12 | a commit's touched paths ↔ the live scope of a task that did **not** author it | `enforces` |
 
-## `check_plugin.py` — 11 classes (13 after this subcycle)
+## `check_plugin.py` — 16 classes
 
 Internal consistency of the plugin itself. Every finding is a diff between two
 lists (P-4).
@@ -161,6 +161,9 @@ lists (P-4).
 | `template-scaffold-fails` | P-35b | `setup.py`'s exit ↔ success, before any other template check runs | `enforces` |
 | `unruled-finding` **(new)** | L-6.1 / this file | classes emitted by each check (AST) ↔ the rows of `docs/CHECKS.md` | `enforces` |
 | `stale-row` **(new)** | L-6.1 / this file | the rows of `docs/CHECKS.md` ↔ classes emitted by each check (AST) | `enforces` |
+| `stranded-done-subcycle` | `meta/roadmap/README.md` — *"when a subcycle reaches `DONE`, move its file to `done/`"* | a subcycle file's title-line state ↔ the directory it sits in | `enforces` |
+| `undone-subcycle-in-done` | `meta/roadmap/README.md` — *"`ls done/` is what happened"* | the contents of `done/` ↔ each title line reading `DONE` | `enforces` |
+| `subcycle-without-state` | `meta/roadmap/README.md` — *"the title line of a subcycle file is the one home for its state"* | a subcycle file's title line ↔ the four declared states | `enforces` |
 
 ## `sandbox.py promote` — 14 classes
 
@@ -216,7 +219,7 @@ changes the return contract of the file with the widest blast radius in the
 plugin — the hook that runs on every tool call, whose failure to import breaks
 everything — and both 0.2.4 and 0.2.5 recorded their sharpest defects on this
 file's refusal path. The entry condition for doing it is stated in
-`meta/roadmap/0.2/0.2.6.md` §Findings.
+`meta/roadmap/done/0.2.6.md` §Findings.
 
 ---
 

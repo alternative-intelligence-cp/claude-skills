@@ -130,6 +130,15 @@ def w(plugin, p, b):
     open(path, "w", encoding="utf-8").write(b)
 
 
+def roadmap(plugin, files):
+    """Lay down a roadmap tree. `files` maps a path under `meta/roadmap/` to
+    the file's TITLE LINE, because the title line is the whole of what the
+    state convention reads (meta/roadmap/README.md)."""
+    for rel, title in files.items():
+        w(plugin, os.path.join("meta", "roadmap", *rel.split("/")),
+          title + "\n\nBody, which the check never reads.\n")
+
+
 CASES = [
     ("clean", None, set()),
     ("missing-skill",
@@ -162,7 +171,32 @@ CASES = [
      lambda p: w(p, ".claude-plugin/plugin.json", "{not json"),
      {"bad-manifest"}),
 
+    ("stranded-done-subcycle",
+     lambda p: roadmap(p, {"0.9/0.9.1.md": "# 0.9.1 — a thing — DONE (2026-01-01)"}),
+     {"stranded-done-subcycle"}),
+    ("undone-subcycle-in-done",
+     lambda p: roadmap(p, {"done/0.9.1.md": "# 0.9.1 — a thing — PLANNED"}),
+     {"undone-subcycle-in-done"}),
+    ("subcycle-without-state",
+     lambda p: roadmap(p, {"0.9/0.9.1.md": "# 0.9.1 — a title naming no state at all"}),
+     {"subcycle-without-state"}),
+
     # --- FALSE-POSITIVE CONTROLS ------------------------------------------
+    # The pair in its correct arrangement. Without this the three above are
+    # satisfied by a check that fires on every subcycle file it sees.
+    ("fp-subcycles-in-their-right-places",
+     lambda p: roadmap(p, {"done/0.9.1.md": "# 0.9.1 — shipped — DONE (2026-01-01)",
+                           "0.9/0.9.2.md": "# 0.9.2 — next — PLANNED"}),
+     set()),
+    ("fp-a-cycle-readme-is-not-a-subcycle",
+     lambda p: roadmap(p, {"0.9/README.md": "# Cycle 0.9 — the map"}),
+     set()),
+    # STOPPED is NOT DONE, and the convention moves only what reached DONE.
+    # A check that swept every finished-looking file into done/ would be
+    # enforcing a rule nobody wrote.
+    ("fp-stopped-stays-beside-its-cycle",
+     lambda p: roadmap(p, {"0.9/0.9.1.md": "# 0.9.1 — abandoned — STOPPED (2026-01-01, superseded)"}),
+     set()),
     ("fp-agent-with-no-skills-field",
      lambda p: w(p, "agents/runner.md",
                  AGENT.format(name="runner", skills="alpha").replace("skills: [alpha]\n", "")),

@@ -30,6 +30,8 @@ FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 RULE = re.compile(r"\bP-(\d+)\b")
 SCRIPT_REF = re.compile(r"(?:\$\{CLAUDE_PLUGIN_ROOT\}|\$\{CLAUDE_SKILL_DIR\}/\.\.)/(\S+?\.py)")
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+SUBCYCLE_FILE = re.compile(r"\A\d+\.\d+\.\d+\.md\Z")
+SUBCYCLE_STATE = re.compile(r"[\u2014\u2013-]\s*(PLANNED|IN-PROGRESS|DONE|STOPPED)\b")
 
 # --- A MENTION IS NOT A CITATION, and this check had to learn it the hard way
 # check_refs.py worked this out for the project namespace and wrote the reason
@@ -404,6 +406,51 @@ def main():
     finally:
         if tmp:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    # --- the roadmap's own state convention (0.2.8) ------------------------
+    # meta/roadmap/README.md: "The title line of a subcycle file is the one
+    # home for its state ... When a subcycle reaches `DONE`, move its file to
+    # `done/`. `ls 0.2/` is then what remains; `ls done/` is what happened."
+    #
+    # Two declared sides -- the title line and the directory -- so it is
+    # checkable, and it was not checked. SIX CONSECUTIVE SESSIONS IGNORED IT:
+    # at 0.2.8's open, 0.2.1 through 0.2.7 all read DONE and all sat in `0.2/`,
+    # so `ls 0.2/` listed seven finished subcycles and stated the exact
+    # opposite of the property the convention exists to provide. Nobody was
+    # careless; each of those sessions was closing a subcycle when it skipped
+    # the step. A rule that lives only in a document is advice, and advice is
+    # what a session finishing a long piece of work does not re-read.
+    #
+    # `subcycle-without-state` is here so the pair cannot be defeated by
+    # leaving the state word out: without it a stateless title is invisible to
+    # both directions, which is the exempted-and-unwatched shape this
+    # repository has now recorded four times.
+    roadmap = os.path.join(PLUGIN, "meta", "roadmap")
+    if os.path.isdir(roadmap):
+        for entry in sorted(os.listdir(roadmap)):
+            cycle = os.path.join(roadmap, entry)
+            if not os.path.isdir(cycle):
+                continue
+            for name in sorted(os.listdir(cycle)):
+                if not SUBCYCLE_FILE.match(name):
+                    continue
+                path = os.path.join(cycle, name)
+                with open(path, encoding="utf-8") as fh:
+                    title = fh.readline()
+                states = SUBCYCLE_STATE.findall(title)
+                if not states:
+                    add("subcycle-without-state", rel(path),
+                        "the title line names no state; the roadmap README "
+                        "makes it the one home for exactly one of PLANNED, "
+                        "IN-PROGRESS, DONE or STOPPED")
+                elif entry == "done" and states[-1] != "DONE":
+                    add("undone-subcycle-in-done", rel(path),
+                        f"title reads {states[-1]}, but done/ is what "
+                        f"happened; move it back beside the cycle it belongs to")
+                elif entry != "done" and states[-1] == "DONE":
+                    add("stranded-done-subcycle", rel(path),
+                        f"title reads DONE but the file is in {entry}/; move "
+                        f"it to done/, so `ls {entry}/` is what remains")
 
     # --- unruled-finding / stale-row (L-6.1) -------------------------------
     # A check is legitimate only when it enforces a rule that exists, and a
