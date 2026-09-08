@@ -53,13 +53,14 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 20 classes
+## `check_trace.py` — 21 classes
 
 Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`. Diffs goals ↔ requirements
 ↔ tasks ↔ acceptance criteria.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
+| `unparseable-protected-path` | `templates/CHARTER.md`'s `Protected paths` cell — *"one path per entry, comma-separated, and nothing else in this cell"* | each entry the **guard** splits out of the charter's row ↔ that grammar. The guard's own regexes are imported, not restated (P-34) | `enforces` |
 | `orphan-scope` | P-1 — the charter is what the project is | charter goals ↔ the `Satisfies.` fields of every requirement | `enforces` |
 | `uncovered-requirement` | P-4, P-5 | requirements ↔ the `Discharges.` fields of every task | `enforces` |
 | `unmotivated-task` | P-4 | a task's `Discharges.` ↔ the declared requirements | `enforces` |

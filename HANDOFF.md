@@ -144,8 +144,17 @@ and warns you off closing it early.
 `alternative-intelligence-cp/devteam-run-01-csv2json` — it is a complete client
 engagement record and this repository is public. Read from the tree:
 238 commits, `git -C .internal/scratch status --porcelain` empty, and
-`git -C .internal/scratch log origin/main..HEAD` empty, so nothing is unpushed
+`git -C .internal/scratch log origin/master..HEAD` empty, so nothing is unpushed
 today. **Push it after any change to that tree.**
+
+**The branch is `master`, not `main`, and this line said `main` when it was
+first written.** `_s9` caught it on the run that follows. The conclusion was
+right and the command beside it was not: `origin/main..HEAD` exits **128** with
+*"unknown revision"*, so a successor following the protocol literally either
+stalls on a fatal — or, having piped it into `| wc -l`, reads `0` and concludes
+the tree is current. That is CONSOLIDATION N-6 for the third time in two days:
+**a check whose failure is invisible from the shape of the invocation.** Run it
+bare and read the exit code.
 
 ## 5. Where to start
 

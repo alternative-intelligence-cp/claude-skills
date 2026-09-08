@@ -281,10 +281,30 @@ for a different case: *a test written the natural way passes silently and looks
 exactly like a guard that is not installed*. The first cost four consecutive
 false negatives and a retracted claim.
 
-**Trigger: it has already fired, and nothing watches it.** The cheap form is a
-project check reporting a `Protected paths` entry that does not resolve to a
-path in the tree — two declared sides, so it passes the F-113 test. Not built
-in 0.2.8, which is a release.
+**BUILT, at Randy's direction, before 0.2.9 runs** — `unparseable-protected-path`
+in `check_trace`. It imports the guard's own regexes rather than restating them,
+so the split rule keeps one home and this check cannot agree with itself instead
+of with the guard (P-34). The rule it enforces is **declared** in
+`templates/CHARTER.md`'s own `Protected paths` cell rather than proposed by the
+check (F-113): one path per entry, comma-separated, nothing else.
+
+**The first wording of this item named the wrong discriminator, and `_s9` caught
+it before the code shipped.** It said *"an entry that does not resolve to a path
+in the tree"*. **In-tree-ness is exactly wrong**: the row's designed use includes
+**sibling repositories**, named as such in `guard.py`'s docstring, in the second
+protected-path check that *"defends a path outside every devteam project"*, and
+in `setup.py`'s own scaffolded cell text. The fixture's row is three absolute
+sibling-repo paths, correct and load-bearing, and a resolve-in-tree check would
+have reported three findings on it — and on `guard.py`'s own control fixture,
+which uses `/etc/devteam-probe`.
+
+The property actually measured was that the cell contained **prose** which
+survived the comma-split and backtick-strip as non-path tokens, so the
+discriminator is that each token is **path-shaped** — no interior whitespace —
+not that it exists here. The shipped check uses that, and is clean against the
+fixture's three sibling paths. **This is the ninth time in this cycle an
+instrument nearly answered a question adjacent to the one asked, and the second
+time a peer session caught one before it landed.**
 
 ## N-5. Self-application waits for a passing experiment, not a finished roadmap
 

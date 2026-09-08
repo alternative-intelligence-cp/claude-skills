@@ -23,6 +23,7 @@ import sys
 
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
 EXAMPLE = re.compile(r"<!--\s*example:begin\s*-->(.*?)<!--\s*example:end\s*-->", re.S)
 # A template declares a name in one of two blocks, and the difference is what
 # SETUP does with them, not what this check does: an `example:` block is
@@ -340,6 +341,63 @@ def check(devteam):
                 f"the charter has no `{row}` row, which the current template "
                 "declares. A charter signed before the template gained a row "
                 "never acquires it, and nothing else would ever say so")
+
+    # --- unparseable-protected-path ---------------------------------------
+    # The charter's `Protected paths` cell is the ONLY thing telling the guard
+    # which trees are off-limits, and the guard reads it by splitting on commas
+    # and semicolons and stripping backticks. A cell written as PROSE therefore
+    # yields sentence fragments, each of which becomes a path that matches
+    # nothing -- so the row reads correctly to every human who checks it and
+    # protects nothing at all, with no check anywhere saying so.
+    #
+    # MEASURED, 0.2.8's end-to-end walk, in a charter written by the session
+    # that had just read the guard's source:
+    #
+    #   | Protected paths | `devteam/` - the pipeline's own record. Readable by
+    #     every role, written only by the manager and the supervisors |
+    #
+    # split into two entries, neither a path, and a `Write` to
+    # `<project>/devteam/CHARTER.md` from a non-writer session was ALLOWED.
+    # Rewritten as a bare `` `devteam/` `` the same write is refused, so the
+    # mechanism was never broken: the cell FORMAT is load-bearing and nothing
+    # said so. This is the second instance of the shape `setup/SKILL.md`
+    # already warns about for unexpanded variables -- a thing written the
+    # natural way that passes silently and looks exactly like a guard that is
+    # not installed. The first cost four false negatives and a retracted claim.
+    #
+    # THE RULE IS DECLARED RATHER THAN PROPOSED (F-113): templates/CHARTER.md's
+    # own `Protected paths` cell states the grammar -- one path per entry,
+    # comma-separated, nothing else. This enforces that and nothing wider.
+    #
+    # The two sides: what the GUARD parses out of the row, against that
+    # grammar. The guard's regexes are IMPORTED rather than restated, because a
+    # second copy of the split rule would drift from the thing being protected
+    # and this check would then agree with itself instead of with the guard
+    # (P-34).
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    try:
+        import guard as _guard
+    except Exception:
+        _guard = None                      # a partial tree; not this check's
+    if _guard is not None:                 # business to report (P-35b)
+        for line in charter:
+            m = _guard.PROTECTED_ROW.match(line)
+            if not m:
+                continue
+            for raw in re.split(r"[,;]", m.group(1)):
+                raw = raw.strip().strip("`").strip()
+                if (not raw or _guard.PLACEHOLDER.search(raw)
+                        or raw.lower() in ("none", "n/a")):
+                    continue
+                if re.search(r"\s", raw):
+                    add("unparseable-protected-path", "CHARTER.md",
+                        f"{raw[:60]!r} is a sentence, not a path. The guard "
+                        f"splits this cell on commas and strips backticks, so "
+                        f"this entry resolves to a path that matches nothing "
+                        f"and the row protects less than it reads. One path "
+                        f"per entry, comma-separated")
+            break
 
     # --- amendment-omits-condition / amendment-names-unknown (P-48) --------
     # A PROJECT LEARNS FORWARD ONLY. C-3 §2: the final review found DM-7

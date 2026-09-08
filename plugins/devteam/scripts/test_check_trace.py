@@ -166,6 +166,34 @@ BOARD = """# The board
 """
 
 CASES = [
+    # --- unparseable-protected-path ---------------------------------------
+    # The row that fooled 0.2.8, verbatim. It reads correctly to a human, and
+    # the guard resolved two non-paths out of it and protected nothing.
+    ("unparseable-protected-path",
+     {"CHARTER.md": CHARTER.replace(
+         "| Protected paths | fixture |",
+         "| Protected paths | `devteam/` — the pipeline's own record. Readable "
+         "by every role, written only by the manager and the supervisors |")},
+     {"unparseable-protected-path"}),
+    # THE CASE `_s9` DEMANDED BEFORE THIS SHIPPED, and it is the one that keeps
+    # the check honest. The first wording of CONSOLIDATION N-4 said "an entry
+    # that does not resolve to a path in the tree", which would have reported
+    # THREE findings on the fixture project's correct row: sibling repositories
+    # are the row's advertised use, named in guard.py's docstring, in the check
+    # that "defends a path outside every devteam project", and in setup.py's own
+    # scaffolded cell text. In-tree-ness is the wrong discriminator; being
+    # path-shaped is the right one.
+    ("fp-protected-paths-are-absolute-sibling-repos",
+     {"CHARTER.md": CHARTER.replace(
+         "| Protected paths | fixture |",
+         "| Protected paths | `~/Workspace/REPOS/nitpick`, "
+         "`~/Workspace/REPOS/nitpick-libs`, "
+         "`~/Workspace/REPOS/claude-skills/plugins` |")},
+     set()),
+    ("fp-protected-paths-none-is-a-value",
+     {"CHARTER.md": CHARTER.replace("| Protected paths | fixture |",
+                                    "| Protected paths | none |")},
+     set()),
     # --- amendment-omits-condition / amendment-names-unknown (P-48) -------
     ("amendment-omits-condition",
      {"CHARTER.md": CHARTER_AMENDED.replace("  - DM-1 — holds\n", "")},
