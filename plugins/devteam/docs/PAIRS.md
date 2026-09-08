@@ -322,7 +322,7 @@ answer is a release cadence rather than a reading.
 
 ---
 
-#### 20 · `conflicts` → **open, with a decision that is Randy's** · M17
+#### 20 · `conflicts` → **deferred, with a trigger that is now watched** · M17
 
 **The plugin imposes one-writer-per-scope on its clients and runs none of the
 project checks on itself.**
@@ -358,9 +358,35 @@ namespace, the audit namespace, and §7's unscoped-commit refusal — **a thing
 deferred with a trigger, where nothing watches the trigger.** Two of the three
 were found only when the deferred thing failed.
 
-**Whether the pipeline is now ready to run on itself is Randy's decision and
-0.2.7 does not take it in passing.** What this row does is stop the condition
-from going unwatched a fourth time.
+**Whether the pipeline is now ready to run on itself was Randy's decision, and
+he has now made it. `open` → `deferred, with a trigger that is watched`.**
+
+**Not yet, and the sequence is the answer:** finish the roadmap that exists,
+**then run another experiment in the scratch fixture**, and if that experiment
+pans out, apply the pipeline to itself in the following cycle — and to any
+other skills developed alongside it from then on.
+
+**The reason, in his terms, and it is the sharper half.** The pipeline is still
+working out kinks, and *the plans themselves keep containing things that do not
+work out the way they were expected to when the plan was written.* This
+subcycle is evidence for that rather than against it: §3.2 predicted a long
+placement column and measured three, §3.1's calibration instance #7 was one
+settled pair and measured as two, and §3.1's own resolution had to be found
+structurally because the stated one did not cover the case with no peer. **A
+process whose plans are still surprising it is not a process to run on the
+thing that is producing the surprises**, and self-application while that is
+true costs more than it saves.
+
+**So the condition is now written down, which is the whole point of this row.**
+The shape it belongs to — *a thing deferred with a trigger, where nothing
+watches the trigger* — is closed for this instance, because the trigger is
+here: **the roadmap complete, and a scratch experiment that passes.** Not the
+roadmap alone. A later reader who finds the roadmap finished should ask whether
+the experiment has been run, not infer readiness from the roadmap.
+
+**Do not treat this row as a defect to fix.** A row reading *"the plugin does
+not police itself"* invites the next reader to close the gap, and closing it
+early is precisely what was ruled out.
 
 ---
 
@@ -504,5 +530,6 @@ cannot see. The failures those six have produced are of a different kind, and
 `docs/CEREMONY.md` is where they are read.
 
 **Rows: 21. Moments with two or more imperatives: 17, all recorded. Conflicting
-pairs: 6 — three resolved with edits in this subcycle, three open with their
-decision named.**
+pairs: 6 — three resolved with edits in this subcycle, **one deferred with a
+trigger that is now written down** (row 20), and two open, each needing a
+measurement nobody has taken.**
