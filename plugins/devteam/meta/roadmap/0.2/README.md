@@ -308,11 +308,45 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.4 — wiring | 256 | `67.4 M` | `$41.81` | `~1` (read; 0–2 by tick) |
 > | 0.2.5 — rotation | 159 | `31.80 M` | `$23.92` | `91% → 92%`, one window, boost on: **~1 point** |
 > | 0.2.6 — the checks | 172 | `35.42 M` | `$25.39` | `92% → 92%`, one window, no reset, boost on: **~0 points, 0–1 by tick** |
+> | 0.2.7 — two sweeps | 147 | `34.07 M` | `$23.84` | `92% → 93%`, one window, no reset, boost on: **1 point**. Output `148,048` |
 >
 > **0.2.6 ran as one session, peaked at `348,241` tokens of context and never
 > compacted** — the shape the design intends for a single subcycle. Rotation is
 > for continuity across subcycles; the compaction budget of one is a safety
 > valve so a hard limit cannot stop a session at an arbitrary moment.
+>
+> **`session_cost.py` HAS NOW BEEN DIFFED AGAINST `/usage`, AND AGREES.** Five
+> subcycles quoted the script's requests and tokens beside the display's
+> percentage without anyone checking they described the same run. 0.2.7 read
+> both minutes apart: requests `147`/`147`, output `148,048`/`146.7k`, cache
+> read `33,578,283`/`33.5m`, cache write `342,469`/`342.6k`. Four figures, four
+> agreements. The columns in this table can be read together; that is now
+> `MEASURED` rather than assumed.
+>
+> **THERE ARE THREE METERS, NOT TWO.** Alongside the two weekly gauges the
+> output carries a **per-session** meter on its own reset clock —
+> `Current session … 4% used, Resets 11:59pm`. This section has documented two
+> and argued about the relationship between them for four subcycles. It has
+> never bound (4% at 0.2.7's close), but a subcycle planning against the weekly
+> figure alone is planning against two of three.
+>
+> **THE ATTRIBUTION LINE HAS CHANGED, AND THE NEW ONE NAMES THE MECHANISM.**
+> 0.2.5 recorded *"52% of your usage came from sessions active for 8+ hours"*.
+> On 2026-09-07 the same section read **"85% of your usage was at >150k
+> context"** and **"20% from subagent-heavy sessions"**. The first names
+> **context size** rather than session duration — the mechanism instead of a
+> proxy for it — and is the strongest external statement yet of the premise
+> rotation was built on. Still `Last 24h`, still not a breakdown, and still
+> *"based on local sessions on this machine"*: 0.2.7 spawned **no subagents at
+> all**, so its `20%` belongs to the other sessions running beside it. **An
+> attribution line is about the machine, not about your subcycle.**
+>
+> **The first replication this table has ever contained.** 0.2.5 (`$23.92`, 159
+> requests) and 0.2.7 (`$23.84`, 147 requests) each moved the gauge one point —
+> eight cents apart. Every prior comparison was a spread. It is worth exactly
+> its sample of two, and 0.2.6's `$25.39` for **zero** points sits between them:
+> the reading is **not** "≈$24 buys a point" but *at this spend the movement is
+> 0–1 points and the integer tick dominates the signal*.
 
 > 
 > **A SECOND SUBCYCLE HAS NOW SPENT HEAVILY AND MOVED THE GAUGE BY NOTHING.**
