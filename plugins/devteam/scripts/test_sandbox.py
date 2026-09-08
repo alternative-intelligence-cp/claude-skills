@@ -189,6 +189,19 @@ def uid_map_is_not_the_host(ctx):
         return "uid_map inside is the host identity map -- nothing was unshared"
 
 
+def resolv_conf_is_usable(ctx):
+    """0.2.1 §3.2: `/etc/resolv.conf` is a symlink into `/run` on any
+    systemd-resolved machine, and `--ro-bind-try /etc /etc` leaves it dangling
+    -- a sandbox with no DNS, whose failure surfaces one subcycle later as an
+    authentication error and is read as a credentials problem. The mount plan
+    binds what the symlink points at; this case is what says so. It reads the
+    file rather than the network, so it answers only about the mount."""
+    if "nameserver" not in ctx["stdout"]:
+        return ("/etc/resolv.conf inside carries no `nameserver` line -- the "
+                "symlink target is not bound, and a worker cannot reach the "
+                "model API (0.2.1 §3.2)")
+
+
 def exit_file_says(want):
     def check(ctx):
         try:
@@ -313,12 +326,37 @@ def cases(fmt):
              cmd=["sh", "-c", "sleep 1; echo done"]),
         dict(name="fp-the-environment-is-the-allowlist", want="ok", cmd=["env"],
              env=LEAKY_ENV, check=env_matches_the_plan),
-        dict(name="fp-dns-resolves", want="ok", out="resolved",
-             cmd=["sh", "-c", "getent hosts api.anthropic.com >/dev/null "
-                              "&& echo resolved"]),
+        dict(name="fp-resolv-conf-is-bound", want="ok",
+             cmd=["cat", "/etc/resolv.conf"], check=resolv_conf_is_usable),
         dict(name="fp-home-and-tmp-are-writable", want="ok", out="both",
              cmd=["sh", "-c", "touch $HOME/w && touch /tmp/w && echo both"]),
     ]
+
+
+def dns_case(fmt):
+    """A live lookup states something about the network as much as about the
+    sandbox, so it runs only when the host can resolve the same name.
+
+    It is still worth having: L-4 shares the network namespace on purpose, and
+    the case that would catch a sandbox breaking DNS while the host is fine is
+    this one. What it must not do is go red when the resolver blips -- that
+    happened once, and `getent`'s exit 2 for `not found` was reported as
+    `command written to meta/cmd.sh (3 argv elements)`, which sent the reader
+    to the command composition. A control that reds for a reason outside its
+    subject teaches its operator to re-run until green, and that is the habit
+    that hides a real regression."""
+    probe = subprocess.run(["getent", "hosts", "api.anthropic.com"],
+                           capture_output=True)
+    if probe.returncode != 0:
+        print("sandbox control: SKIP fp-dns-resolves -- the HOST cannot "
+              "resolve api.anthropic.com either (getent exit "
+              f"{probe.returncode}), so this case has nothing to say about "
+              "the sandbox. The case count below is one lower for that "
+              "reason and no other.")
+        return []
+    return [dict(name="fp-dns-resolves", want="ok", out="resolved",
+                 cmd=["sh", "-c", "getent hosts api.anthropic.com >/dev/null "
+                                  "&& echo resolved"])]
 
 
 def pytest_case(fmt):
@@ -352,11 +390,24 @@ def run_case(case, fmt, n):
     return ctx, None
 
 
+def tail(stream, n=200):
+    """The END of a stream, not its beginning.
+
+    `sandbox.py run` writes two progress lines to stderr before anything can
+    go wrong, so the head of stderr is always harness chatter and the reason,
+    when there is one, is last. Reporting the head made a failing case say
+    `command written to meta/cmd.sh (3 argv elements)` where the cause was a
+    DNS miss -- an instrument answering a question adjacent to the one asked,
+    in the suite that exists to catch exactly that."""
+    text = stream.strip()
+    return text if len(text) <= n else "..." + text[-n:]
+
+
 def verdict(case, ctx):
     """The reason this case failed, or None."""
     want, rc = case["want"], ctx["rc"]
     if want == "ok" and rc != 0:
-        return f"expected to be ALLOWED, exited {rc}: {ctx['stderr'].strip()[:200]}"
+        return f"expected to be ALLOWED, exited {rc}: {tail(ctx['stderr'])}"
     if want in ("fail", "fail_is_ok"):
         if want == "fail" and rc == 0:
             return "expected to be BLOCKED and the command SUCCEEDED"
@@ -366,11 +417,11 @@ def verdict(case, ctx):
             return ("refused with `Permission denied` -- that is DAC, not "
                     "structure (spec S-4)")
     if isinstance(want, int) and rc != want:
-        return f"exited {rc}, expected {want}: {ctx['stderr'].strip()[:200]}"
+        return f"exited {rc}, expected {want}: {tail(ctx['stderr'])}"
     if case.get("out") and case["out"] not in ctx["stdout"]:
         return f"stdout does not contain {case['out']!r}: {ctx['stdout'].strip()[:200]!r}"
     if case.get("err") and case["err"] not in ctx["stderr"]:
-        return f"stderr does not contain {case['err']!r}: {ctx['stderr'].strip()[:200]!r}"
+        return f"stderr does not contain {case['err']!r}: {tail(ctx['stderr'])!r}"
     checks = case.get("check") or []
     for check in (checks if isinstance(checks, list) else [checks]):
         why = check(ctx)
@@ -1036,7 +1087,20 @@ def _slurp_file(path):
         return ""
 
 
+def selftest():
+    """`tail()` is reporting machinery inside the suite that gates a release,
+    and it was wrong for the whole life of the file. P-35 applies to it too:
+    plant a stream whose reason is last and demand the reason back."""
+    chatter = "run x: command written to meta/cmd.sh (3 argv elements)\n"
+    stream = chatter * 12 + "sandbox: THE ACTUAL REASON\n"
+    got = tail(stream)
+    assert "THE ACTUAL REASON" in got, f"tail() lost the reason: {got!r}"
+    assert got.startswith("..."), f"tail() did not mark the truncation: {got!r}"
+    assert tail("short") == "short", "tail() mangled a stream under the limit"
+
+
 def main():
+    selftest()
     sys.path.insert(0, HERE)
     import io
     import contextlib
@@ -1065,7 +1129,7 @@ def main():
         repo, sibling = build_fixture(root)
         fmt = {"repo": repo, "sibling": sibling, "home": HOME, "plugin": PLUGIN}
         before = {"repo": tree_hash(repo), "sibling": tree_hash(sibling)}
-        all_cases = cases(fmt) + pytest_case(fmt)
+        all_cases = cases(fmt) + pytest_case(fmt) + dns_case(fmt)
         passed = failed = 0
         for n, case in enumerate(all_cases):
             ctx, err = run_case(case, fmt, n)
