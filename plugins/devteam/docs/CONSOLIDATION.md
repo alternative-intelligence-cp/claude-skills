@@ -345,6 +345,68 @@ whose exit code is discarded by the shape of the invocation* — is the same
 family as the unexpanded-variable trap and N-4, and it is the one where the
 operator is a session under time pressure, which is every session.
 
+### FOURTH INSTANCE, 2026-09-08 — and it is the evidence that a note is not enough
+
+Recorded by the session that wrote the paragraph above, **within hours of
+writing it.** Closing 0.2.10, the invocation was:
+
+```
+python3 .../check_refs.py >/dev/null; echo "check_refs exit=$?"
+...
+if [ "$RC" -ne 0 ]; then exit 1; fi        # $RC is run_controls', not check_refs'
+git commit ...
+```
+
+Two mistakes compounding, and neither is exotic: the output went to
+`/dev/null`, so the finding was never on screen; and the guard tested a
+**different script's** status variable. `check_refs` exited 1 and the commit
+went through.
+
+What it had caught was real — two `leak` findings, an absolute home path pasted
+into a tracked file **in a public repository**. Amended out before any push, so
+the leak left the history; had it been pushed it could not have been.
+
+**This is now four instances, and the count is the finding.** The shape has a
+name, a numbered entry, a paragraph explaining that the repair is not "be
+careful", a citation in a handoff, and a quotation in a commit message written
+the same day — and a session under time pressure did it anyway. **A rule in a
+document does not survive contact with a session under time pressure**, which
+is this project's founding premise, demonstrated on its own author.
+
+### The mechanism, its shape, and why it is 8b's sibling rather than a new family
+
+**The property is: a commit should carry evidence that the tree it contains
+passed.** Stated that way, 8b is the same rule read from the other side:
+
+- **8b** — the tree being committed was not the tree that had been checked.
+- **This** — the tree was the checked tree, and the check was **red**, and its
+  status was discarded by the shape of the invocation.
+
+Both are answered by one mechanism: **refuse `git commit` unless the fast
+checks have been run green against the current tree state.** Not a wrapper
+anyone can call past — `guard.py`'s history family already sits at the moment
+of typing, which is the only place this can be enforced against a session that
+did not intend to break the rule.
+
+**Fast is load-bearing, and N-1 already decided the general principle.** A gate
+that runs the full control suite costs minutes, and *"a check nobody will wait
+for is a check that gets switched off."* `check_refs` and `check_plugin` are
+sub-second and are what caught all four instances; `run_controls` belongs at a
+release gate, where N-1 put `mutate.py` for the same reason.
+
+**Entry condition, unchanged from N-2 and still unmet.** This changes
+`guard.py`'s `judge()` — the file with the widest blast radius in the plugin,
+where both 0.2.4 and 0.2.5 recorded their sharpest defects — so it wants a
+subcycle that opens that file deliberately, with the 111-case control green
+before and after. **0.2.10 did not open it**: `root_guard.py` is a separate
+script by design, so the `PreToolUse` door being open is not the same as the
+entry condition being met.
+
+**Trigger: fired four times, and now something watches it** — this paragraph,
+and the instruction to whoever plans 0.3 that a `guard.py` subcycle carries
+8b and this together, because they are one property with two symptoms and
+building either alone means opening that file twice.
+
 ## N-7. A worker's question is answered, and never measured — the rule exists one layer up
 
 `resume` §0 states the principle exactly: **"Every question you have to ask is
