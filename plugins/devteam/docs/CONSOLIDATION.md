@@ -450,3 +450,66 @@ it.** Recorded here rather than built, because 0.2.9 is a run rather than a
 build subcycle — and because 0.2.9 will produce the first real corpus of worker
 questions this project has ever had, which is exactly what a check like this
 should be calibrated against before it is written.
+
+## N-8. Five documents told the reader something the tree had stopped agreeing with, and the repair already exists unrun
+
+**Five instances in two days, two of them inside the editing session's own
+pass, and every one found by a person or a peer reading rather than by a check:**
+
+| Where | Said | Truth |
+|---|---|---|
+| `README.md` (plugin) ×3 | 0.2.9 is *"cycle 2 on the fixture with a deliberately slow client"* | retargeted 2026-09-07; the fixture has no principal |
+| `0.2/README.md` | same, in the cycle index | same |
+| `README.md`:36 | `551` cases / `13` controls / `251` fp | `575` / `14` / `262` |
+| `HANDOFF.md`:16–25, :52 | `558` cases, `13` controls, `15` scripts | `575`, `14`, `16` |
+| `HANDOFF.md` §3 | manifests `0.2.0`, tag `v0.2.0`, *"It is not pushed"* | `0.2.0-rc`, `v0.2.0-rc`, pushed |
+
+**The last one is the sharpest and it is the reason this is a check rather than
+a discipline problem.** `HANDOFF.md` §3 was made false by *the same session's
+own commit*, in *the same file* whose counts block it had just corrected, three
+sections above. And that file's stated rule is **"Every number below was read
+from the tree, with the command beside it"** — the rule the 0.1 handoff
+established after its first draft wrote *"~500 control cases"* where the command
+said `328`. **The document carrying the rule is where the rule failed, twice.**
+
+`_s10` drew the class wider than index rows and is right to: §3 is prose, not a
+table. The general shape is **a document's statement about a versioned artifact,
+with nothing diffing it against the artifact.**
+
+### The repair is already written down, and running it is the whole of the work
+
+**`HANDOFF.md` lines 16–25 are a machine-checkable structure that nothing
+executes:**
+
+```
+ls plugins/devteam/skills | wc -l                     ->  15 skills
+python3 plugins/devteam/scripts/run_controls.py       ->  all 14 controls green, 575 cases
+git rev-list --count 243059e..HEAD                    ->  74 commits this cycle
+```
+
+A command and its recorded output. **Side A is the recorded output, side B is
+re-running the command** — two declared sides, both already on disk, so it
+passes the F-113 test without anyone inventing a rule. Every count-shaped
+instance above sits in exactly this block and would have been caught the moment
+it drifted.
+
+**And it makes the prose instances a decidable question rather than an NLP
+one.** The convention becomes: *a claim about the tree lives in a claims block,
+as a command and its output; prose may point at the block but not restate it.*
+§3's three false statements were prose restating facts a command could have
+produced — `plugin.json`'s version, `git tag -l`, `git ls-remote`. Rewritten as
+a block they are checked; left as prose they cannot be. **A claim that cannot be
+written as a command and an output is a claim nobody can check, and saying so
+plainly is more useful than pretending a checker could read the sentence.**
+
+**Cost and cadence, decided rather than left open.** Re-running a claims block
+means running its commands, which for `run_controls` is the full suite —
+minutes, not seconds. So this is a **release gate and a subcycle-close step**,
+where N-1 put `mutate.py` for the same reason: a check nobody will wait for is a
+check that gets switched off. The cheap subset — anything not invoking the
+control suite — can run in the pre-commit path.
+
+**Trigger: fired five times, and this paragraph is the first thing watching
+it.** Not built here; 0.2.10 was a subcycle with its own scope and 0.2.9 is a
+run, not a build. It wants the subcycle that next opens `check_plugin.py`, which
+is where both the manifest diff and the roadmap-state checks already live.

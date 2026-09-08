@@ -61,12 +61,26 @@ which nobody had ever done.
 | `.internal/scratch/` | **the retired fixture.** A CSV-to-JSON tool built by the pipeline as a test of it. Gitignored here; private remote. **No longer 0.2.9's target — see §4** |
 | `~/Workspace/REPOS/pricelog` | **0.2.9's target.** A coin-price logger, the owner's own idea, built from nothing by the pipeline with him as the client. Outside this repository; the owner granted write permission for that one directory |
 
-## 3. State: released, and untested by a real project
+## 3. State: a release CANDIDATE, untested by a real project
 
-**`plugin.json` and the marketplace manifest say `0.2.0`.** The commit that
-closes this subcycle carries the tag `v0.2.0`. **It is not pushed** — publishing
-is the owner's (P-26), and the pipeline's own rule about irreversible
-outward-facing actions applies to its own release.
+```
+python3 -c "import json;print(json.load(open('plugins/devteam/.claude-plugin/plugin.json'))['version'])"
+                                                      ->  0.2.0-rc
+git ls-remote --tags origin | grep -c v0.2.0-rc       ->  pushed, at 3d9189c
+git tag -l                                            ->  v0.2.0-rc  (only)
+```
+
+**Both manifests say `0.2.0-rc` and the tag is pushed.** The owner authorised
+publication, and chose `-rc` over `v0.2.0` deliberately: the release stays a
+candidate *"until after this test and maybe one or two more even are done"*.
+**The suffix is load-bearing** — the pipeline is intended for Nitpick ecosystem
+libraries, and everything shipping alongside that compiler must pass formal
+verification, so it has to be shown to work rather than merely built.
+
+**This section said the opposite for three hours on 2026-09-08** — `0.2.0`,
+tag `v0.2.0`, *"It is not pushed"* — all three false, in the same edit pass
+that corrected the block above it. Found by `_s10` reading, not by any check.
+Fifth instance in two days; see CONSOLIDATION N-8.
 
 **What is proved:** every mechanism ships with negative controls, and 0.2.8
 walked one full `setup` → interview → plan → dispatch → promote → verify →
