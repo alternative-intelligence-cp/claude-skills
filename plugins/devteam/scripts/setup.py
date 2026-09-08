@@ -84,6 +84,37 @@ PLACEHOLDER_DIR_README = {
 }
 
 
+def artifact_stack(project, declared):
+    """The stack whose BUILD ARTIFACTS this tree will produce.
+
+    Deliberately a WEAKER question than `detect()` asks. `detect()` reports
+    what the project DECLARES, and its answer becomes a charter recommendation
+    a client must confirm, so it rightly insists on a manifest. Whether a
+    directory is going to grow `__pycache__/` is not a matter of declaration:
+    it is a matter of there being `.py` files in it.
+
+    MEASURED, 0.2.8's end-to-end walk on a project the pipeline had not
+    written: a tree with `slugify.py`, `test_slugify.py` and a green pytest
+    suite has no manifest, so `detect()` correctly found nothing, so NO python
+    ignore lines were written -- and the first promotion of the first step was
+    REFUSED with `promote-uncommitted` naming two `.pyc` files that the step's
+    own STEP-VERIFY command had just created.
+
+    That is F-37 exactly, one whole cycle after the mechanism built to prevent
+    it, and it is worse now than when it was found: F-37 made a tree dirty, and
+    P-44 makes an uncommitted remainder refuse the promotion outright, so a
+    finished step does not land. The gate was right to refuse -- the defect is
+    that the artifact was never ignored.
+    """
+    if declared:
+        return declared
+    for dirpath, dirnames, filenames in os.walk(project):
+        dirnames[:] = [d for d in dirnames if d not in (".git", "devteam")]
+        if any(f.endswith(".py") for f in filenames):
+            return "python"
+    return None
+
+
 def detect(project):
     """What this project already tells us, so the interview need not ask."""
     found = {}
@@ -273,7 +304,8 @@ def main(argv):
     with open(os.path.join(devteam, ".run", "detected.json"), "w", encoding="utf-8") as fh:
         json.dump(found, fh, indent=2, sort_keys=True)
 
-    added = ensure_gitignore(project, found.get("stack"))
+    added = ensure_gitignore(
+        project, artifact_stack(project, found.get("stack")))
 
     print(f"devteam/ scaffolded in {project}")
     print(f"  {installed} artifacts, empty tasks/ and checkpoints/, .run/ (untracked)")

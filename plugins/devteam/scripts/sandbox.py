@@ -1213,13 +1213,9 @@ def cmd_dispatch(args):
     tokens = sum(int(usage.get(k) or 0) for k in
                  ("input_tokens", "output_tokens",
                   "cache_creation_input_tokens", "cache_read_input_tokens"))
-    model = ""
-    for m in (result.get("modelUsage") or {}):
-        model = m
-        break
     budget = {"tokens": tokens,
               "minutes": round((result.get("duration_ms") or 0) / 60000.0, 2),
-              "model": model or args.model,
+              "model": main_model(result, args.model),
               "cost_usd": result.get("total_cost_usd")}
     with open(os.path.join(meta, "budget.json"), "w") as fh:
         json.dump(budget, fh, indent=1)
@@ -1254,6 +1250,41 @@ def cmd_dispatch(args):
 
 
 # --- exec, status, close --------------------------------------------------
+
+def main_model(result, fallback):
+    """The model the worker actually RAN ON, not whichever sorts first.
+
+    `modelUsage` reports every model a `claude -p` run touched, and the CLI
+    uses a small one for its own internal chores. Taking `next(iter(...))` --
+    which is what this did -- returns an arbitrary dict key.
+
+    MEASURED, 0.2.8's end-to-end walk, one real dispatch of `--model
+    claude-sonnet-5`:
+
+        claude-haiku-4-5-20251001 :    33,619 tokens   <- what was reported
+        claude-sonnet-5           : 1,066,326 tokens   <- what ran
+
+    `budget.json` named the model that did 3% of the work. `check_report`'s
+    `model-mismatch` diffs a worker's self-reported model against this field,
+    so the check that exists to catch a worker running off its band was
+    reporting a mismatch on every correct dispatch -- a false positive on the
+    happy path, which is how a check gets switched off (P-35).
+
+    The main model is the one with the tokens: an internal chore is always a
+    small fraction, and cache reads -- which dominate everything here -- belong
+    to the model doing the work.
+    """
+    usage = result.get("modelUsage") or {}
+    best, best_n = None, -1
+    for name, u in usage.items():
+        if not isinstance(u, dict):
+            continue
+        n = sum(v for k, v in u.items()
+                if "token" in k.lower() and isinstance(v, int))
+        if n > best_n:
+            best, best_n = name, n
+    return best or fallback
+
 
 def cmd_exec(args):
     sid, path = cmd_open(args, narrate=lambda m: print(m, file=sys.stderr))

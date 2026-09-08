@@ -109,6 +109,30 @@ def main():
         case("node-build-artifacts-are-ignored",
              "node_modules/" in ignore_lines(p), str(ignore_lines(p)))
 
+        # -- artifacts do not wait for a manifest ---------------------------
+        # 0.2.8's end-to-end walk: a tree with `slugify.py`, `test_slugify.py`
+        # and a green pytest suite declares nothing, so `detect()` correctly
+        # found nothing, so no python ignores were written -- and the FIRST
+        # promotion of the FIRST step was refused with `promote-uncommitted`
+        # naming two `.pyc` files the step's own STEP-VERIFY had just created.
+        # F-37 again, a cycle after the mechanism meant to prevent it, and
+        # worse: F-37 made a tree dirty, P-44 makes the finished step not land.
+        p = project(root, "py-no-manifest")
+        open(os.path.join(p, "thing.py"), "w").write("def f(): pass\n")
+        open(os.path.join(p, "test_thing.py"), "w").write("def test_f(): pass\n")
+        scaffold(p)
+        case("python-artifacts-ignored-without-a-manifest",
+             "__pycache__/" in ignore_lines(p), str(ignore_lines(p)))
+        # The twin, and it is what keeps the rule honest: no `.py` anywhere
+        # means no python ignore lines. Without it the fix is "always add
+        # them", which would put python artifacts in a Rust project's
+        # .gitignore and teach the client the tool does not read their tree.
+        p = project(root, "no-python-at-all")
+        open(os.path.join(p, "README.md"), "w").write("# a docs repo\n")
+        scaffold(p)
+        case("fp-no-python-no-python-ignores",
+             "__pycache__/" not in ignore_lines(p), str(ignore_lines(p)))
+
         # -- the charter ships the SCHEMA, not only the guidance ------------
         # Found by 0.2.8's end-to-end walk on a project the pipeline had not
         # written. `setup.py` strips `<!-- example:begin -->` blocks, which is

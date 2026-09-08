@@ -1098,6 +1098,22 @@ def selftest():
     assert got.startswith("..."), f"tail() did not mark the truncation: {got!r}"
     assert tail("short") == "short", "tail() mangled a stream under the limit"
 
+    # `main_model` picks the model that did the WORK, not the first dict key.
+    # The numbers are the ones actually measured in 0.2.8's walk, so this case
+    # fails if anyone reverts to `next(iter(modelUsage))`.
+    import sandbox
+    result = {"modelUsage": {
+        "claude-haiku-4-5-20251001": {"inputTokens": 1604, "outputTokens": 15,
+                                      "cacheReadInputTokens": 0,
+                                      "cacheCreationInputTokens": 32000},
+        "claude-sonnet-5": {"inputTokens": 2100, "outputTokens": 8000,
+                            "cacheReadInputTokens": 1050000,
+                            "cacheCreationInputTokens": 6226}}}
+    got = sandbox.main_model(result, "fallback")
+    assert got == "claude-sonnet-5", f"main_model picked {got!r}"
+    assert sandbox.main_model({}, "fallback") == "fallback", \
+        "main_model must fall back to the dispatched model when usage is absent"
+
 
 def main():
     selftest()

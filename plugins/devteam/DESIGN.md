@@ -686,11 +686,22 @@ riskiest unknown goes earliest and a probe that fails changes the design.
 | **3** | one path end to end: `onboard` → `plan` → one task → `supervise` → `implementer` → `verify` → `checkpoint` | ✅ **done** — walked in §15, and the walking is what found the six defects |
 | **4** | rehearse on a throwaway project; fix what the rehearsal breaks | ✅ **done** — three tasks, a killed supervisor recovered, a correct verifier FAIL, a live guard refusal, and a DRIFTED checkpoint; §15–§17 |
 | **5** | remaining roles: three audit dimensions, tester, documenter, reviewer | ✅ **done** — three auditors dispatched in parallel against the rehearsal project, none able to write; §18 |
-| **6** | a client the pipeline did not write: another session, briefed only with an underspecified paragraph, interviewed and run end to end | ◐ **in flight** — eighteen findings before the product had a line of code; §20 |
-| **7** | **structural containment**: a worker's writes made impossible rather than refused — a per-worker copy-on-write overlay, a headless worker inside it, and a serialised promotion gated by the declared scope | ◐ **in flight** — the mechanism runs and a live worker's commits have been promoted under the gate. **Done when** a `guard-only` machine degrades loudly rather than silently, every skill dispatches through the harness, and one full `setup` → `run` → promote → verify → close is walked on a throwaway |
+| **6** | a client the pipeline did not write: another session, briefed only with an underspecified paragraph, interviewed and run end to end | ✅ **done** — run to a final review. GATE 4 fired for the first time and returned `DRIFTED`, for a reason no check could see: a signed done-means condition was made undischargeable by a later decision, and three amendments passed without anyone re-reading it. The client accepted the verdict. §20, and the run's `C-3` in the private record |
+| **7** | **structural containment**: a worker's writes made impossible rather than refused — a per-worker copy-on-write overlay, a headless worker inside it, and a serialised promotion gated by the declared scope | ✅ **done** (0.2.0–0.2.4) — a `guard-only` machine degrades loudly, with the mode written into the charter the client signs; every worker-role dispatch goes through `sandbox.py dispatch`; and 0.2.8 walked one full `setup` → `run` → promote → verify → close on a project the pipeline had not written. **551 control cases across 13 controls, 251 of them false-positive (46%)** |
+| **8** | **manager rotation**: the one layer that never resets, rotated at a countable external trigger rather than a felt one | ✅ **done** (0.2.5) — rotation at every checkpoint, driven from outside the session; the incoming manager reads the durable state and every question it has to ask the outgoing one is logged as a defect in the record. **Not yet exercised on a real project** — 0.2.9 is the first run that will rotate one |
+| **9** | **the checks named, and the rule set swept** | ✅ **done** (0.2.6, 0.2.7) — every finding class carries the rule whose two sides it compares (`docs/CHECKS.md`), and `unruled-finding` keeps the table and the code equal in both directions; the rule set was read looking for pairs that cannot both hold (`docs/PAIRS.md`, 17 moments and 21 pairs), and all 87 numbered ceremony steps were walked against the one test that had never been applied (`docs/CEREMONY.md`) |
+| **10** | **release 0.2.0** | ✅ **done** (0.2.8) — the plugin's account of itself diffed against what it contains, the queue rewritten, and the end-to-end walk above. The walk found two defects no check could see, which is what it is for |
 
 Phase 3 is the one that matters. Everything before it is scaffolding, and
 everything after it is filling in a loop already known to work.
+
+**Phases 7 to 10 are cycle 0.2, and the phase numbers are not the subcycle
+numbers.** `meta/roadmap/done/` holds what happened and `meta/roadmap/0.2/`
+holds what remains; the two files still in the second are the second run
+(0.2.9) and the root-tree allowlist (0.2.10). **A phase marked done here means
+the mechanism ships with its controls, not that it has run a project** — 0.2.9
+is the first run that meets any of them with a real cycle, and the rows above
+say so where it matters.
 
 **The plugin checks itself.** `scripts/check_plugin.py` diffs what the plugin
 references against what it contains — an agent preloading a skill that does
