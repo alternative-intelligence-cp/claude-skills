@@ -362,9 +362,23 @@ were found only when the deferred thing failed.
 he has now made it. `open` → `deferred, with a trigger that is watched`.**
 
 **Not yet, and the sequence is the answer:** finish the roadmap that exists,
-**then run another experiment in the scratch fixture**, and if that experiment
-pans out, apply the pipeline to itself in the following cycle — and to any
-other skills developed alongside it from then on.
+**run the experiment on the scratch fixture**, and if it pans out, apply the
+pipeline to itself in the following cycle — and to any other skills developed
+alongside it from then on.
+
+**The experiment is 0.2.9, and the trigger is a judgement made after it rather
+than a condition met by it.** Asked whether 0.2.9 — *"cycle 2 on the fixture,
+with the mechanisms that have never fired"* — is the experiment he meant, the
+owner said he may not have remembered it was already planned, and put the
+trigger this way: **if 0.2.9 seems like a good enough experiment to verify the
+pipeline is ready to apply to real things, then decide what to do after that.**
+Setting it up may warrant a cycle of its own, before or after 0.2.10.
+
+**So the gate is not "0.2.9 completes" and must not be recorded as if it were.**
+It is *0.2.9 completes, and is then judged sufficient.* A run that finishes
+while leaving the mechanisms it was meant to exercise unproven does not meet
+it — which is the same distinction 0.2.5 drew about its own instrument being
+written and not run.
 
 **The reason, in his terms, and it is the sharper half.** The pipeline is still
 working out kinks, and *the plans themselves keep containing things that do not
