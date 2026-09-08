@@ -40,8 +40,13 @@ Any missing → stop, report `BLOCKED`, `notes: missing input <name>`.
 
 1. **Read** `devteam/CHARTER.md`, every `R-n` in `REQUIREMENTS` **with its
    acceptance criterion**, `devteam/DECISIONS.md`, and your task file.
-2. **Confirm the claim.** Your task's title line says `RUNNING` and the board
+2. **Confirm the claim — you may be about to become a second writer.**
+   Your task's title line says `RUNNING` and the board
    shows it claimed. Anything else → `BLOCKED`, `notes: claim mismatch`.
+   **Nothing upstream re-checks this before you dispatch**, and a supervisor
+   working a task it does not hold puts two writers on one scope — the one
+   failure this whole design exists to prevent (P-12, P-13). It costs one
+   look, and skipping it is invisible until the collision.
 3. **Set the title** to `RUNNING (since <date>, <your label>)` if it is not
    already. Do not commit that alone — it lands in the task's work, and if you
    die before then, the uncommitted line is exactly what the next supervisor

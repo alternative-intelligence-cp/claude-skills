@@ -48,8 +48,13 @@ can destroy uncommitted work nobody knew was there.
    hours old → take the lock (the board is always writable) and write
    `writer takeover: <old id>` in `RECORD.md`.
 
-2. **Read, in order:** `BOARD.md`; `CHARTER.md`; `REQUIREMENTS.md`;
-   `QUESTIONS.md` (anything still open); `RECORD.md`'s last entries.
+2. **Read, in order** — and the order is the point, not a tidy list:
+   `BOARD.md` **first**, because it is the only file that says what is live
+   and everything after it is read differently once you know; then
+   `CHARTER.md`; `REQUIREMENTS.md`; `QUESTIONS.md` (anything still open);
+   `RECORD.md`'s last entries. Reading the charter first tells you what the
+   project is for while leaving you ignorant of what is running in it, which
+   is the state in which a manager dispatches over somebody's live claim.
 
 3. **Recover** every `CLAIMED` row, §3 — **before** asking whether the plan
    is whole. Reconciling what is *running* has to come first: the plan check
@@ -124,6 +129,11 @@ can destroy uncommitted work nobody knew was there.
 
 6. **Tell the client the picture in under ten lines:** width, pin, each task's
    state, **the containment**, anything recovered, anything waiting on them.
+   **Ten is a real limit and not a style note** — this is the only moment the
+   client sees the whole run, and a forty-line status is one they skim, so a
+   longer report buys less than a shorter one. If it does not fit, the thing
+   to cut is detail they can ask for, never a task's state or a question
+   waiting on them.
    Then §4.
 
 ## 2. The writer lock, restated

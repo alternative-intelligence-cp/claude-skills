@@ -45,6 +45,39 @@ so far has made this pipeline stricter and nothing has made it simpler.** If a
 requirement, a check, a gate or a whole skill earned nothing on your project,
 that is a finding, and it is worth more than another edge case.
 
+### What an `unnecessary` report looks like, in three lines
+
+An `unnecessary` report is easy to feel and hard to write, which is most of why
+none has arrived. So it has a shape, and it is the same three questions the
+maintainers ask of every step themselves (`docs/CEREMONY.md`):
+
+```
+what it bought:    the failure this step would have prevented on YOUR project
+                   — or, and this is the finding, "I cannot name one"
+did I need to
+already know why:  would somebody meeting this step for the first time skip it,
+                   satisfy it without meaning anything by it, or do it wrong?
+was it visible:    could anyone tell afterwards whether I had actually done it?
+```
+
+**"I cannot name one" is the report, not a failure to write it.** You are not
+being asked to prove a step is useless — that is our job, with the record you
+cannot see. You are being asked whether the failure it prevents is nameable
+*from where you were standing*, and if it is not, that is the whole finding.
+
+**Answer the first question about what the step actually claimed, not about
+whether it was heavy.** Both of the two simplifications this project has ever
+received were steps that bought something real and claimed something wider —
+authority over a session that was not part of the run, and over a repository
+rather than a directory. Neither reporter said "this is too much work". Both
+said, in effect, *"it is doing something to me that it has no business doing"*,
+and that is the more useful sentence.
+
+**We will not argue back with project size.** A step is not defended here on
+the grounds that your project was small; the tool is deliberately too heavy for
+small work and that is a stated design position, not a rebuttal. The only
+defence of a step is naming the failure it prevents.
+
 ## Before you report a defect in something you did not write, re-read its source
 
 The most expensive wrong finding in this project's history was built like
