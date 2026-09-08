@@ -158,7 +158,7 @@ the worker's life to a background shell whose lifetime is not documented.
 | [0.2.5](../done/0.2.5.md) — rotation | **DONE** — manager rotation at every checkpoint, driven from outside the session; questions-as-defects measured and all three fixed; point-of-use re-reads | 0.2.4 (uses measured budget) | yes |
 | [0.2.6](../done/0.2.6.md) — the checks | every finding class named against its rule (`docs/CHECKS.md` and an `unruled-finding` check); the audit namespace checked and `open-finding-at-close`; amendment re-affirms every DM; estimate model v3 | 0.2.4 | partly — the F-113 audit is core, the rest can wait |
 | [0.2.7](../done/0.2.7.md) — two sweeps | the rule-pairs sweep and the ceremony test, each with a method, a calibration set and a deliverable | 0.2.4 | deferrable |
-| [0.2.8](0.2.8.md) — release 0.2.0 | version, self-check, controls, DESIGN §14, CONSOLIDATION rewritten, a new handoff, a fresh `setup` on a throwaway project | everything shipped | yes |
+| [0.2.8](../done/0.2.8.md) — release 0.2.0 | version, self-check, controls, DESIGN §14, CONSOLIDATION rewritten, a new handoff, a fresh `setup` on a throwaway project | everything shipped | yes |
 | [0.2.9](0.2.9.md) — the second run | cycle 2 on the fixture through `/devteam:iterate`, client channel set so P-27 fires, rotation at a checkpoint, sandboxed workers at width 2–3, a budget ceiling; what to measure and when to stop | 0.2.8 | yes — it is what the cycle is for |
 | [0.2.10](0.2.10.md) — the root-tree allowlist | a declared table of what the repository root holds, a `check_plugin` finding pair that diffs the tree against it, and a hook that refuses a stray write at the root; the mechanism behind the `.gitignore` line | — | small, independent; any time |
 
@@ -309,6 +309,7 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > | 0.2.5 — rotation | 159 | `31.80 M` | `$23.92` | `91% → 92%`, one window, boost on: **~1 point** |
 > | 0.2.6 — the checks | 172 | `35.42 M` | `$25.39` | `92% → 92%`, one window, no reset, boost on: **~0 points, 0–1 by tick** |
 > | 0.2.7 — two sweeps | 147 | `34.07 M` | `$23.84` | `92% → 93%`, one window, no reset, boost on: **1 point**. Output `148,048` |
+> | 0.2.8 — release 0.2.0 | 202 | `46.66 M` | `$31.46` | `93% → 94%`, one window, **no reset (asked and confirmed)**, boost on: **1 point**. Output `189,500` |
 >
 > **0.2.6 ran as one session, peaked at `348,241` tokens of context and never
 > compacted** — the shape the design intends for a single subcycle. Rotation is
@@ -387,6 +388,69 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > *"based on local sessions on this machine"*: 0.2.7 spawned **no subagents at
 > all**, so its `20%` belongs to the other sessions running beside it. **An
 > attribution line is about the machine, not about your subcycle.**
+>
+> ### The cycle total, and why one column of it cannot be added up
+>
+> 0.2.8 §5 asks this table for "the measured cost of every subcycle that ran,
+> and the total, so 0.3's model starts from data". **§8's own rule forbids
+> summing the dollar column**, and two rules that are each right alone and
+> cannot both be satisfied is the shape `PAIRS.md` exists for — so the conflict
+> is resolved here in writing rather than by quietly picking one.
+>
+> **What can be summed, over nine subcycles:**
+>
+> | | Total |
+> |---|---|
+> | Requests | **1,281** |
+> | Tokens processed | **≈273.6 M** |
+> | Dollars, as a SIZE MEASURE only | **`$196.70`** |
+>
+> **The dollar total is not a bill and not a quota.** It adds the same
+> conversation once per turn, so it partly measures turn count; and it is
+> API-equivalent pricing against a subscription. It is here because it is
+> exact and comparable *between* rows, which is the one thing it is good for,
+> and 0.3 should size a subcycle with it — a subcycle that builds one mechanism
+> costs `$10–15`, one that rewires the pipeline costs `$40`.
+>
+> **A cycle total in PERCENT cannot be computed at all, and that is the more
+> useful finding.** The quota was reset **twice** during the week 0.2.0–0.2.4
+> ran. Two full window refills sit inside this cycle's span, so the readings at
+> either end are not two points on one curve and their difference is not the
+> cycle's consumption. Anyone who subtracts `88%` from `94%` and reports six
+> points will understate the truth by about two whole windows. **The per-row
+> movements are the data; their sum is not.**
+>
+> **What the last four rows say, and they are the cleanest comparison here.**
+> 0.2.5 `$23.92`/1pt · 0.2.6 `$25.39`/**0pt** · 0.2.7 `$23.84`/1pt · 0.2.8
+> `$31.46`/1pt — all one window, no reset, boost throughout. A 32% spread in
+> dollars across three subcycles that each moved the gauge one point, and the
+> most expensive of the four is not the one that moved it least. **At this
+> spend the movement is 0–1 points and the integer tick dominates the signal**;
+> that has now held for four consecutive rows and is the closest thing to a
+> stable reading this table has.
+>
+> **Output tokens, the hypothesis §8 asked to be recorded, has two points and
+> discriminates nothing yet.** `148,048` → 1 point and `189,500` → 1 point.
+> Keep recording it; do not fit anything to it.
+>
+> **AND THE OUTPUT CARRIES A DIRECT MEASURE OF WORK PRODUCED, which is what
+> this section has been looking for.** `Total code changes: 423 lines added,
+> 399 lines removed` — read at 0.2.8's close, and `0 lines added, 0 removed` at
+> its open, so it is per-session and it counts. Every other column here scales
+> with conversation length; this one does not. It is free to record and it is
+> the first candidate correlate that measures the work rather than the reading
+> of it. **Record it from here on, beside output tokens.**
+>
+> **Two more readings of the cache line, and the idle cost repeats.** `99% of
+> input tokens from cache` at close (`98%` at open), and a second `1 miss …
+> idle past the 1h TTL, 30.0k tokens re-cached`. Twice in one session, same
+> figure: **a pause longer than an hour costs about 30k tokens to resume**, so
+> an interruption is not free even when nothing happens during it.
+>
+> **And the attribution line again belongs to the machine, not the subcycle.**
+> `19% from subagent-heavy sessions` — 0.2.8 spawned **no subagents at all**,
+> exactly as 0.2.7 did not. Two subcycles in a row have now been credited with
+> a subagent share they did not produce.
 >
 > **The first replication this table has ever contained.** 0.2.5 (`$23.92`, 159
 > requests) and 0.2.7 (`$23.84`, 147 requests) each moved the gauge one point —
