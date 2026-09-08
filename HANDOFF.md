@@ -1,138 +1,168 @@
-# Handoff — the first live `devteam` run is complete
+# Handoff — devteam 0.2.0 is released, and the run that tests it has not happened
 
-Written 2026-09-05 by the session that ran it, for whoever picks this up. The
-return date is unknown and may be a week, so this assumes you have **none** of
-the conversation and cannot ask its author anything.
+Written 2026-09-07 by the session that closed cycle 0.2, for whoever picks this
+up. The return date is unknown and may be a week, so this assumes you have
+**none** of the conversation and cannot ask its author anything.
 
-Read this file, then `plugins/devteam/docs/CONSOLIDATION.md`. Everything else is
-a pointer.
+Read this file, then [`plugins/devteam/docs/CONSOLIDATION.md`](plugins/devteam/docs/CONSOLIDATION.md).
+Everything else is a pointer.
 
-**Every number below was read from the tree at `243059e`, not carried from
-memory** — `run_controls.py` for the case count, `rev-list --count` for the
-commits, `bundle create` for the 1.5 MB. The first draft said "~500 control
-cases" where the command says **328**; writing the command down is what made
-that visible, which is the rule this project's own final review runs under.
+**Every number below was read from the tree, with the command beside it.** The
+0.1 handoff established that rule after its first draft wrote "~500 control
+cases" where the command said 328; writing the command down is what makes the
+claim checkable.
 
----
-
-## 1. The experiment's record is preserved, and where
-
-**`.internal/scratch/` is gitignored by this repository and is therefore not in
-its history.** It has its own remote:
-
-**`alternative-intelligence-cp/devteam-run-01-csv2json`** — **private**, and it
-must stay private. It is the complete working record of a client engagement,
-and this repository is public.
-
-All 238 commits are pushed and verified there by counting the remote HEAD's
-ancestry rather than trusting the push. A further backup is one command:
-
-```bash
-git -C .internal/scratch push
+```
+ls plugins/devteam/skills | wc -l                     ->  15 skills
+ls plugins/devteam/agents | wc -l                     ->   9 agents
+grep -c '^\*\*P-[0-9]* ' plugins/devteam/PROTOCOL.md  ->  48 numbered rules
+ls plugins/devteam/scripts/*.py | grep -vc '/test_'   ->  15 scripts
+python3 plugins/devteam/scripts/run_controls.py       ->  all 13 controls green,
+                                                          558 cases, 251 of them
+                                                          false-positive (45%)
+python3 plugins/devteam/scripts/check_plugin.py       ->  clean
+python3 plugins/devteam/scripts/check_refs.py         ->  clean
+git rev-list --count 243059e..HEAD                    ->  74 commits this cycle
 ```
 
-**Push it after any change to that tree.** It was created because the record
-existed on one disk with no remote at all, which is the state to avoid rather
-than a historical note.
-
 ---
 
-## 2. Where things are, and which is which
+## 1. What 0.2 changed, in one paragraph
+
+**A worker's writes are now impossible rather than refused.** On Linux each
+worker runs headless inside a private copy-on-write overlay of the repository,
+mounted at the repository's own absolute path so every path-shaped rule reads
+the same inside and out. Its writes — files, index, refs, rewritten history —
+exist nowhere but its own upper layer until a supervisor promotes them, and
+promotion diffs the paths its commits touched against the task's declared scope.
+The guard stays in front of that as **early warning**, because a refusal at the
+moment of typing is where guidance works; it is no longer the thing standing
+between a mistake and the repository.
+
+The manager also rotates now, at every checkpoint, driven from outside the
+session — a manager cannot measure its own context, so the trigger cannot be a
+feeling. Every finding class the plugin emits names the rule whose two sides it
+compares. And the rule set has been read looking for pairs that cannot both hold,
+which nobody had ever done.
+
+## 2. Where things are
 
 | Path | What |
 |---|---|
-| `plugins/devteam/` | **the product.** The pipeline: 15 skills, 9 agents, 9 scripts, 328 control cases |
-| `plugins/devteam/docs/CONSOLIDATION.md` | **the work queue.** Nine items, each with why it was deferred |
-| `plugins/devteam/DESIGN.md` | why the pipeline is shaped as it is, and every lesson the run produced |
-| `plugins/devteam/PROTOCOL.md` | the numbered rules. Every one carries the measured failure that produced it |
-| `.internal/scratch/` | **the fixture.** A CSV-to-JSON tool, built by the pipeline as a test of it. Gitignored, no remote |
-| `.internal/scratch/devteam/` | the run's own record: charter, requirements, decisions, findings, checkpoints, audits |
+| `plugins/devteam/` | **the product.** 15 skills, 9 agents, 15 scripts, 558 control cases |
+| `plugins/devteam/docs/CONSOLIDATION.md` | **the work queue.** The first run's nine items each answered; six new ones from 0.2 |
+| `plugins/devteam/docs/CHECKS.md` | every finding class against the rule it enforces. The best single map of the plugin |
+| `plugins/devteam/docs/PAIRS.md` | 17 moments where two imperatives bind at once, 21 pairs. **Read row 12 and row 20 whatever else you skip** |
+| `plugins/devteam/docs/CEREMONY.md` | all 87 numbered steps against *does this only work for an operator who already understands why it matters* |
+| `plugins/devteam/DESIGN.md` | why the pipeline is shaped as it is, and every lesson each run produced |
+| `plugins/devteam/PROTOCOL.md` | the 48 numbered rules. Every one carries the measured failure that produced it |
+| `plugins/devteam/meta/roadmap/done/` | **what happened** — cycle 0.2's eight closed subcycles, each with its findings and measured cost |
+| `plugins/devteam/meta/roadmap/0.2/` | **what remains** — 0.2.9 and 0.2.10 |
+| `.internal/scratch/` | **the fixture.** A CSV-to-JSON tool built by the pipeline as a test of it. Gitignored here; it has its own private remote |
 
-**The fixture is not a deliverable.** `csv2json` has no users and will have
-none — that is a signed decision (D-37) and it is load-bearing in several
-others. Do not fix its remaining defects because they are defects; fix one only
-if fixing it exercises something in the pipeline that has not been exercised.
+## 3. State: released, and untested by a real project
 
----
+**`plugin.json` and the marketplace manifest say `0.2.0`.** The commit that
+closes this subcycle carries the tag `v0.2.0`. **It is not pushed** — publishing
+is the owner's (P-26), and the pipeline's own rule about irreversible
+outward-facing actions applies to its own release.
 
-## 3. State: the run is finished
+**What is proved:** every mechanism ships with negative controls, and 0.2.8
+walked one full `setup` → interview → plan → dispatch → promote → verify →
+close on a throwaway project the pipeline had not written. That walk found two
+defects no control could have caught, which is what it was for — see
+CONSOLIDATION N-3, and the `model-mismatch` fix in `sandbox.py`.
 
-Every task closed. **GATE 4 — the final review — fired for the first time and
-returned `DRIFTED`**, filed at `.internal/scratch/devteam/checkpoints/`. The
-client accepted it.
+**What is not proved, and it is the important half: no real project has run
+under any of this.** Rotation has never rotated a project. The v3 estimate
+model's bias is unmeasured. `amendment-omits-condition` has never met a real
+charter. The unreviewed-decision path (P-27) has still never fired.
+`/devteam:iterate` has still never run. **A mechanism that has never fired has
+not been shown to work**, and the README's known-problems table now keeps a row
+until the fix is shown to work rather than merely built.
 
-Nothing is broken: 531 tests passing, all four checks clean across eleven tasks,
-13 of 13 requirements discharged, ~45 README claims verified against the shipped
-code with zero divergences.
-
-**It drifted because of the finding worth reading first.** A signed done-means
-required *"the client runs it against a real export of their own"* — described
-in the charter as *"the only condition that tests whether the tool solved the
-problem rather than the specification."* A later client decision, made on
-budget, recorded that the tool has no users and never will. **That made the
-condition undischargeable**, the charter was amended three times afterwards, and
-nobody re-read it. It is struck by amendment with the reason stated, rather than
-silently, because striking it quietly would have deleted the project's only
-check on itself.
-
-**Nothing in that project is repairable in this cycle**, structurally: a write
-scope is held only by an open task and every task is closed. The next cycle
-opens with `/devteam:iterate`.
-
----
+**0.2.9 is that run**, and it is the next thing to do.
 
 ## 4. What is not in any file
 
-The part a written handoff loses. These are things the run established that live
-nowhere else.
+The part a written handoff loses.
 
-**The client was played by an AI session, not by the owner.** Every decision
-signed "the client" was made by the session that wrote this file, under the
-owner's direction and consistent with positions he stated. That matters when
-reading the decision log: the client was unusually available (answers in
-minutes, at 3am, with the domain loaded) and **a human client would have been
-the bottleneck at eighteen blocking stops in fifteen hours.**
+**The credential copy dies with the sandbox, and a refresh inside it is lost.**
+`dispatch` copies `~/.claude/.credentials.json` into the sandbox's tmpfs `HOME`
+(509 bytes, mode 600) and it dies with the tmpfs. **If a token refresh happens
+inside the sandbox it is lost, and if the provider rotates the refresh token
+the host's copy may be invalidated.** That is `REASONED`, not measured — it has
+not happened in any run so far, including 0.2.8's two live dispatches. 0.2.9
+§3.4 makes it a stop rule: if a worker cannot authenticate mid-run, stop and
+record exactly what was observed. It is the cycle's most important `REASONED`
+line still waiting to become measured.
 
-**Three client decisions run on one thread and should stay consistent**: a
-memory-bound fix declined at three step-units, a docstring repair declined at
-one, and a delimiter feature declined at one — all on the ground that the
-fixture has no users. A successor reversing any of them should reverse the
-reasoning explicitly rather than quietly.
+**Git identity inside is solved a way you may try to solve again.** `open`
+records the host's `user.name` and `user.email` into `plan.json` and seeds them
+into the overlay's own repository config. Do **not** also set `GIT_AUTHOR_*`
+environment variables: 0.2.3 planned that, then declined it as built, because it
+would give F-44 a second home. Verified at `sandbox.py:469` and `:542`.
 
-**`iterate` has never run.** It was deferred deliberately, to be exercised
-against a small real target rather than tacked onto a finished fixture. That is
-the last unexercised mechanism in the pipeline.
+**The network namespace is shared, deliberately, and the risk is accepted.**
+The threat model is filesystem writes and the model API must be reachable, so a
+worker can reach the network — it could exfiltrate, or `pip install` into its
+overlay. Outward git is made impossible **structurally** instead: no
+`SSH_AUTH_SOCK`, no `~/.ssh`, no `~/.gitconfig`, no `gh` config, no token in the
+cleared environment, so `git push` has nothing to authenticate with. **The
+trigger for unsharing the network is a worker observed contacting anything but
+the model API, or a charter marking the project sensitive.**
 
-**A second team declined to trial the pipeline** and their refusal produced the
-first change that ever made it *simpler*. The entry condition — what adopting it
-costs a repository that already has an owner — is invisible from inside a run,
-and both simplifications in this project's history came from people who did not
-use it.
+**`guard-only` is not a lesser configuration of the same thing.** macOS,
+Windows, and any Linux without unprivileged user namespaces or `bwrap` degrade
+to it, loudly, with the mode written into the charter the client signs. It
+leaves three measured holes open and the charter says so: an interpreter heredoc
+writes unjudged, a git history rewrite has no path for a path-based guard to
+see, and every agent shares one index.
 
-**The owner's standing constraints** are in the session memory files and will
-load for you. The one to know before touching anything: **never write outside
-the repository this session was started in without asking.**
+**`ListAgents` cannot see a headless worker.** That is why liveness is a file
+the harness writes at dispatch and rewrites at exit (P-14b), and why a
+supervisor polls a path rather than asking a question. It is a cost accepted in
+L-2, not an oversight.
 
----
+**The client on the first run was played by an AI session**, unusually
+available — eighteen blocking stops in fifteen hours, answered in minutes. A
+human client would have been the bottleneck. That is a limit on what the run
+proves. **Three client decisions run on one thread** — a memory-bound fix, a
+docstring repair and a delimiter feature, all declined on the ground that the
+fixture has no users. A successor reversing any should reverse the reasoning
+explicitly rather than quietly.
+
+**This repository is not itself a devteam project, and that is a decision.** It
+has no `devteam/` directory, so none of the project checks run on the thing that
+builds them. The reason is chronological — the pipeline did not exist when the
+repository started — and the condition for revisiting is **0.2.9 completing
+*and* being judged a good enough experiment**, not 0.2.9 completing.
+[`PAIRS.md`](plugins/devteam/docs/PAIRS.md) row 20 carries the whole reasoning
+and warns you off closing it early.
+
+**The fixture's record has a remote and it must stay private.**
+`alternative-intelligence-cp/devteam-run-01-csv2json` — it is a complete client
+engagement record and this repository is public. Read from the tree:
+238 commits, `git -C .internal/scratch status --porcelain` empty, and
+`git -C .internal/scratch log origin/main..HEAD` empty, so nothing is unpushed
+today. **Push it after any change to that tree.**
 
 ## 5. Where to start
 
-**A plan for the next cycle now exists** —
-[`plugins/devteam/meta/roadmap/README.md`](plugins/devteam/meta/roadmap/README.md),
-written 2026-09-05 from this file, `CONSOLIDATION.md`, the run's record and a
-measured sandbox spec. It takes the queue below into subcycle files a fresh
-session can implement. Read it after this file; the three points below still
-hold and the plan is built on them.
-
-1. **Ask about the bundle** (§1). It is the only item with a clock on it.
-2. **Read `CONSOLIDATION.md`.** Nine items, ordered, each with the measurement
-   behind it. Item 1 — manager rotation — is the one the owner named as most
-   valuable.
-3. **Do not build the two deferred mechanisms** until their triggers fire. Both
-   triggers are written down and both were measured, not guessed.
+1. **Read [`meta/roadmap/0.2/0.2.9.md`](plugins/devteam/meta/roadmap/0.2/0.2.9.md) whole before doing anything.** It is the run's protocol: what it exercises, what it measures, where its ceiling is, and — the part most likely to be skipped — **when to stop**. Five stop rules, written in advance so that stopping is a decision already made rather than a judgement under sunk cost.
+2. **Answer the owner's five decisions in 0.2.9 §2 first.** They are `CHARTER` class for the experiment itself and they go as one batch, before the run, not during it.
+3. **0.2.10 is small, independent, and can go before or after.** It needs nothing from 0.2.9.
+4. **Read `CONSOLIDATION.md`.** Item 8b's trigger has fired with a measured instance, and its recommended home is 0.2.10 — the reasoning for why not 0.2.8 is written out, so you do not have to re-derive it.
 
 **And one habit that produced most of what is in `DESIGN.md`:** before building
 a check, run it against the live corpus and read what it reports. Four checks
 were rejected that way in one day — each looked obviously right and each would
-have shipped green while measuring nothing. The queue in `CONSOLIDATION.md`
-records which ones and why.
+have shipped green while measuring nothing.
+
+**And its 0.2 successor, which cost this cycle four subcycles to learn:** every
+subcycle so far has produced at least one instrument that passes while answering
+a question *adjacent* to the one asked, and **not one was caught by reading the
+output.** They were caught when a prediction and a measurement disagreed, or
+when applying an edit put the old text on screen beside the new. So read your
+plan against the documents it cites rather than against itself, and when an
+instrument agrees with you, that is the moment to check it hardest.
