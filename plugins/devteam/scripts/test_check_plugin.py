@@ -117,6 +117,13 @@ def build(mutate=None):
     w("scripts/test_check_refs.py", "# its control\n")
     w(".claude-plugin/plugin.json", json.dumps({"name": "devteam", "version": "0.1.0"}))
     shutil.copy2(REAL, os.path.join(plugin, "scripts", "check_plugin.py"))
+    # check_plugin imports the root table's ONE parser from root_guard rather
+    # than carrying a second copy, so the throwaway tree needs it beside the
+    # check. Absent, check_plugin degrades to a reported SKIP rather than
+    # crashing -- but a control running against the degraded path would be
+    # testing the fallback and calling it the check.
+    shutil.copy2(os.path.join(HERE, "root_guard.py"),
+                 os.path.join(plugin, "scripts", "root_guard.py"))
     os.makedirs(os.path.join(plugin, "docs"), exist_ok=True)
     w("docs/CHECKS.md", checks_md(plugin))
     if mutate:

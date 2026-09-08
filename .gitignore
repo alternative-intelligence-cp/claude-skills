@@ -8,7 +8,10 @@
 # scratchpad), and the root tree stays short enough that the README is
 # reached on GitHub without scrolling past them. This keeps a stray off the
 # remote; it does not stop one being created, and `git status` will not show
-# it, so the local tree still wants an occasional look.
+# it, so the local tree still wants an occasional look. The other two halves
+# are elsewhere: check_plugin.py reports any root entry the README's "What is
+# in this repository" table does not list, and .claude/settings.json registers
+# root_guard.py, which refuses the write at the moment it is typed.
 /*.py
 
 # Python

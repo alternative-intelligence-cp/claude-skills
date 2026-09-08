@@ -32,11 +32,17 @@ SCRIPT_REF = re.compile(r"(?:\$\{CLAUDE_PLUGIN_ROOT\}|\$\{CLAUDE_SKILL_DIR\}/\.\
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 SUBCYCLE_FILE = re.compile(r"\A\d+\.\d+\.\d+\.md\Z")
 SUBCYCLE_STATE = re.compile(r"[\u2014\u2013-]\s*(PLANNED|IN-PROGRESS|DONE|STOPPED)\b")
-# The root table's section, and its rows. The section ends at the next `## `
-# or at end of file -- anchoring only on a following heading would make the
-# check silently stop reading if the table were ever moved last.
-ROOT_SECTION = re.compile(r"^## What is in this repository\n(.*?)(?=^## |\Z)", re.S | re.M)
-ROOT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.M)
+# ONE PARSER FOR THE ROOT TABLE, AND IT LIVES IN root_guard.py. The hook
+# refuses a stray at the moment it is typed and this check reports one after
+# the fact; both answer "what is the root allowed to hold" and a second parser
+# is a second answer. A hook refusing what the check calls clean is worse than
+# either mechanism alone, and the disagreement would show up as an argument
+# with the tool rather than as a finding.
+sys.path.insert(0, HERE)
+try:
+    from root_guard import root_allowlist
+except ImportError:
+    root_allowlist = None
 
 # --- A MENTION IS NOT A CITATION, and this check had to learn it the hard way
 # check_refs.py worked this out for the project namespace and wrote the reason
@@ -529,16 +535,7 @@ def main():
     # spell-checker (DESIGN 20). The allowlist is NOT duplicated in this file:
     # two copies would be diffed against each other rather than against the
     # tree, and would agree with each other while both were wrong.
-    root_rows = None
-    readme = os.path.join(REPO, "README.md")
-    if os.path.isfile(readme):
-        body = open(readme, encoding="utf-8").read()
-        m = ROOT_SECTION.search(body)
-        if m:
-            # A trailing slash is how a directory is written for a reader;
-            # git never emits one. Strip it here rather than asking the author
-            # to write the table in git's shape.
-            root_rows = {r.rstrip("/") for r in ROOT_ROW.findall(m.group(1))}
+    root_rows = root_allowlist(REPO) if root_allowlist else None
 
     if root_rows:
         present, readable = set(), True
@@ -585,7 +582,8 @@ def main():
     if not ruled:
         skipped.append("unruled-finding SKIPPED — no docs/")
     if root_rows is None:
-        skipped.append("root-table check SKIPPED — no `## What is in this repository` in README.md")
+        skipped.append("root-table check SKIPPED — no root_guard.py, or no "
+                       "`## What is in this repository` in README.md")
     root_note = f", {len(root_rows)} root entries" if root_rows else ""
     tail = ("; " + "; ".join(skipped)) if skipped else ""
     print(f"devteam plugin: clean  [{len(skills)} skills, "

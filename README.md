@@ -42,6 +42,7 @@ locally; anything else appears here as a finding.
 
 | Entry | What |
 |---|---|
+| `.claude/` | this repository's own Claude Code settings — it registers the root-guard hook, and nothing else |
 | `.claude-plugin/` | the marketplace manifest that makes this repository installable |
 | `.gitignore` | what never reaches the remote, with the reasoning in its comments |
 | `HANDOFF.md` | the state of the work for whoever picks it up next |
