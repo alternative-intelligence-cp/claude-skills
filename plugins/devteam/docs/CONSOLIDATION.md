@@ -96,8 +96,11 @@ enumeration** — every done-means condition and constraint gets a verdict — a
 covers the other direction: a charter lacking a row the current template
 declares.
 
-**What remains: neither has run against a real charter.** 0.2.9 §3.1 is the
-first, and it is also the fixture's backfill. And the semantic half of this
+**What remains: neither has run against a real charter.** 0.2.9 **§3.2** is
+the first — the charter amendment that opens cycle 2 on `pricelog`. It was
+§3.1 and the fixture's backfill until 0.2.9 was revised on 2026-09-07; the
+fixture is no longer the target, so there is no backfill and the first real
+charter is one this run writes from nothing. And the semantic half of this
 item is still not mechanical and probably never will be — telling a criterion
 that names a *method* from one that names a *property* is a reading, and this
 project refuses those everywhere. What it has is a **moment**: the final review
@@ -152,8 +155,11 @@ namespace has citation integrity in both directions at last; and
 `open-finding-at-close` — a finding still `open` when its audited task closes.
 
 **What remains: the disposition half has never been exercised on a live
-audit.** 0.2.9 §3.1 shows the fixture's nine open findings to the client and
-routes or declines each.
+audit.** 0.2.9 **§3.2** shows cycle 1's open findings to the client and routes
+or declines each. This read *"the fixture's nine open findings"* until the
+2026-09-07 revision — those findings still exist and are still undispositioned,
+but the fixture has no principal to disposition them, which is the whole reason
+the target moved.
 
 ## 8. Two mechanisms deferred with their triggers
 

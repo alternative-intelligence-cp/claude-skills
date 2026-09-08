@@ -281,6 +281,15 @@ nobody has taken: whether any requirement in any real project has ever been
 edited rather than superseded. The fixture cannot answer it — its requirements
 carry no revision history in the tree.
 
+**As of 2026-09-07 there is a run that can.** 0.2.9 was revised to build a new
+project through **two** cycles with the owner as its actual client, so cycle 2's
+requirements are amended by someone with standing to amend them, against a
+first cycle whose history is in the tree. **The row closes either way**: a
+requirement edited rather than superseded says P-46 measures what its text says;
+none edited across a real second cycle says P-46 is a tripwire on a rule nothing
+else watches. 0.2.9 §3.3 records the count as a named measurement so that
+neither answer depends on anyone remembering to look.
+
 **Named as the row it is**, because the alternative is a check whose two possible
 meanings are both plausible and neither written down, which is how a finding gets
 tuned away by the first person it inconveniences (L-6.1).
