@@ -109,6 +109,38 @@ def main():
         case("node-build-artifacts-are-ignored",
              "node_modules/" in ignore_lines(p), str(ignore_lines(p)))
 
+        # -- the charter ships the SCHEMA, not only the guidance ------------
+        # Found by 0.2.8's end-to-end walk on a project the pipeline had not
+        # written. `setup.py` strips `<!-- example:begin -->` blocks, which is
+        # correct -- an installed template declares nothing of this repository
+        # (P-35b). The charter's ENTIRE constraints table was inside one. So a
+        # scaffolded charter carried three paragraphs on how to write a
+        # constraint row and no table to write one into, while
+        # `skills/setup/SKILL.md` said "write the charter's `Containment` row",
+        # `skills/onboard/SKILL.md` said "everything the charter's constraints
+        # table names", and `templates/FORMATS.md` said the row is written by
+        # setup. Three documents pointing at a table the scaffold deleted, and
+        # every check green, because no check compared them.
+        p = project(root, "charter")
+        scaffold(p)
+        charter = open(os.path.join(p, "devteam", "CHARTER.md"),
+                       encoding="utf-8").read()
+        case("charter-ships-the-constraints-schema",
+             "| Constraint | Value |" in charter,
+             "a scaffolded charter has no constraints table to fill in")
+        case("charter-ships-the-containment-row",
+             "| Containment |" in charter,
+             "the row setup's own skill is told to write is absent from the "
+             "file it is told to write it into")
+        # The three below are why this is not a revert: the stripping still
+        # has to work, or the fix trades one defect for the one P-35b names.
+        case("charter-ships-no-example-markers",
+             "example:begin" not in charter and "example:end" not in charter,
+             "an example marker survived into a client's charter")
+        case("charter-strips-the-goal-examples",
+             "**G-1**" not in charter,
+             "this repository's example goals shipped into a client's charter")
+
         # -- FALSE-POSITIVE CONTROLS ---------------------------------------
         # A stack that was NOT detected gets no stack lines. Without this the
         # script could ignore everything for everyone and every case above

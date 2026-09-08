@@ -76,7 +76,6 @@ one must appear, say in the row that it is fitted and unverified — and give it
 a test asserting **the model still predicts the measured cost**, which fails
 when the model drifts rather than when the code breaks.
 
-<!-- example:begin -->
 | Constraint | Value |
 |---|---|
 | Language / runtime | <e.g. Python 3.12> |
@@ -95,7 +94,6 @@ when the model drifts rather than when the code breaks.
 | Licence | <e.g. Apache-2.0> |
 | Repository | <remote, or `local only`> |
 | Public? | <yes/no — decides whether the leak check gates every push> |
-<!-- example:end -->
 
 ## Risks accepted
 
