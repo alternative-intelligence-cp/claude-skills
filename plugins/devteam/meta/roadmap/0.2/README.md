@@ -467,6 +467,34 @@ why in the subcycle file and supersede it here with a new number (P-23).
 > second, independent reading of the same quantity says it means, and nothing
 > more.**
 >
+> ### Three readings from resuming that session two days later, 2026-09-10
+>
+> **RESUMING A LARGE SESSION AFTER A LONG GAP RE-CACHES ALL OF IT, and the cost
+> is not the 30k this section already records.** The same session, resumed after
+> **2 days**, read `Prompt cache (main): 2 requests · 52% of input tokens from
+> cache · no misses`. Every other reading in this cycle sat at **94–99%**. At
+> `>150k` context that is the whole conversation paid for again, and the session
+> total moved `$24.55 -> $66.16` across the resume and the work that followed.
+> §8 already knew an idle hour costs `30.0k` tokens to resume; **the same
+> mechanism at multi-day scale on a long context is an order of magnitude
+> different, and it is an argument for handing off rather than resuming.**
+>
+> **THE ATTRIBUTION LINE'S DIMENSION IS NOT STABLE, which retires a finding this
+> section made.** Above, §8 records that the line *"has CHANGED, and the new one
+> names the mechanism"* — context size (`85%` at `>150k`) rather than 0.2.5's
+> session duration (`52%` from sessions active 8+ hours). On 2026-09-10 it reads
+> **both**: `95% of your usage was at >150k context` *and* `89% of your usage
+> came from sessions active for 8+ hours`. So the display did not switch
+> dimensions; it reports whichever ones apply. **A finding about which dimension
+> the line names is a finding about one reading of it**, and the earlier note
+> should be read as an observation rather than a change.
+>
+> **`Total code changes` confirms its own retraction.** It read `401 lines
+> added, 0 lines removed` — deletions again reported as zero, over a span whose
+> commits deleted plenty, and again undercounting because most writes went
+> through `Bash` rather than `Write`/`Edit`. Second independent instance; the
+> retraction above stands, and `git diff --shortstat` remains the measure.
+>
 > **And a restart splits the fields unevenly.** 0.2.10's session was restarted
 > mid-way to load a hook. Cost and wall-clock accumulated across it (`$4.29 /
 > 2h 29m` before, `$24.55 / 4h 39m` after) while `Prompt cache (main)` reset
