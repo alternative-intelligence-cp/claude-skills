@@ -11,6 +11,10 @@ The author's own caveat governs the whole document:
 > ahead of myself while the v2 test is still ongoing. Its results may end up
 > changing my plans entirely."*
 
+**Companion chart:** [`v3-structure-chart-2026-09-12.md`](v3-structure-chart-2026-09-12.md)
+— the author's pre-v2 structure sketch, brought forward and annotated against
+the same measurements.
+
 **Three voices, marked throughout.**
 
 | Mark | Who | Weight |
