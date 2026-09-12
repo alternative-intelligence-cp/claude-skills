@@ -458,3 +458,103 @@ cycle 2 is still running. The author's caveat is the correct posture, and
 `<run>` has already produced two findings that reversed an earlier
 conclusion — one of them a claim asserted as fact in two dispatch briefs and
 refuted by a worker who contradicted its own manager.
+
+---
+
+# Part III — addendum, 2026-09-12: a provisioned resource nobody could see
+
+## The observation  [LIBS]
+
+The author was asked, before the v2 run, to open a session named
+`claude-skills-devTeam-test_s1`. **He has kept it open for two days and
+reports he cannot see where it was ever used** — *"perhaps they decided to go
+a different route. In any case, I was not told that yet so I left it open."*
+
+**The cost here is one idle session; the shape scales badly.** The client is
+left maintaining state for a requirement that may no longer exist, with no
+way to tell *"still needed later"* from *"quietly abandoned"* except by
+asking — which spends the one resource the whole rotation design exists to
+conserve.
+
+**Suggested rule:** anything the plan asks the client to **provision, open,
+install or keep alive is a commitment to the client.** If it stops being
+needed, **say so at the moment the plan changes** — not at the close, and not
+only when asked. The Nitpick compiler side models the discipline: when it
+merged two planned subcycle steps it **declared the deviation in one
+sentence with its reasoning** rather than taking it silently.
+
+## What actually happened, checked rather than assumed  [PM]
+
+**The route did not change. The reservation was real, explicit, and every
+rotation ignored it.** `0.2.9.md:330–338`, verbatim:
+
+> **Rotation needs a session with near-zero context, and one is standing
+> by.** … an idle session opened earlier and never briefed satisfies it as
+> well as a brand-new one does. **`claude-skills-devTeam-test_s1` is open,
+> unbriefed and reserved for this.** … **If `-test_s1` is gone by the time
+> the checkpoint arrives, ask the owner to open one — do not rotate into a
+> session that has been carrying context.**
+
+**Three rotations happened. None used it.** `_s10`→`_s11`, `_s11`→`_s12`,
+`_s12`→`_s13` were all freshly opened sessions. The reserved seat sat idle
+for two days doing precisely what it was reserved to do — hold near-zero
+context — and was never called on.
+
+## The finding is not a reporting failure, and that is the useful part  [PM]
+
+**No manager in the run could have known it existed.**
+`grep -rniE "test_s1|devTeam-test"` across the entire `pricelog/devteam/`
+tree returns **nothing**. The reservation lives in the *experiment's roadmap
+plan*, inside `claude-skills`; a project manager reads the *project's*
+charter, board, record, questions and task files. **The two document sets
+never touch.**
+
+So this is not three managers each forgetting to report a deviation. **It is
+a provisioned prerequisite recorded in a document that none of the parties
+who would consume it ever read** — and each of three rotations independently
+re-derived "open a fresh session" from `run` §7b's own wording, which is
+exactly what the plan anticipated and tried to pre-empt.
+
+**This manager is one of the three and states its own part plainly:** its
+rotation announcement quoted §7b's *"start a fresh session in this
+directory"* and never checked whether a session had already been provisioned
+for the purpose. It had the plan available in its own launch repository and
+did not look, because nothing in the project it was managing pointed at it.
+
+## The rule that follows, and it is mechanical rather than remembered  [PM]
+
+The `[LIBS]` rule — *say so at the moment the plan changes* — is right and
+does not reach this case, because **the plan never changed.** The stronger
+form:
+
+> **A client-provisioned prerequisite must be recorded in the document the
+> party who will consume it actually reads.** For a devteam run that is the
+> charter or the board — not the roadmap plan, not the experiment's
+> subcycle file, and not a message.
+
+**Both halves are needed.** `[LIBS]`'s rule covers a prerequisite that stops
+being necessary; this one covers a prerequisite that stays necessary and is
+never seen. This run produced the second and the first is the one everybody
+watches for.
+
+**The natural home is the charter's constraints table**, which is already the
+place a manager re-reads on a cadence, and which already carries rows that
+bind the run — `Containment`, `Model band`, `Client channel`. A
+`Provisioned by the client` row would have been read at every startup by
+every one of the three managers.
+
+**And the check that makes it verifiable rather than hopeful:** if such a row
+exists, its live status can be checked the same way `run` §5b re-proves
+containment at every startup. A prerequisite the client is maintaining should
+be something the run *confirms it still wants* on a schedule, not something
+the client asks about.
+
+## Live status, for the author  [PM]
+
+**One more rotation is likely.** Cycle 1 has T-6 and T-7 outstanding; closing
+both makes eight, which triggers C-4 under the every-two cadence, and
+rotation follows a checkpoint. **So `-test_s1` still has a use if the author
+wants the plan honoured** — it remains unbriefed and idle, which is exactly
+the state the reservation requires. Otherwise it can be closed, and the
+reservation should be struck from the plan rather than left to look
+unfulfilled.
