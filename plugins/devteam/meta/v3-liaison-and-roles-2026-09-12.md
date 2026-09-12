@@ -562,3 +562,105 @@ wants the plan honoured** — it remains unbriefed and idle, which is exactly
 the state the reservation requires. Otherwise it can be closed, and the
 reservation should be struck from the plan rather than left to look
 unfulfilled.
+
+---
+
+# Part IV — partition versus locking, and a re-merge nobody decided
+
+## The origin, which predates the pipeline by about a year  [AUTHOR]
+
+The `~/Workspace/META` / `~/Workspace/REPOS` split was invented around October
+of the previous year, while the author was learning to use AI coding
+assistants — two VS Code instances, two Copilot agents, and tooling that was
+still primitive enough that most things had to be rolled by hand.
+
+Its purpose was **exactly the problem the devteam pipeline exists to solve**:
+*"I could have one agent doing planning or tests in meta while another did
+work in the actual repo and nobody had to remember to not step on the other's
+toes."*
+
+He still uses it for a second reason worth recording: it lets him write
+planning notes **while things are in flight in a repository**, without
+risking a pin, a lock, or anything of that nature.
+
+## What that is, in the general case  [PM]
+
+**Partition** — the strongest form of concurrency control available. No
+shared mutable state, therefore no protocol, therefore **nothing for any
+party to remember.** Collision is impossible by construction rather than
+prevented by discipline. It is also, per the author's own standing principle,
+the correct shape: a mechanism rather than a rule a tired person must recall.
+
+**The pipeline solves the identical problem by locking instead**: a writer
+lock file, a session id on the board's `Writer.` line, a guard that refuses
+`devteam/` writes from any session the board does not name, and sandbox
+overlays with a promotion gate. Locking buys something partition cannot —
+supervisors and workers genuinely must write the same product tree — but
+every locking scheme has failure modes, and this run paid them.
+
+## The re-merge, and the two findings that come from it  [PM]
+
+**`devteam/` lives inside the repository it manages.** So the manager's
+bookkeeping shares a filesystem with the product tree, and a worker's sandbox
+overlays the live host repo. That single fact produces the run's two most
+expensive structural findings, from opposite directions:
+
+- **F-5, manager side.** A worker's overlay `lowerdir` *is* the live host
+  repository, so an uncommitted edit to `devteam/RECORD.md` is copied into an
+  unrelated sandbox's upper layer and pins `promote-uncommitted` there even
+  after the manager commits. **Measured cost of one occurrence: 1,500,794
+  tokens and `$1.95`, a whole Opus step redone.** A second occurrence cost
+  T-4's S-1 a full recovery. The adopted mitigation — *"the manager commits
+  promptly"* — was then **measured insufficient**: a dirty window of a few
+  seconds was enough.
+- **F-31, worker side.** The work discipline instructs **every** worker to
+  append its report to the task file; the task file is in **no step's scope**
+  by the design's own construction. So every *compliant* worker leaves an
+  out-of-scope uncommitted edit and `promote` refuses it. **Three of four
+  successful dispatches on T-8, each costing a cherry-pick recovery.** The one
+  worker that escaped did so **by disobeying its instructions.**
+
+**Neither is possible if the pipeline's state does not share a filesystem
+with the product tree.** The author had already separated exactly these two
+things a year earlier, for exactly this reason, and the pipeline put them
+back together — not by a decision anybody recorded, but by inheritance.
+
+## The honest trade, because it is a trade  [PM]
+
+Co-location buys something real and the board says so in its own header:
+**"A claim is a commit. The history of this file is the record of who worked
+what and when, at no extra cost."** One timeline, no correlation problem
+between the record of the work and the work. Separating them means two
+histories that a later reader has to line up.
+
+So this is not a mistake to be corrected. It is a decision that was never
+made, and it is cheap to make deliberately **before** v3 is built and
+expensive afterwards.
+
+## A narrower fix that may get both properties  [PM]
+
+The problem is not co-location as such — it is that **the sandbox's lower
+layer includes `devteam/`.** A surgical version:
+
+> **The sandbox mounts the product tree only. `devteam/` is not in the
+> worker's view at all.**
+
+Consequences, if it holds:
+
+- **F-5's manager half becomes structurally impossible.** The manager can
+  write `RECORD.md` continuously, which is its actual job, and no overlay can
+  ever see it.
+- **F-31 becomes structurally impossible.** A worker cannot leave an
+  out-of-scope edit in a directory it cannot see, and the instruction to
+  append a report to the task file has to be replaced by the thing S-1's
+  worker chose unprompted — deliver it in the final message and let the
+  supervisor, which is host-side, commit it.
+- **Co-location survives.** `devteam/` stays in the repository, claims stay
+  commits, and the single-timeline property is untouched.
+
+**What needs checking before this is adopted**, and it is not checked here:
+whether any worker legitimately needs to *read* something under `devteam/`
+during a step, and whether the dispatch already carries everything such a
+worker would have gone looking for. If the dispatch is complete — and the
+template suggests it is close — the worker's view of `devteam/` may already
+be write-only-by-accident rather than genuinely needed.
