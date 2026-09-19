@@ -4,10 +4,10 @@
 
 Pointers only. Open the subcycle file for the finding itself; an
 index that carried the content would be a second home for a fact.
-**297 findings across 11 subcycle files.**
+**298 findings across 11 subcycle files.**
 
 
-## 0.2/0.2.9.md  (208)
+## 0.2/0.2.9.md  (209)
 
 - `0.2/0.2.9.md:467` — THE BUILD PHASE, READ WHOLE — what fired, what did not, and what it cost
 - `0.2/0.2.9.md:730` — THE GUARD FIRED LIVE — and it revealed that it had never seen a single write the manager made
@@ -217,6 +217,7 @@ index that carried the content would be a second home for a fact.
 - `0.2/0.2.9.md:3384` — Items without an owner, disposition or expiry kept reaching the handoff, to the last rotation
 - `0.2/0.2.9.md:3391` — The session join stayed a mandatory question after the session could name itself
 - `0.2/0.2.9.md:3398` — An announced rotation had no way to be cancelled
+- `0.2/0.2.9.md:3408` — A signed push grant the guard never honoured: D-1 let the manager push, and the guard refuses every git remote command inside a devteam project
 
 ## done/0.2.0.md  (3)
 

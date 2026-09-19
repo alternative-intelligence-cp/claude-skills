@@ -489,10 +489,11 @@ One row per finding as 0.2.9 heads it, grouped by the part of the plugin it conc
 | The plugin's `undispositioned-finding` check exists, but it could not see any of the four gate audits, because they did not use its finding namespace | F-1, F-4, F-69, F-99 | open | Make the audit skill's output format and `check_refs`'s audit namespace one contract. When `audits/` holds findings the check cannot parse, it should report that instead of reporting clean (suggested here, not in the record). |
 | The `Re-affirmed.` checking that iterate §4 relies on was half-broken at the opening, and the break had been recorded in cycle 1 (F-36, found again as F-68) | F-36, F-68 | open | Apply F-36's bound, which is the record's remedy. Add a permitted value for a condition an amendment adds, because an iteration is exactly where done-means get added (suggested here, not in the record). |
 
-### A7 — guard & permissions (7)
+### A7 — guard & permissions (8)
 
 | Finding, as 0.2.9 heads it | F-n | Status at the stop | For v3 |
 |---|---|---|---|
+| A signed push grant the guard never honoured: D-1 let the manager push, and the guard refuses every `git remote` command inside a devteam project *(found at the close, in the closing session; no pricelog F-number)* | — | open | Either the guard reads a charter's push grant, or onboarding refuses to record a grant the guard will not honour; and the guard tells a read-only `git remote` from a fetch or a push (suggested here, not in the record). |
 | The guard refuses legitimate scratch writes outside the repository in more than one way | F-6 | open | Resolve guard targets against the command's real working directory, and judge `devteam/` paths only inside the governed repository (suggested here, not in the record). |
 | The guard refuses a write to an unscoped path but permits committing the same path | — | open | Document the split as intended, or judge commits by the same scope as writes (suggested here, not in the record). |
 | The permission paperwork was never completed or read: PERMISSIONS.md stayed a proposal and D-1's push count was never taken. | — | open | The checkpoint skill reads the condition attached to each conditional grant (suggested here, not in the record). |
