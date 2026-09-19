@@ -151,35 +151,23 @@ first run; the evidence column says where.
 ## What comes next
 
 Cycle 0.2 is [`meta/roadmap/0.2/`](meta/roadmap/0.2/README.md), and it is
-nearly through. `ls meta/roadmap/done/` is what happened; `ls
-meta/roadmap/0.2/` is what remains.
+through. `ls meta/roadmap/done/` is what happened; 0.2.9 stays in
+`meta/roadmap/0.2/` because it was stopped rather than finished.
 
-**Done:** the probes, the sandbox harness and its controls, extraction and
-the promotion gate, the worker running headless inside, the pipeline wired
-onto it, manager rotation, every finding class named against its rule, the
-two sweeps, and this release.
+**0.2.9, the second run, was stopped by the owner on 2026-09-19** after both of
+its cycles had run on the owner's own project: `/devteam:iterate`, manager rotation and
+the unreviewed-decision path all fired, and the run was then read whole. Its
+findings are in [0.2.9's Findings](meta/roadmap/0.2/0.2.9.md), and the same
+material is sorted for planning in
+[`meta/v3-findings-register-2026-09-19.md`](meta/v3-findings-register-2026-09-19.md)
+— what worked, what broke by area, and where v3 should start. **0.2.10**, the
+root-tree allowlist, is done.
 
-**Remaining, and the order matters:**
-
-- **0.2.9 — the second run.** **Two** cycles on a small real project of the
-  owner's, built from nothing, with **the owner as its client** — cycle 1
-  builds it, he uses it, cycle 2 runs `/devteam:iterate`, which only runs on a
-  finished cycle. Workers sandboxed at width 2–3, rotation at a checkpoint, a
-  one-hour escalation window so P-27 fires against a client who is genuinely
-  asleep rather than performing lateness, and a budget ceiling that blocks
-  rather than warns. **This is what the cycle was for.** Every mechanism 0.2
-  built is currently proved by its own controls and by one walk on a throwaway
-  project; 0.2.9 is where they meet a project.
-  **Retargeted 2026-09-07, before it ran.** It was cycle 2 on the
-  `.internal/scratch/` fixture with a session briefed to play a slow client,
-  until the owner was asked for the positions the plan required and could not
-  supply them — he did not choose that project, plan its decisions, or know
-  what was in scope. **The fixture has no principal**, so every interview
-  question would have been answered by an agent on behalf of an agent.
-- **0.2.10 — the root-tree allowlist.** Small and independent of everything
-  else: a declared table of what the repository root holds, a check that
-  diffs the tree against it, and a hook that refuses a stray write at the
-  root.
+**Next is v3**, planned from that register and from the backlog in
+[`meta/v3-liaison-and-roles-2026-09-12.md`](meta/v3-liaison-and-roles-2026-09-12.md).
+The Known problems table above was written before the run was read: several of
+its rows name 0.2.9 as the run that would measure them, and it has, so
+revising those rows from the register is v3's first bookkeeping.
 
 **And a decision that waits on 0.2.9 rather than on the roadmap finishing.**
 This repository is not itself a devteam project — it has no `devteam/`

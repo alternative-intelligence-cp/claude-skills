@@ -159,7 +159,7 @@ the worker's life to a background shell whose lifetime is not documented.
 | [0.2.6](../done/0.2.6.md) — the checks | every finding class named against its rule (`docs/CHECKS.md` and an `unruled-finding` check); the audit namespace checked and `open-finding-at-close`; amendment re-affirms every DM; estimate model v3 | 0.2.4 | partly — the F-113 audit is core, the rest can wait |
 | [0.2.7](../done/0.2.7.md) — two sweeps | the rule-pairs sweep and the ceremony test, each with a method, a calibration set and a deliverable | 0.2.4 | deferrable |
 | [0.2.8](../done/0.2.8.md) — release 0.2.0 | version, self-check, controls, DESIGN §14, CONSOLIDATION rewritten, a new handoff, a fresh `setup` on a throwaway project | everything shipped | yes |
-| [0.2.9](0.2.9.md) — the second run | **two cycles on a small real project of the owner's, with him as its client** — cycle 1 builds, he uses it, cycle 2 runs `/devteam:iterate`; rotation at a checkpoint, sandboxed workers at width 2–3, a one-hour escalation window so P-27 fires, a budget ceiling; what to measure and when to stop. **Retargeted 2026-09-07: the fixture has no principal** | 0.2.8 | yes — it is what the cycle is for |
+| [0.2.9](0.2.9.md) — the second run | **two cycles on a small real project of the owner's, with him as its client** — cycle 1 builds, he uses it, cycle 2 runs `/devteam:iterate`; rotation at a checkpoint, sandboxed workers at width 2–3, a one-hour escalation window so P-27 fires, a budget ceiling; what to measure and when to stop. **Retargeted 2026-09-07: the fixture has no principal.** **Stopped 2026-09-19 by the owner, after both cycles ran**; read whole in its Findings, and sorted for planning in [`v3-findings-register-2026-09-19.md`](../../v3-findings-register-2026-09-19.md) | 0.2.8 | yes — it is what the cycle is for |
 | [0.2.10](../done/0.2.10.md) — the root-tree allowlist | a declared table of what the repository root holds, a `check_plugin` finding pair that diffs the tree against it, and a hook that refuses a stray write at the root; the mechanism behind the `.gitignore` line | — | small, independent; any time |
 
 **Order.** 0.2.0 → 0.2.1 → 0.2.2 → 0.2.3 → 0.2.4 → 0.2.8 is the shortest
@@ -844,7 +844,7 @@ before it passes.
 | 0.2.8 | 1 short | 0.3–0.6 M |
 | 0.2.10 | 1 short | 0.2–0.4 M |
 | **build, core path** (0.2.0–0.2.5, 0.2.8) | 7–9 | **4.3–8.4 M** |
-| 0.2.9 — the run | days | 4–8 M, against cycle 0.1's measured 13.5 M for ten tasks; three or four tasks at width 2 with a ceiling |
+| 0.2.9 — the run | days | 4–8 M, against cycle 0.1's measured 13.5 M for ten tasks; three or four tasks at width 2 with a ceiling · **MEASURED at the stop, 2026-09-19: nineteen tasks over two cycles; about 743 M processed manager tokens counted by per-rotation deltas (cycle 1 a floor of 303.1 M, cycle 2 about 439.6 M), with 43.7 M of resumes and every in-process agent outside that count; about `$170` of workers.** Out by two orders of magnitude — for 0.2.0's reason above, and because the run was about five times the planned size |
 
 Write the measured figure into each subcycle's title line when it closes, so
 the next cycle's model can be corrected rather than re-guessed (P-41).
