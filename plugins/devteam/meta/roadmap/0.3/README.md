@@ -205,6 +205,13 @@ supervisor tree, and reach the client is `REASONED` until 0.3.0 runs it. The
 same listing is also a scriptable join between a session's id and its name
 (F-118) and a liveness reading for sessions — `REASONED` until a subcycle reads
 it under load. Whether it lists headless `claude -p` workers is not known.
+*Measured 2026-09-23 by 0.3.0's probe A ([§3.1](0.3.0.md)):* a background
+session loads the plugin's skills, dispatches two levels of subagent, is woken
+by their completion, and can start and message its successor (L-15). It reaches
+the client only through the list of background sessions that `claude attach`
+leaves you in — its push notification was suppressed as though somebody were
+watching its terminal. Running `/devteam:resume` itself was not part of the
+probe. The listing's `status` is not a liveness reading on its own (L-15).
 
 **4.7 The Nitpick compiler is under active development, and the user guides
 for it were written by another model.** The compiler
@@ -274,7 +281,7 @@ benchmark files are in the tracked tree.
 | 0.3.3 — the disposition ledger | one ledger for every open item — raised by an adversary, a worker, an auditor, an outgoing manager, or the client between writes — each a countable line with an owner and a decision or an expiry; report grammars that carry open items as lines (F-139); a check that fails any landing that leaves one without; question status in one home (F-63, F-64); the audit skill's output and `check_refs`' audit namespace made one contract (F-99, F-104, F-112); a place outside the writer lock for what the client says during a handoff (F-21) | 0.3.1 | yes |
 | 0.3.4 — manager primitives | one command each, each checking its own preconditions (L-5): **claim** (generates every board value that restates another; counts in-flight and stopped rows against width, F-130), **take the lock**, **land** a brief, report or verdict whole with its digest, **commit** named paths on a green gate, **close** a task (title, board row and requirement in one commit — F-78, F-90, F-98, F-107), **dispatch** (a model field required, real CLI ids — F-7, F-25, F-73, F-121), **re-claim** (F-39) and **stop**; `run` and `resume` rewritten to call them | 0.3.1, 0.3.3 | **yes — §2** |
 | 0.3.5 — meters that see what the gauge sees | the meter from 0.3.0 made the ceiling's instrument (L-7): every session and in-process agent; a rotation's window opened at the successor's first request and closed at the predecessor's true close (F-110, F-116); a running total at every report; each dispatch's model recorded; worker meters and reports kept outside the overlay and the dispatching process (F-9, F-76, F-87); the estimate model given a term for adversarial rounds and the stops they cause (A8), and a tenure priced at the measured average plus resume and tail (A11) | 0.3.0 | yes |
-| 0.3.6 — the handoff | `handoff-ready` made a structured record whose required fields are what fifteen successors had to ask for — client words since the last write, work outside the tree, probe directories, open items from the ledger, the session's name, the trigger if off-cadence — with a check on it; rotation after a checkpoint enforced rather than remembered; `cancelled` and `stopped` states the guard reads (F-141); a direct handoff to an open successor (F-129); the recovery table's missing rows — resume in place (F-17), a quota stop (F-106), a stopped claim (F-130) | 0.3.3, 0.3.4, 0.3.5 | yes |
+| 0.3.6 — the handoff | `handoff-ready` made a structured record whose required fields are what fifteen successors had to ask for — client words since the last write, work outside the tree, probe directories, open items from the ledger, the session's name, the trigger if off-cadence — with a check on it; rotation after a checkpoint enforced rather than remembered; `cancelled` and `stopped` states the guard reads (F-141); a direct handoff to an open successor (F-129); the recovery table's missing rows — resume in place (F-17), a quota stop (F-106), a stopped claim (F-130); **start the successor** — the outgoing manager starts it with `claude --bg` and hands over by message, under L-15's four conditions | 0.3.3, 0.3.4, 0.3.5 | yes |
 | 0.3.7 — frozen sandboxes and the worker's edges | L-3: a commit as each overlay's lower layer, `devteam/` read-only, the report returned in the worker's final message and committed by its supervisor (F-5, F-26, F-31, F-71); an inventory that survives `close` — pid, spent or promoted, budget (F-9, F-66, F-124); `close` refusing to discard an abnormal exit's overlay (F-43, F-51, F-56); a probe directory the record can cite, for workers too (F-134); every pinned tool bound from the pin — the CLI, and for a Nitpick project the compiler (F-42, F-81, F-96); `--model` and `--step` validated before `open` (F-111, F-121); a worker able to amend its own unpromoted commit (F-122); trailers added at promotion (F-8, F-27); scope-aware whole-suite gates (F-74); then width 2 measured again | 0.3.0, 0.3.1 | yes — it is what restores width above 1 |
 | 0.3.8 — verification and the adversarial layer | a coverage field in every verdict — what was attacked and what was not, with acceptance and gate answered separately; *shown able to fail* required of every test step and trip-wire (F-77, F-79, F-91); a fresh task verifier on every `NEEDS-DECISION`, aimed at the supervisor's recommendation (F-133); verifier briefs that carry no expected result (F-115); the literal acceptance command (F-16, F-29); a structural comparison for claims that code is unchanged (F-120); no published reproduction that was not run (F-40, F-41); audits inside the build loop, and metered; the verify fallback made a clone (F-94); a stated precedence between a dispatch and a skill (F-108) | 0.3.3 | yes — the register calls this layer where the value was |
 | 0.3.9 — signed text | L-4: superseding a requirement made one command, an in-place edit of a signed requirement made a check failure, and P-46 superseded so that its shape review counts supersessions; a shape review at onboarding that flags a list of cases under a goal that quantifies — R-4 cost seven `CHARTER` stops in one day — and an acceptance worded as a method rather than a property (A9); an amendment grammar that can say *in force, currently broken* and records which amendments the client approved; a check for code-level exclusions that no signed text names (F-48); plans that cite a prototype's measurement as the prototype's (F-140) | 0.3.1 | yes |
@@ -478,6 +485,46 @@ evidence cited, and stand until the owner overrules one.
 
 *The last two were accepted in prose rather than by selecting an option; each
 grants what its recommendation said and nothing adjacent to it.*
+
+**Added from 0.3.0's probes**, each under the decision rule in
+[0.3.0](0.3.0.md) §4, which the owner approved with this map:
+
+- **L-15 — a session can start its successor and hand over to it by message,
+  with nobody at the keyboard; the platform sets four conditions.** *Settled
+  by:* 0.3.0 §4's rule, applied to probe A (`MEASURED` 2026-09-23, CLI
+  `2.1.281`, [0.3.0](0.3.0.md) §3.1). A background session started with
+  `claude --bg` loaded all 15 `devteam:` skills, dispatched two nested levels
+  of subagent, and was woken both by their completion and by a background
+  command's. A session started another with `claude --bg`, messaged it, had its
+  answer 4 to 6 s after the message, and stopped itself — in the final run, one
+  invocation of `scripts/bg_session_probe.py`, exit `0`. **This supersedes the
+  premise of 0.2's L-8** — *"a session cannot spawn its own interactive
+  successor"* — and not its trigger: rotation still happens at every
+  checkpoint. *So:* 0.3.6 adds **start the successor** — the outgoing manager
+  starts it with `claude --bg` at the project's root and hands over by message,
+  and the owner opens nothing. *The four conditions, each measured failing
+  before it was known:*
+  1. **The project directory has been trusted** in an interactive session
+     once. `--bg` refuses an untrusted one, and no command grants trust. `setup`
+     is run interactively, so a devteam project meets this already.
+  2. **The project's `.claude/settings.json` sets
+     `"worktree": {"bgIsolation": "none"}`.** Without it a background session's
+     Write and Edit in the checkout are refused until it isolates itself in a
+     worktree — and a manager's job is writing `devteam/` in that checkout.
+  3. **The skills reserve *push*, not git, for the owner.** A background
+     session's system prompt tells it to commit without asking and to push if
+     there is a remote, unless the task, CLAUDE.md or memory reserves git. A
+     manager commits constantly; pushing is the owner's (L-14).
+  4. **The manager's permission grant covers every command it runs.** An
+     ungranted command blocks a background session, and only the listing's
+     `waitingFor: permission prompt` shows it — nothing tells anybody.
+
+  *Two readings not to make:* `busy` in `claude agents --json` does not mean a
+  turn is running, because a pending background task keeps a session `busy`
+  after its turn ends; and a stopped session is listed at the checkout it
+  started in, not the worktree it wrote in. *Not measured:* a background
+  session running `/devteam:resume` itself. *Declined:* keeping 0.2's L-8
+  premise — measured false.
 
 ## 7. Excluded from this cycle, with the trigger that would include it
 
