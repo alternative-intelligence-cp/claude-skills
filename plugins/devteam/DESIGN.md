@@ -1971,7 +1971,10 @@ acceptance is an `Accepts.` field on a decision in `DECISIONS.md`, classed by
 P-26 like any other decision, not an entry in a block. It names the finding
 without its line, because a line number moves with every edit above it and
 would un-accept the finding. The stale half is built as written above
-(`templates/FORMATS.md` §"Accepted findings").
+(`templates/FORMATS.md` §"Accepted findings"). The *restore the zero* sentence
+is in the `DECISIONS.md` template's header, for the reason this section gives
+at its start: that is where it is read at the moment of temptation (roadmap
+0.3.1, §3.7).
 
 ---
 

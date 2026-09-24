@@ -2,7 +2,7 @@
 name: iterate
 description: Open a second or later cycle on a finished devteam project — carrying the charter, decisions, record and audits forward, re-interviewing only what using the thing actually taught, and amending rather than starting over. Use when the client has accepted a cycle and wants more, or has used it and found it wrong.
 argument-hint: "[project path]"
-allowed-tools: Bash(python3 *) Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Read Write Edit Grep Glob WebSearch WebFetch Agent AskUserQuestion
+allowed-tools: Bash(python3 *) Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Read Write Edit Grep Glob WebSearch WebFetch Agent AskUserQuestion
 ---
 
 # Iterating
@@ -95,6 +95,19 @@ cycles, and the cross-cycle picture is the thing no single cycle can see.
 
 Then `/devteam:plan` and `/devteam:run` as normal, and the gates are the same:
 the client approves the amended charter, then the plan.
+
+**Commit the approved charter and its new requirements together, through the
+gate, with `--pre-plan`:**
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit --pre-plan -C . -F "$msgfile" \
+    -- devteam/CHARTER.md devteam/REQUIREMENTS.md
+```
+
+The client signs before the plan exists, so the new requirements have no task
+yet. `--pre-plan` lets a requirement the commit adds stand uncovered until it
+is planned. It still refuses a requirement that *loses* its task, and anything
+else the commit adds. The `check` skill says what a refusal asks of you.
 
 ## 6. What an iteration is for, and what it is not
 

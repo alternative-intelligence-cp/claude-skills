@@ -211,10 +211,10 @@ and compares what it claims against the tree.
 
 | Check | Reads | Diffs |
 |---|---|---|
-| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md` | goals ↔ requirements ↔ tasks ↔ acceptance criteria |
-| `check_refs.py` | every tracked `.md` under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
-| `check_report.py` | one `tasks/T-n.md` plus `git` | the REPORT block ↔ the committed tree |
-| `check_scope.py` | `BOARD.md`, `tasks/*.md` | declared scopes ↔ each other, and ↔ what was written |
+| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`, `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles |
+| `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
+| `check_report.py` | one `tasks/T-n.md`, `git`, and the harness's `.run/locks/T-n.sandbox` line | the REPORT block ↔ the committed tree |
+| `check_scope.py` | `BOARD.md`, `tasks/*.md`, `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written |
 
 `check_trace`, `check_refs` and `check_scope` read **what git would show**
 under `devteam/`: tracked files, and untracked ones that no ignore rule
@@ -230,9 +230,8 @@ evaluated, and takes `--json` and `--at-commit`. `--at-commit` says the tree is
 a clean checkout of one commit, which is how the commit gate reads it
 (`scripts/gate.py`, P-49). It excludes the classes that read the working
 state, each named in the line. `3` means the check ran and names a part it did
-not look at, with the reason — which is never clean (cycle 0.3's L-6). The
-contract, and what each result means, is `scripts/result.py`'s (roadmap
-0.3.1, L-1.1).
+not look at, with the reason — which is never clean (P-50). The contract, and
+what each result means, is `scripts/result.py`'s (roadmap 0.3.1, L-1.1).
 
 A part is not looked at when its source **offered a row the grammar did not
 read** — a heading, list item, table row or field line written in a shape
@@ -245,11 +244,24 @@ silently skipped: fix the row, or, for a wrapped field, keep the value on the
 field's first line and move the explanation to a bullet of its own, which is
 how pricelog's T-19 repaired its `Discharges.` field (F-132).
 
+**The gate reads the checks, and an agent commits only through it** (P-49).
+`scripts/gate.py commit -F <message file> -- <paths>` builds the commit
+without moving any ref, then runs the four project checks with `--at-commit`
+and `--json` on HEAD and on that commit. It makes the commit only if the
+commit adds no finding and no part not evaluated that HEAD lacks, counted by
+the identity an acceptance matches by. A finding already at HEAD stands, and
+it is printed at every run. The gate exits `0` committed · `1` refused · `2`
+could not run, and nothing is committed on `1` or `2`. `docs/CHECKS.md` lists
+its refusal classes. In a devteam project, the `commit_guard.py` hook refuses
+an agent's commit made any other way: a git command that writes a commit, or
+a branch pointed at a commit no branch holds. A worker inside a sandbox is not
+refused, because promotion gates its commits (P-44).
+
 ## Accepted findings
 
 A finding that will not be fixed is **accepted by a decision**: a `D-n` in
 `DECISIONS.md` carrying an `Accepts.` field. It is never accepted by a
-baseline file, a flag or a comment (roadmap 0.3.1, L-1.6). Each item names one
+baseline file, a flag or a comment (P-51). Each item names one
 finding as the check prints it: the check, the class and the anchor file, each
 in backticks, then a dash and the message. A part not evaluated is named by its
 part, up to its dash. One acceptance, one line.
@@ -275,6 +287,9 @@ part, up to its dash. One acceptance, one line.
   where P-27's record lives. **The check enforces that the line is there. It
   cannot enforce which class an acceptance is**, because no check can tell what
   a finding means to the charter: that stays the decider's judgement.
+- **Cited, like every decision.** A decision nothing cites is
+  `defined-uncited` (P-22). So the commit that adds an accepting decision also
+  cites it, normally with a `RECORD.md` line saying what it accepted.
 - **What the check does.** It reports each accepted finding under the number
   of the decision that accepted it, says how many on its result line, and exits
   `0` when nothing else is found. An accepted part is still a part nobody looked

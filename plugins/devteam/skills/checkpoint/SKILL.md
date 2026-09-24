@@ -2,7 +2,7 @@
 name: checkpoint
 description: Diff what a devteam project has actually built against its signed charter and file a dated verdict — goal by goal with the evidence recorded, what diverged and whether anyone decided it, which reversible questions the loop settled without the client, and cost against estimate. Run on a schedule, at milestones, and on demand.
 argument-hint: "[project path]"
-allowed-tools: Bash(python3 *) Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Read Write Edit Grep Glob AskUserQuestion
+allowed-tools: Bash(python3 *) Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Read Write Edit Grep Glob AskUserQuestion
 ---
 
 # Checkpointing
@@ -37,6 +37,10 @@ acceptance criterion was run and its output is in the record (P-5).
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_refs.py" .
 ```
+
+The `check` skill says what each result means. A part not evaluated goes into
+the checkpoint as a part of the charter nobody's check has read, never as
+clean.
 
 Then go past what the scripts can see: **read the acceptance criteria and ask
 whether what was built actually satisfies them**, rather than whether a
@@ -213,7 +217,8 @@ be capable of failing, which is the same standard the checks are held to
 ## 6. File it
 
 `devteam/checkpoints/C-n-<date>.md`, from
-`${CLAUDE_PLUGIN_ROOT}/templates/checkpoints/CHECKPOINT.md`. Commit it, and
+`${CLAUDE_PLUGIN_ROOT}/templates/checkpoints/CHECKPOINT.md`. Commit it through
+the gate, as every commit on the host is made (`run`'s opening says how), and
 add `checkpoint C-n <verdict>` to `RECORD.md`.
 
 **Never edit a filed checkpoint.** A checkpoint that could be revised in the

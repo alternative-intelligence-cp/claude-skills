@@ -30,7 +30,8 @@ project the tables below are the whole of the grant, for everyone.
 | `Bash(<test command>:*)` | every verification re-runs it (P-19) | verifier, tester |
 | `Bash(<build command>:*)` | a step is not done until it builds | implementer |
 | `Bash(git status:*)`, `Bash(git diff:*)`, `Bash(git log:*)` | reading the tree state before and after work | all |
-| `Bash(git add:*)`, `Bash(git commit:*)` | one commit per step; the commit is the unit of evidence | implementer, tester, documenter |
+| `Bash(python3 <plugin>/scripts/gate.py:*)` | every commit on the host goes through the gate, which checks the commit before it exists (P-49). The commit guard refuses a direct `git commit` in a devteam project, so without this grant nothing on the host can commit | manager, supervisor; on a `guard-only` project, implementer, tester, documenter |
+| `Bash(git add:*)`, `Bash(git commit:*)` | inside a sandbox: one commit per step, and the commit is the unit of evidence. Promotion gates those commits (P-44). On the host they commit nothing in a devteam project, because the commit guard refuses them | implementer, tester, documenter, inside a sandbox |
 | `Read`, `Grep`, `Glob` | reading the project | all |
 | `Edit`, `Write` | the work itself, bounded by the guard to declared scope (P-10) | implementer, tester, documenter |
 | `WebSearch`, `WebFetch` | research digests from primary sources (P-36) | researcher |

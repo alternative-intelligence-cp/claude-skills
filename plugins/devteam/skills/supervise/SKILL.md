@@ -2,7 +2,7 @@
 name: supervise
 description: Run one task of a devteam project — read the task and what it must satisfy, decompose it into steps, dispatch one worker per step, verify every step before accepting it, escalate what the project's documents do not settle, and report upward with every worker report appended verbatim. Used by the supervisor agent.
 argument-hint: "[task]"
-allowed-tools: Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(python3 *) Read Write Edit Grep Glob Agent
+allowed-tools: Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Bash(python3 *) Read Write Edit Grep Glob Agent
 ---
 
 # Supervising a task
@@ -218,9 +218,9 @@ evidence where its concurrence would have been nothing.
    which `check_report` finds through the `.sandbox` file's `root` path and
    which outlives the overlay by design (P-14b).
 
-4. **Check the REPORT mechanically**, `check_report.py "$REPO" T-n`. Two of its findings
-   are new and neither is a correction to make — each is a fact about the
-   report:
+4. **Check the REPORT mechanically**, `check_report.py "$REPO" T-n`. The
+   `check` skill says what each result means. Two of its findings are new and
+   neither is a correction to make — each is a fact about the report:
    `budget-mismatch` (the worker's `budget:` disagrees with what the harness
    metered, beyond 10% on tokens or 20% on minutes) and `model-mismatch` (its
    `model:` names a model that did not run). The first one this pipeline ever
@@ -320,8 +320,8 @@ here, so the manager and the client do not have to rebuild it.
       have sat in two later tasks' futures with nothing able to report it.
       Paste the output even when it is clean — "clean at close" is the claim,
       and an absent line is not one.
-- [ ] committed; `git -C "$REPO" status --porcelain -- <this task's scope>`
-      empty. **Scoped.** Unqualified, it is a statement about other tasks'
+- [ ] committed through the gate; `git -C "$REPO" status --porcelain --
+      <this task's scope>` empty. **Scoped.** Unqualified, it is a statement about other tasks'
       in-flight work: unsatisfiable at width above one, and every literal way
       to satisfy it is forbidden by P-12b
 - [ ] the title line set to `DONE (<date>)`, or `READY-TO-AUDIT` if this task
@@ -394,7 +394,18 @@ manager judge whether the FAIL was right. Summaries of verdicts have already
 been wrong about their own counts in this project, which is exactly how
 evidence erodes into recollection.
 
-**Commit your own block alone** (P-16). The worker blocks already stand
+**Commit your own block alone** (P-16), through the gate, as every commit on
+the host is made (P-49):
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit -C "$REPO" -F "$msgfile" -- devteam/tasks/T-n.md
+```
+
+The commit guard refuses any other way of committing, and the `check` skill
+says what a refusal asks of you. The commit that sets the title to `DONE`
+while the verifier has not yet returned is F-19's window, and the gate allows
+its `one-sided-link` while the task is in the board's in-flight table. The
+worker blocks already stand
 verbatim in the execution record — each worker appended its own — so
 committing your final message literally would leave a worker's block last in
 the file, and the record check would then validate a worker's step report in

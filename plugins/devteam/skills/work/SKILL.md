@@ -130,31 +130,42 @@ follow that nothing else in your dispatch tells you:
 
 ## 5. Committing
 
+**Where you are decides the command.** Under `CONTAINMENT: structural` you are
+inside a sandbox. You commit with git, and promotion gates what you committed
+(P-44). Under `guard-only` you are on the host, and every commit there goes
+through the gate, which checks the commit before it exists (P-49). The commit
+guard refuses any other way of committing on the host.
+
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" "$REPO" T-n
+# structural, inside the sandbox:
 git -C "$REPO" commit -F "$msgfile" -- <each path you wrote, explicitly>
+# guard-only, on the host:
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit -C "$REPO" -F "$msgfile" \
+    -- <each path you wrote, explicitly>
 ```
 
-**Commit a pathspec. Staging explicitly is not enough, and `-A` is worse.**
+The `check` skill says what each result means, and what each refusal of the
+gate asks of you. A refusal names only what *your* commit adds. A finding
+already at HEAD is printed as standing, and it does not refuse you.
 
-`-A` sweeps whatever else is in the tree into your commit — the manager owns
-`devteam/` and may have an uncommitted file at any moment, and a supervisor had
-to override that instruction on every dispatch before it was fixed here.
+**Name each path. Staging is not the commit, and `-A` is worse.** `-A` sweeps
+whatever else is in the tree into your commit — the manager owns `devteam/`
+and may have an uncommitted file at any moment, and a supervisor had to
+override that instruction on every dispatch before it was fixed here. The gate
+refuses a path that names the whole repository for that reason.
 
-But `git add <your files>` followed by a plain `git commit` fails too, and
-fails invisibly: **the index is shared.** At any width above one, another
-agent's `git add` has already put its files there, and your commit takes the
-whole index — carrying somebody else's in-flight work into your task's commit
-under your message. You did nothing wrong and the standing rule did not cover
-it, because *somebody else did the staging*. A manager used the add-then-commit
-form for an entire run and it only never landed because the other task happened
-to commit first.
-
-`git commit -- <paths>` commits exactly those paths whatever the index holds.
+Both forms above commit exactly the paths you name. The index plays no part.
+That matters because on the host **the index is shared**: at any width above
+one, another agent's `git add` has already put its files there, and a plain
+`git commit` took the whole index, carrying somebody else's in-flight work into
+your task's commit under your message. The gate builds its commit in an index
+of its own. Inside a sandbox, the index is your own copy.
 
 **The `-m` trap:** anything after the `--` separator is a pathspec, so
 `git commit -- src/a.py -m "msg"` silently tries to commit files named `-m` and
-`msg`. Put the message flag first, or use `-F`.
+`msg`. Put the message flag first, or use `-F`. The gate refuses that form
+outright instead of guessing.
 
 Scope clean, or the commit does not happen. The subject is
 `T-n.S-n: <what>`; the body says **why** — the diff already says what. End the
@@ -374,13 +385,15 @@ something.
   amended, which is always `HEAD`. A worker reaching for the careful-looking
   form still rewrites whoever is at `HEAD`. There is no pathspec, flag or
   ordering that makes an amend safe in a shared tree — only not doing it.
-- **Never `--amend` unless the board says width 1.** `--amend` acts on `HEAD`,
-  and at width greater than one `HEAD` is not yours — it is whichever task
-  committed most recently, which may have been a second ago. A worker amended
-  what it believed was its own commit and rewrote a concurrent task's: its
-  report text was merged into that task's subject, and that task's hash changed
-  underneath it. Read the board's `**Width.**` line; above 1, correct a commit
-  by **adding another one**, never by rewriting. The same goes for `rebase`,
+- **Never `--amend` on the host.** The commit guard refuses it in a devteam
+  project at any width, because an amend is a commit the gate never checked,
+  and `guard.py` refuses it while any claim is live (P-12b). The reason under
+  both: `--amend` acts on `HEAD`, and at width greater than one `HEAD` is not
+  yours — it is whichever task committed most recently, which may have been a
+  second ago. A worker amended what it believed was its own commit and
+  rewrote a concurrent task's: its report text was merged into that task's
+  subject, and that task's hash changed underneath it. Correct a commit by
+  **adding another one**, never by rewriting. The same goes for `rebase`,
   `reset --hard`, `stash`, and `checkout` of a tracked path (P-12b).
 
   **Under `CONTAINMENT: structural` this is P-12c instead, and it is looser
@@ -397,9 +410,9 @@ something.
   leaves the index and working tree exactly as they are, which matters because
   the tree holds other tasks' uncommitted work and `--hard` would destroy it.
   Then say so in `notes:` — the recovery is part of the record, not a tidy-up.
-- **If your supervisor has you amend a commit at width 1, re-point any hash you
-  cited.** An amend leaves the old commit on no branch, so a hash written in
-  your `checks:` lines now names something orphaned. Re-derive it, or `HEAD`.
+- **If you amend a commit inside your sandbox, re-point any hash you cited.**
+  An amend leaves the old commit on no branch, so a hash written in your
+  `checks:` lines now names something orphaned. Re-derive it, or `HEAD`.
 
 **Naming the commit you are inside.** Your report is committed in the same
 commit as your work (P-16), so that commit's own hash cannot appear inside it

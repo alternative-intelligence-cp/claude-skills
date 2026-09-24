@@ -456,8 +456,11 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py" .
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_refs.py" .
 ```
 
-All clean. A plan with an `uncovered-requirement` is a plan that silently
-drops something the client signed for.
+All clean, but for one class: `untracked-file` names each task file you have
+not committed yet, which are exactly the files the plan's commit will name.
+The `check` skill says what each result means. A plan with an
+`uncovered-requirement` is a plan that silently drops something the client
+signed for.
 
 Then fill the board's **Tasks** table — every task, its requirements, its
 dependencies, its scope, state `—`.
@@ -473,8 +476,30 @@ Show the client:
 - **which task answers the riskiest unknown, and when they will know**
 - every open `Q-n`
 
-Get approval for the plan, the width, and the model band. Then
-**`/devteam:run`**.
+Get approval for the plan, the width, and the model band. **Then commit the
+plan through the gate**, the task files and the board together:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit -C . -F "$msgfile" \
+    -- devteam/tasks devteam/BOARD.md
+```
+
+Until the plan is committed, every task file is untracked, and the gate
+refuses any other commit that leaves one unnamed (F-131).
+
+Until 0.3.2 reads the board's rows, the gate also refuses this commit for
+adding *BOARD.md's task rows* as a part not evaluated, on a board written as
+the template writes it. Accept that part by a decision in `DECISIONS.md`, with
+an item reading ``- `check_trace` not evaluated: BOARD.md's task rows``, cite
+the decision with a line in `RECORD.md`, and name both files in the same
+commit, as the `check` skill's *Accepting a finding* says:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit -C . -F "$msgfile" \
+    -- devteam/tasks devteam/BOARD.md devteam/DECISIONS.md devteam/RECORD.md
+```
+
+Then **`/devteam:run`**.
 
 ## Decomposing one task into steps
 

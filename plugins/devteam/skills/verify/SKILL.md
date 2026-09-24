@@ -169,6 +169,15 @@ where it might be.
    ```
 6. **Every `checks:` line, re-run.** This is the one that matters.
 
+**What a check's exit means is the `check` skill's.** `0` is the only pass.
+`1` and `3` are each a FAIL naming what the check named: a finding, or a part
+it did not look at (P-50). `2` is a FAIL whose reason is that the check could
+not run. A part not evaluated that is not this task's to fix — an audit
+heading outside the namespace, a board row the check cannot read yet — still
+FAILs. Say so in the line, so the supervisor takes it to the manager, whose
+remedy is an acceptance by decision (P-51). A decision that accepts the part
+turns the check's result back to `0`.
+
 ## Re-running a check
 
 **Run the exact command string from the report.** Not a similar one, not a

@@ -128,6 +128,8 @@ unread.
    pairwise. Run `check_trace.py` first — it does the mechanical half — then
    audit what it cannot see: whether the requirements *cover* their goal, not
    merely whether each goal has one. That gap is real and no script finds it.
+   The `check` skill says what each result means. A part a check did not
+   evaluate is a part no script has read, so read it yourself.
 3. **Document against document.** Run `check_refs.py`, then look for what it
    cannot: a superseded decision still cited as live, a rule nothing
    implements, a decision nobody agreed to.

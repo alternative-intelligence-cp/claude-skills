@@ -80,7 +80,7 @@ goals ↔ requirements ↔ tasks ↔ acceptance criteria.
 | `unreachable-acceptance` | P-10 — a worker writes only inside its declared scope; P-5 | a requirement's `Requires-write.` ↔ the `Scope.` of each single discharging task | `enforces` |
 | `unparseable-task` | `FORMATS.md` §"Status vocabularies", task title | the file's first line ↔ the `# T-n — <title> — <status>` grammar | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
-| `stale-acceptance` | `FORMATS.md` §"Accepted findings" — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero (roadmap 0.3.1, L-1.6; CONSOLIDATION 8a) | each acceptance of a `check_trace` finding or part ↔ what this run reported, less any class a declaration excluded | `enforces` |
+| `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_trace` finding or part ↔ what this run reported, less any class a declaration excluded | `enforces` |
 | `bad-kind` | `FORMATS.md` §"Status vocabularies", task `Kind.` | the declared `Kind.` ↔ the closed set `implementation · probe · spike · chore` | `enforces` |
 | `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values ↔ the audited task's title status | `enforces` |
 | `unjustified-task` | P-45 — a probe names what it de-risks | a probe/spike's `Informs.` ↔ the declared requirements and goals | `enforces` (P-45, written here) |
@@ -102,8 +102,8 @@ leaks.
 | `control-character` | P-47 | file bytes ↔ the printable set, outside tab and newline | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
 | `undispositioned-finding` | CONSOLIDATION 7; `FORMATS.md` §"The namespace" — an exemption is a debt, and something must watch it | an audit finding's `Disposition.` ↔ the set of dispositions that are not `open` | `enforces` |
-| `stale-acceptance` | `FORMATS.md` §"Accepted findings" — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero (roadmap 0.3.1, L-1.6; CONSOLIDATION 8a) | each acceptance of a `check_refs` finding or part ↔ what this run reported | `enforces` |
-| `unparseable-acceptance` | `FORMATS.md` §"Accepted findings" — an `Accepts.` line outside the grammar accepts nothing, and is reported (roadmap 0.3.1, L-1.6) | each line of `DECISIONS.md` naming `Accepts.`, and each item under one ↔ the acceptance grammar, including the decision's `Reviewed.` line | `enforces` |
+| `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_refs` finding or part ↔ what this run reported | `enforces` |
+| `unparseable-acceptance` | P-51; `FORMATS.md` §"Accepted findings" — an `Accepts.` line outside the grammar accepts nothing, and is reported | each line of `DECISIONS.md` naming `Accepts.`, and each item under one ↔ the acceptance grammar, including the decision's `Reviewed.` line | `enforces` |
 
 ## `check_report.py` — 14 classes
 
@@ -125,7 +125,7 @@ REPORT block ↔ the committed tree.
 | `no-evidence` | P-5 — a requirement is discharged by evidence, never by assertion | a closing status ↔ the presence of `checks:` lines | `enforces` |
 | `budget-mismatch` | P-41 — budget is tracked per task, estimates from a stated model | the report's `tokens:`/`minutes:` ↔ the harness's metered figures | `enforces` (**advisory**) |
 | `model-mismatch` | P-40 — model choice is bounded by the charter and recorded | the report's `model:` ↔ the model the harness actually ran | `enforces` (**blocking**) |
-| `stale-acceptance` | `FORMATS.md` §"Accepted findings" — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero (roadmap 0.3.1, L-1.6; CONSOLIDATION 8a) | each acceptance of this task's findings ↔ what a run for the task reported. A run for another task, or for a step, covers none | `enforces` |
+| `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of this task's findings ↔ what a run for the task reported. A run for another task, or for a step, covers none | `enforces` |
 
 **The advisory/blocking split is itself a rule, and 0.2.4 measured why.** A
 supervisor met `budget-mismatch` on correct work and could not close: the
@@ -152,7 +152,7 @@ and ↔ what was written.
 | `foreign-write` | P-12 | uncommitted paths ↔ the union of every live scope | `enforces` |
 | `misattributed-write` | P-10, P-12 | a commit's touched paths ↔ the live scope of a task that did **not** author it | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
-| `stale-acceptance` | `FORMATS.md` §"Accepted findings" — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero (roadmap 0.3.1, L-1.6; CONSOLIDATION 8a) | each acceptance of a `check_scope` finding or part ↔ what this run reported. `undeclared-write` is judged only by a run for the task it names | `enforces` |
+| `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_scope` finding or part ↔ what this run reported. `undeclared-write` is judged only by a run for the task it names | `enforces` |
 
 ## `check_plugin.py` — 18 classes
 
@@ -210,7 +210,7 @@ checkout instead.
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
 | `adds-finding` | P-49 — a commit is checked before it is made, and a finding already at HEAD does not refuse it | each unaccepted finding's identity, counted, at the candidate ↔ the same at HEAD, less F-19's window: a DONE task's `one-sided-link` whose requirement names a task in the in-flight table | `enforces` |
-| `adds-not-evaluated` | P-49; cycle 0.3's L-6 — clean means looked | each part not evaluated at the candidate, by name ↔ the parts at HEAD | `enforces` |
+| `adds-not-evaluated` | P-49; P-50 — a check never reports clean when it did not look | each part not evaluated at the candidate, by name ↔ the parts at HEAD | `enforces` |
 | `untracked-unnamed` | P-49; `FORMATS.md` §"What each check reads" (F-131) | each untracked file under `devteam/` the live checkout's checks read ↔ the paths the commit names | `enforces` |
 | `hook-refused` | P-49 — the commit is made as `git commit` makes it | the project's `pre-commit`, `prepare-commit-msg` and `commit-msg` hooks, run on the candidate ↔ exit 0 | `enforces` |
 | `head-moved` | P-49 — the commit made is the commit checked | the branch HEAD named, and its commit, when the gate began ↔ the same at the compare-and-swap | `enforces` |

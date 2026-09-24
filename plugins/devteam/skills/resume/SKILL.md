@@ -99,8 +99,9 @@ successor, and the order below matters:
 
 4. **Take the lock.** Write `${CLAUDE_CODE_SESSION_ID}` to
    `devteam/.run/session/manager`, put the same id on `BOARD.md`'s
-   `**Writer.**` line, and commit: `board: writer <new id> (rotation from
-   <old id>, C-n)`. Then `writer handoff: <old> → <new>` in `RECORD.md`.
+   `**Writer.**` line, and commit it through the gate (`run`'s opening says
+   how): `board: writer <new id> (rotation from <old id>, C-n)`. Then
+   `writer handoff: <old> → <new>` in `RECORD.md`.
    **The id must be a real one** — a writer line holding an empty pair of
    backticks reads as neither yours nor anyone's and inverts the guard in both
    directions.
@@ -192,7 +193,9 @@ sandbox from the current base and the old work stops being reachable from the
 board.
 
 Then run all four checks. They compare the two directly and are the fastest
-route to the disagreement:
+route to the disagreement. The `check` skill says what each result means. A
+part not evaluated is a place where the record and the tree could disagree
+without any check seeing it:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py"  .

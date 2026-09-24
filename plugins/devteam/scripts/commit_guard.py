@@ -985,8 +985,9 @@ GATE_FORM = ("A commit to a devteam project is made by the gate. It runs the pro
              "(P-49):\n\n"
              "    python3 {gate} commit -F <message file> -- <each path, named>\n\n"
              "It exits 0 committed. It exits 1 refused, naming what the commit adds: fix the "
-             "commit, or accept the finding by a decision's `Accepts.` field ({formats}, "
-             "§\"Accepted findings\"); on `head-moved`, run it again. It exits 2 when it could not "
+             "commit, or accept the finding by a decision's `Accepts.` field (the `check` "
+             "skill's *Accepting a finding* says how, and {formats}, §\"Accepted findings\", "
+             "is the grammar); on `head-moved`, run it again. It exits 2 when it could not "
              "run, and the fault is in the invocation or in the gate. Nothing is committed "
              "on 1 or 2.")
 LIMITS = ("Committing another way is not a gap to use. A command this hook cannot read — an "

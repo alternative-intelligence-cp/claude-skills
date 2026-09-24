@@ -45,8 +45,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
 
 - Distinguish **`DONE` and verified** from **reported done and not yet
   verified**. They are not the same claim and the second is worth less.
-- If `check_trace` reports findings, say so here. A project that looks 80%
-  done and has three uncovered requirements is not 80% done.
+- If `check_trace` reports findings, or parts it did not evaluate, say so here.
+  A project that looks 80% done and has three uncovered requirements is not
+  80% done, and a part no check has read is not known to be done. The `check`
+  skill says what each result means.
 - If the last checkpoint said `DRIFTED` and nothing has changed since, that is
   the headline, not a footnote.
 - If nothing has happened since the last status, say that plainly. Padding a

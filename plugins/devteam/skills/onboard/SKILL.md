@@ -235,12 +235,14 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" --pre-plan .
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_refs.py" .
 ```
 
-**`--pre-plan` matters here and only here.** No task exists yet, so every
-requirement is uncovered by construction and a plain run can never exit 0 at
-this gate. The flag suppresses that one class and nothing else — `orphan-scope`
-and `unverified-requirement`, the two this stage actually needs, still apply.
-Drop the flag from `/devteam:plan` onward, where an uncovered requirement is a
-real finding.
+**`--pre-plan` belongs to the two moments before a plan exists: here, and
+`iterate`'s charter gate.** No task exists yet for a new requirement, so it is
+uncovered by construction, and a plain run can never be clean at this gate.
+The flag excludes that one class, and the line names the exclusion.
+`orphan-scope` and `unverified-requirement`, the two this stage actually
+needs, still apply. Drop the flag from `/devteam:plan` onward, where an
+uncovered requirement is a real finding. The `check` skill says what each
+result means.
 
 `orphan-scope` means you promised the client a goal no requirement covers.
 `unverified-requirement` means one will be declared done by opinion. Both must
@@ -280,7 +282,16 @@ Show them, in plain language:
 - **what you assumed** where they did not answer
 
 Then ask for the signature. Set `**Status.** SIGNED` and the date, and commit
-the charter and requirements together.
+the charter and requirements together, through the gate:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit --pre-plan -C . -F "$msgfile" \
+    -- devteam/CHARTER.md devteam/REQUIREMENTS.md
+```
+
+`--pre-plan` lets the new requirements stand uncovered until their tasks are
+planned, and still refuses anything else the commit adds. The `check` skill
+says what a refusal asks of you.
 
 **Nothing proceeds without it** (P-1). Not planning, not a first task, not
 "just the scaffolding while you think about it." The signature is what every

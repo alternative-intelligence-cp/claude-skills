@@ -2,7 +2,7 @@
 name: run
 description: Run a devteam project's build loop as the project manager — take the writer lock, recover stale claims, pin the environment, claim and dispatch one supervisor per task up to the width, independently verify every report before the board moves, schedule checkpoints, batch escalations by reversibility class, and keep the record. Reads width, start and tick. Writes no product code.
 argument-hint: "[width=N] [start=T-n] [tick]"
-allowed-tools: Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(python3 *) Bash(date:*) Bash(mkdir:*) Bash(echo:*) Read Write Edit Grep Glob Agent AskUserQuestion
+allowed-tools: Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git add:*) Bash(python3 *) Bash(date:*) Bash(mkdir:*) Bash(echo:*) Read Write Edit Grep Glob Agent AskUserQuestion
 ---
 
 # Running the loop
@@ -13,6 +13,17 @@ manager that also implements ends up verifying its own work, and then the gate
 is decoration.
 
 You are also the only layer that speaks to the client (P-9).
+
+**Every commit you make goes through the gate**: the lock, each claim, each
+record line, each checkpoint.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit -C . -F "$msgfile" -- <each path, named>
+```
+
+The gate checks the commit before it exists, then makes exactly that commit
+(P-49). The commit guard refuses every other way of committing. The `check`
+skill says what each check result and each refusal means, and what to do.
 
 ## 0. Arguments
 
@@ -66,8 +77,9 @@ can destroy uncommitted work nobody knew was there.
    ```bash
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
    ```
-   Findings here mean the plan has holes nobody has looked at. Report them and
-   stop — do not start building through a hole (P-4).
+   Anything but clean means the plan has holes nobody has looked at, or parts
+   no check could read. Report them and stop — do not start building through
+   a hole (P-4).
 
 5. **Pin the environment** (P-33) **including this plugin's own commit**, if
    the board names none. The pin exists so two runs of the same command are
@@ -261,10 +273,10 @@ While tasks in flight are fewer than `width=`:
    `devteam:supervisor` with §5's template, `description` = the label.
 
    **The commit is not tidiness, it removes a defect a worker cannot avoid.**
-   A worker appending its REPORT block commits the task file, and
-   `git commit -- <path>` takes **file content, not hunks** — so anything you
-   left uncommitted in that file goes into the worker's commit under the
-   worker's message. Interactive staging is outside the grant, so there is no
+   A worker appending its REPORT block commits the task file, and a commit
+   takes a named path's **file content, not hunks**, through the gate exactly
+   as through `git commit -- <path>`. So anything you left uncommitted in that
+   file goes into the worker's commit under the worker's message. Interactive staging is outside the grant, so there is no
    move available to the worker that avoids it. It is reported afterwards as a
    `misattributed-write` against *you*, and the finding's own remedy — "stage
    explicit paths" — does not address it, because the worker did stage explicit
@@ -275,23 +287,21 @@ While tasks in flight are fewer than `width=`:
 4. **On a report**, §6.
 
 5. **Record** one line per event in `RECORD.md`, committed with the board
-   change — **as `git commit -F <msg> -- <paths>`, never `git add -A`, and
-   never `git add` followed by a bare `git commit`.**
+   change **through the gate, naming each path.**
 
    You are the one party guaranteed to be writing concurrently with every
-   worker, and `-A` is what anyone types by reflex. **The index is shared**, so
-   staging your own files and then committing still takes whatever another
-   agent has staged — you commit their in-flight work under your message,
-   having done nothing wrong. A pathspec commit takes exactly what you name. It sweeps a worker's
-   in-flight file into your commit under your message, and four things break at
-   once: the step loses the commit that is its unit of evidence, scope
-   attribution inverts because a write belonging to no task is invisible to
-   `check_scope`, the report check finds work already committed by somebody
-   else, and the record says one thing while containing another. The guard will
-   not stop you — `git add` is index-class and permitted precisely so workers
-   can commit, and that classification reasons about file safety, not
-   attribution. `check_scope` reports `misattributed-write` for it after the
-   fact; not doing it is cheaper.
+   worker. **The index is shared**, so `git add -A`, or staging your own files
+   and then a bare `git commit`, took whatever another agent had staged: its
+   in-flight work, committed under your message, with you having done nothing
+   wrong. Four things break at once. The step loses the commit that is its
+   unit of evidence. Scope attribution inverts, because a write belonging to no
+   task is invisible to `check_scope`. The report check finds work already
+   committed by somebody else. And the record says one thing while containing
+   another. The gate removes that hazard by construction: it builds the commit
+   from HEAD and the working-tree content of the paths you name, in an index
+   of its own, so another agent's staging cannot ride into it. It also refuses
+   a path that names the whole repository, which is `git add -A` by another
+   name.
 
 6. **Checkpoint** if one is due (§7).
 

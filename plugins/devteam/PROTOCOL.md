@@ -702,6 +702,51 @@ not move the requirement before the independent verifier returns (P-18). The
 allowance is keyed to that task being in the board's in-flight table, and it
 covers nothing else.
 
+**P-50 — A check never reports clean when it did not look.** A check reports
+clean, exit 0, only when it has evaluated everything it owns against
+everything it exists to read and found nothing. Anything it did not look at is
+a part not evaluated, named with its reason, exit 3. The three commonest are a
+row its source offered that its grammar did not read, a field that continues
+past the line the check reads, and zero rows from a source that offered some.
+Each is named by file and line. A findings run that also skipped parts exits
+1, and its line names both. A class excluded by a declaration a reader can
+check — a flag the caller passed, or a declaration the project makes — is
+named in the result line and does not change the exit. Every result line
+carries its denominators: what was read, and how many of each kind.
+
+*Why.* The run measured checks that said clean without having looked. Eighteen
+reports were checked against no meter, because every sandbox had been closed
+(F-32). The board's every row was a link the grammar could not read (F-70).
+Audit findings sat outside the namespace (F-99). A task file nobody had
+committed was never read (F-131). Each of these was reported as clean, and at
+the exit code, the only signal a verifier or the gate reads, a clean that did
+not look is indistinguishable from one that did. It is exit 3 rather than
+exit 2 because its remedy is in the project, not in the invocation: write the
+row readably, or accept the part by a decision (P-51). The contract's one home
+is `scripts/result.py`, and `templates/FORMATS.md` §"What each check reads"
+states it.
+
+**P-51 — An accepted finding is a decision.** A finding that will not be
+fixed, or a part a check cannot yet read, is accepted only by a decision in
+`DECISIONS.md` that carries an `Accepts.` field. It is never accepted by a
+baseline file, a flag or a comment. The decision's P-26 class decides who
+makes it: the manager makes a `REVERSIBLE` acceptance alone, recorded as
+unreviewed under P-27, and the client makes a `CHARTER` one. The check
+enforces that the decision says who reviewed it. It cannot enforce the class,
+because no check can tell what a finding means to the charter. An acceptance
+whose finding no longer fires is itself a finding, `stale-acceptance`, so the
+count returns to zero. Superseding the decision withdraws what it accepted
+(P-23). The grammar is `templates/FORMATS.md` §"Accepted findings".
+
+*Why.* The run accepted two findings and committed over them for most of its
+length (F-85), with nothing to say who had decided it, or why. The count they
+left behind stopped being a signal, because it was never zero. A baseline file
+with a reason and no decision behind it is the *suppress it when the tree is
+annoying* reading that CONSOLIDATION §8a warns about. Recording the acceptance
+as a decision puts it where every other judgement is, under the same review.
+And because a stale acceptance is a finding, the zero comes back, and the next
+real finding is not hidden behind the old ones.
+
 
 ## 8. Permissions, models and budget
 

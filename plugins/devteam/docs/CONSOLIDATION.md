@@ -215,6 +215,15 @@ refusal-at-the-moment-of-typing, and it is the only item on the board that
 meets `CHECKS.md`'s entry condition for touching `judge()`. And a release
 subcycle must not change the file with the widest blast radius in the plugin.
 
+**2026-09-24. Built in roadmap 0.3.1 as the property, not the proxy.** The gate
+(`scripts/gate.py commit`, P-49; §3.5) builds each commit from HEAD and the
+named paths in an index of its own. It runs the checks on that commit, then
+makes exactly that commit, so the tree committed is the tree checked, by
+construction. It also refuses a path that names the whole repository.
+`commit_guard.py` (§3.6) refuses an agent's commit made any other way in a
+devteam project. The refusal is a hook beside `guard.py`, not a change to
+`judge()`, as the owner decided (L-1.7).
+
 ## 9. The ceremony question, narrowed — **taken (0.2.7)**
 
 Not *"is this too heavy?"* — it is, for small work, deliberately. The tool is
