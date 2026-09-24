@@ -20,12 +20,16 @@ docs/CHECKS.md and the code equal in both directions.
 Usage:  check_scope.py <project> [T-n]
         no task id: pairwise overlap among every live task
         with one:   that too, plus what its commits actually touched
-Exit 0 clean, 1 findings, 2 could not run.  Control: test_check_scope.py.
+Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract is
+result.py's (roadmap 0.3.1, L-1.1).  Control: test_check_scope.py.
 """
 import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
 DASH = r"[—–-]"
 # A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
@@ -387,28 +391,29 @@ def check(project, task_id=None):
                 seen.add(path)
                 add("undeclared-write", tasks[base][0],
                     f"{task_id} committed {path}, which its scope does not cover")
-    return findings
+    return findings, len(tasks), len(live)
 
 
 def main(argv):
+    as_json, argv = result.flag(list(argv), "--json")
     if len(argv) < 2:
-        print("usage: check_scope.py <project> [T-n]", file=sys.stderr)
-        return 2
+        return result.could_not_run("check_scope", "usage: check_scope.py <project> [T-n] [--json]", as_json)
     task_id = argv[2] if len(argv) > 2 else None
     if task_id and not re.fullmatch(r"T-\d+(\.S-\d+)?", task_id):
-        print(f"check_scope: {task_id!r} is not a task or step id", file=sys.stderr)
-        return 2
-    findings = check(os.path.realpath(argv[1]), task_id)
-    if findings is None:
-        print("check_scope: not a devteam project, or not a git repository", file=sys.stderr)
-        return 2
-    if findings:
-        print(f"{len(findings)} finding(s)")
-        for kind, where, detail in sorted(findings):
-            print(f"  {kind:20} {where}  {detail}")
-        return 1
-    print("scopes clean" + (f" for {task_id}" if task_id else ""))
-    return 0
+        return result.could_not_run("check_scope", f"{task_id!r} is not a task or step id", as_json)
+    got = check(os.path.realpath(argv[1]), task_id)
+    if got is None:
+        return result.could_not_run("check_scope", "not a devteam project, or not a git repository", as_json)
+    findings, ntasks, nlive = got
+    res = result.Result("check_scope", "scopes" + (f" for {task_id}" if task_id else ""), width=20)
+    for kind, where, detail in findings:
+        res.finding(kind, where, detail)
+    # The live count is the denominator RECORD.md:86 asked for: "a check that is
+    # silent because nothing is running looks identical to a check that is
+    # silent because nothing is wrong". With it on the line, they do not.
+    res.count(ntasks, "tasks")
+    res.count(nlive, "live")
+    return result.emit([res], as_json)
 
 
 if __name__ == "__main__":

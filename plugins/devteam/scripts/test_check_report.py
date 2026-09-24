@@ -189,11 +189,21 @@ CASES = [
 ]
 
 
-def build(root, body, leftovers=(), subject="T-1: the config loader", src="x = 1\n"):
+def build(root, body, leftovers=(), subject="T-1: the config loader", src="x = 1\n",
+          containment="guard-only"):
+    """A committed project holding T-1. Its charter DECLARES its containment,
+    because only a declaration may exclude the harness comparison (roadmap
+    0.3.1, L-1.2): `guard-only` by default, so every case not about the harness
+    meter sees it excluded by name; `structural` for the cases that are; None
+    for a project that declares nothing, which gets no exclusion at all."""
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     with open(os.path.join(dt, "T-1.md"), "w", encoding="utf-8") as fh:
         fh.write(body)
+    if containment is not None:
+        with open(os.path.join(root, "devteam", "CHARTER.md"), "w", encoding="utf-8") as fh:
+            fh.write("# Charter\n\n| Row | Value |\n|---|---|\n"
+                     f"| Containment | `{containment}` — probe exit, 2026-09-24 |\n")
     os.makedirs(os.path.join(root, "src"), exist_ok=True)
     with open(os.path.join(root, "src", "main.py"), "w") as fh:
         fh.write(src)
@@ -226,7 +236,7 @@ def main():
             build(root, body, leftovers, subject, src)
             proc = subprocess.run([sys.executable, CHECK, root, want],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
             want_exit = 1 if expected else 0
             if got == expected and proc.returncode == want_exit:
                 passed += 1
@@ -247,43 +257,61 @@ def main():
     # faith by a process that cannot see the counter. These need a sandbox on
     # disk, so they sit here rather than in CASES.
     #
-    # The `fp-` cases are the load-bearing half. §3.6 says the check must be
-    # SILENT where no sandbox exists, because a `guard-only` project has none
-    # and its reports are not defective for it. A check that announced "could
-    # not run" on every such project would be noise in the common case, and
-    # noise is how a check stops being read.
+    # The `fp-` cases are the load-bearing half. A `guard-only` project has no
+    # sandbox, and its reports are not defective for it; a check that announced
+    # a problem on every such project would be noise in the common case, and
+    # noise is how a check stops being read. SUPERSEDED IN PART by roadmap
+    # 0.3.1, L-1.2: that silence also covered a `structural` project whose
+    # comparator was GONE -- F-32's T-4 case, `clean` because the sandboxes had
+    # been closed (pricelog RECORD.md:356). Now the charter's declaration
+    # EXCLUDES the comparison by name (exit 0), and an absence with no
+    # declaration behind it is NOT EVALUATED (exit 3), naming what was missing.
     budget_cases = [
-        # (name, report edits, sandbox {} or None, budget.json or None, expected)
+        # (name, report edits, sandbox {} or None, budget.json or None, expected,
+        #  expected parts not evaluated, the charter's containment)
         ("budget-mismatch-on-tokens",
          {"budget": "tokens=3000 minutes=9"},
          True, {"tokens": 309639, "minutes": 9.0, "model": "claude-opus-5"},
-         {"budget-mismatch"}),
+         {"budget-mismatch"}, set(), "structural"),
         ("budget-mismatch-on-minutes",
          {"budget": "tokens=4210 minutes=9"},
          True, {"tokens": 4210, "minutes": 0.59, "model": "claude-opus-5"},
-         {"budget-mismatch"}),
+         {"budget-mismatch"}, set(), "structural"),
         ("model-mismatch-when-the-worker-names-another-model",
          {}, True,
          {"tokens": 4210, "minutes": 9.0, "model": "claude-haiku-4-5-20251001"},
-         {"model-mismatch"}),
+         {"model-mismatch"}, set(), "structural"),
         ("fp-budget-inside-the-tolerances-is-clean",
          {}, True, {"tokens": 4400, "minutes": 10.5, "model": "claude-opus-5"},
-         set()),
-        ("fp-no-sandbox-file-at-all-is-silent",
-         {"budget": "tokens=1 minutes=1"}, False, None, set()),
-        ("fp-a-sandbox-line-with-no-root-is-silent",
-         {"budget": "tokens=1 minutes=1"}, "no-root", None, set()),
-        ("fp-a-sandbox-root-with-no-budget-json-is-silent",
-         {"budget": "tokens=1 minutes=1"}, True, None, set()),
+         set(), set(), "structural"),
+        # The declaration: a guard-only project has no meter, says so, exits 0.
+        ("fp-guard-only-excludes-the-harness-by-declaration",
+         {"budget": "tokens=1 minutes=1"}, False, None, set(), set(), "guard-only"),
+        # THE DID-NOT-LOOK CASES (L-6). Each one read `clean` before 0.3.1.
+        ("no-sandbox-file-on-a-structural-project-is-not-evaluated",
+         {"budget": "tokens=1 minutes=1"}, False, None, set(),
+         {"budget-mismatch", "model-mismatch"}, "structural"),
+        ("a-sandbox-line-with-no-root-is-not-evaluated",
+         {"budget": "tokens=1 minutes=1"}, "no-root", None, set(),
+         {"budget-mismatch", "model-mismatch"}, "structural"),
+        # F-32's T-4 case: the sandbox was closed, so its meter is gone.
+        ("a-closed-sandbox-with-no-budget-json-is-not-evaluated",
+         {"budget": "tokens=1 minutes=1"}, True, None, set(),
+         {"budget-mismatch", "model-mismatch"}, "structural"),
+        # A project that declares nothing gets no exclusion: silence would need
+        # a declaration behind it, and there is none.
+        ("an-undeclared-containment-excludes-nothing",
+         {"budget": "tokens=1 minutes=1"}, False, None, set(),
+         {"budget-mismatch", "model-mismatch"}, None),
     ]
-    for name, edits, sb, budget, expected in budget_cases:
+    for name, edits, sb, budget, expected, want_gaps, containment in budget_cases:
         root = tempfile.mkdtemp(prefix="devteam-report-budget-")
         try:
             report = REPORT
             for key, val in edits.items():
                 report = re.sub(rf"^{key}: .*$", f"{key}: {val}", report,
                                 count=1, flags=re.M)
-            build(root, task_file(report=report))
+            build(root, task_file(report=report), containment=containment)
             sroot = os.path.join(root, "sbox")
             os.makedirs(os.path.join(sroot, "meta"), exist_ok=True)
             if budget is not None:
@@ -298,14 +326,20 @@ def main():
                     fh.write(line + "\n")
             proc = subprocess.run([sys.executable, CHECK, root, "T-1"],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
-            if got == expected and proc.returncode == (1 if expected else 0):
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
+            gaps = set(re.findall(r"^  not evaluated: (\S+) — ", proc.stdout, re.M))
+            want_rc = 1 if expected else (3 if want_gaps else 0)
+            excluded_ok = (containment != "guard-only"
+                           or "excluded: budget-mismatch and model-mismatch" in proc.stdout)
+            if got == expected and gaps == want_gaps and proc.returncode == want_rc and excluded_ok:
                 passed += 1
             else:
                 failed += 1
                 print(f"FAIL  {name}")
-                print(f"        expected {sorted(expected) or 'clean'}")
-                print(f"        got      {sorted(got) or 'clean'}")
+                print(f"        expected {sorted(expected) or 'clean'}, not evaluated "
+                      f"{sorted(want_gaps) or 'nothing'}, exit {want_rc}")
+                print(f"        got      {sorted(got) or 'clean'}, not evaluated "
+                      f"{sorted(gaps) or 'nothing'}, exit {proc.returncode}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n"):
                     print(f"        | {line}")
         finally:
@@ -362,7 +396,7 @@ def main():
             for key, val in edits.items():
                 report = re.sub(rf"^{key}: .*$", f"{key}: {val}", report,
                                 count=1, flags=re.M)
-            build(root, task_file(report=report))
+            build(root, task_file(report=report), containment="structural")
             sroot = os.path.join(root, "sbox")
             os.makedirs(os.path.join(sroot, "meta"), exist_ok=True)
             with open(os.path.join(sroot, "meta", "budget.json"), "w") as fh:

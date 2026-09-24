@@ -778,9 +778,17 @@ def main():
             dt = build(root, overrides, prior)
             proc = subprocess.run([sys.executable, CHECK, *extra, dt],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
             want_exit = 1 if expected else 0
-            if got == expected and proc.returncode == want_exit:
+            # HELD BACK IS NOT CLEAN (roadmap 0.3.1, L-1.2): `--pre-plan`
+            # excludes one class by the caller's declaration, so the line must
+            # NAME it and how many it held back, or an onboarding gate that
+            # hid sixteen uncovered requirements would read like one that had
+            # none.
+            named = ("--pre-plan" not in extra or re.search(
+                r"^  excluded: uncovered-requirement — by --pre-plan \(\d+ held back\)$",
+                proc.stdout, re.M) is not None)
+            if got == expected and proc.returncode == want_exit and named:
                 passed += 1
             else:
                 failed += 1

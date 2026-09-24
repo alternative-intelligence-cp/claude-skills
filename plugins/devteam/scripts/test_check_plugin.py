@@ -124,6 +124,11 @@ def build(mutate=None):
     # testing the fallback and calling it the check.
     shutil.copy2(os.path.join(HERE, "root_guard.py"),
                  os.path.join(plugin, "scripts", "root_guard.py"))
+    # Every check ends in result.py's contract (roadmap 0.3.1, L-1.1) and
+    # imports it, so the throwaway tree needs it too. Unlike root_guard there
+    # is no degraded path: without it the check cannot start at all.
+    shutil.copy2(os.path.join(HERE, "result.py"),
+                 os.path.join(plugin, "scripts", "result.py"))
     os.makedirs(os.path.join(plugin, "docs"), exist_ok=True)
     w("docs/CHECKS.md", checks_md(plugin))
     if mutate:
@@ -447,9 +452,23 @@ def main():
             proc = subprocess.run(
                 [sys.executable, os.path.join(plugin, "scripts", "check_plugin.py")],
                 capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
-            want_exit = 1 if expected else 0
-            if got == expected and proc.returncode == want_exit:
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
+            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            # WHAT THIS FIXTURE CANNOT EXERCISE, stated rather than hidden
+            # (roadmap 0.3.1, L-1.1). No fixture here carries a setup.py, so the
+            # template checks never run -- and until 0.3.1 they were reported
+            # SKIPPED inside a CLEAN line, exit 0, so every clean case below
+            # passed on a part it never ran. The root-table checks run only
+            # when a case builds the README's table (root_tree).
+            want_gaps = {"the template checks"}
+            readme = os.path.join(root, "README.md")
+            if not (os.path.isfile(readme)
+                    and "## What is in this repository" in open(readme, encoding="utf-8").read()):
+                want_gaps.add("the root-table checks")
+            if not os.path.isdir(os.path.join(plugin, "docs")):
+                want_gaps.add("unruled-finding and stale-row")
+            want_exit = 1 if expected else 3
+            if got == expected and gaps == want_gaps and proc.returncode == want_exit:
                 passed += 1
             else:
                 failed += 1

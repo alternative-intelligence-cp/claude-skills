@@ -9,6 +9,7 @@ Those false-positive controls are deliberately more than a third of the cases.
 
 Run it: python3 test_check_refs.py     Exit 0 all pass, 1 any fail.
 """
+import json
 import os
 import re
 import shutil
@@ -527,7 +528,7 @@ def main():
             dt = build(root, mutations)
             proc = subprocess.run([sys.executable, CHECK, dt],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
             expected_exit = 1 if expected else 0
             ok = got == expected and proc.returncode == expected_exit
             if ok:
@@ -542,10 +543,63 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- A FILE THE CHECK CANNOT READ IS NOT EVALUATED (roadmap 0.3.1) -------
+    # 0.2.6 moved `unreadable` and `not-utf8` from findings to exit 2 -- and no
+    # case here ever planted either, so that move was never shown to happen.
+    # L-1.1 moves them again, to exit 3: a project file the check cannot decode
+    # is the project's state, whose remedy is in the project, not in the
+    # invocation. One unreadable file makes every cross-file class
+    # untrustworthy, so the whole run is not evaluated and names the file.
+    gap_cases = [
+        ("a-tracked-file-that-is-not-utf8-is-not-evaluated",
+         b"# Notes\n\nA byte that is not UTF-8: \xff\n", "not UTF-8"),
+    ]
+    for name, raw, reason in gap_cases:
+        for as_json in (False, True):
+            root = tempfile.mkdtemp(prefix="devteam-refs-gap-")
+            try:
+                dt = build(root, [])
+                with open(os.path.join(dt, "NOTES.md"), "wb") as fh:
+                    fh.write(raw)
+                git = lambda *a: subprocess.run(
+                    ["git", "-C", root, "-c", "user.name=t", "-c", "user.email=t@t", *a],
+                    capture_output=True)
+                git("add", "devteam/NOTES.md")
+                git("commit", "-qm", "an undecodable note")
+                cmd = [sys.executable, CHECK, dt] + (["--json"] if as_json else [])
+                proc = subprocess.run(cmd, capture_output=True, text=True)
+                if as_json:
+                    try:
+                        doc = json.loads(proc.stdout)
+                        gaps = doc["results"][0]["not_evaluated"]
+                        ok = (proc.returncode == 3 and doc["exit"] == 3
+                              and not doc["results"][0]["findings"]
+                              and len(gaps) == 1 and "NOTES.md" in gaps[0]["reason"]
+                              and reason in gaps[0]["reason"])
+                    except (ValueError, KeyError, IndexError, TypeError):
+                        ok = False  # a different shape is a failure, not a crash
+                else:
+                    ok = (proc.returncode == 3
+                          and re.search(rf"^  not evaluated: every class — NOTES\.md: {reason}",
+                                        proc.stdout, re.M) is not None
+                          and not re.findall(r"^  (?!not evaluated: |excluded: )(\S+)",
+                                             proc.stdout, re.M))
+                label = f"{name}{' --json' if as_json else ''}"
+                if ok:
+                    passed += 1
+                else:
+                    failed += 1
+                    print(f"FAIL  {label}")
+                    for line in (proc.stdout + proc.stderr).strip().split("\n"):
+                        print(f"        | {line}")
+            finally:
+                shutil.rmtree(root, ignore_errors=True)
+
+    total = len(CASES) + 2 * len(gap_cases)
     fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
     print(f"\ncheck_refs control: {passed} passed, {failed} failed, "
-          f"{len(CASES)} cases ({fp} of them false-positive controls, "
-          f"{100 * fp // len(CASES)}%)")
+          f"{total} cases ({fp} of them false-positive controls, "
+          f"{100 * fp // total}%)")
     return 1 if failed else 0
 
 

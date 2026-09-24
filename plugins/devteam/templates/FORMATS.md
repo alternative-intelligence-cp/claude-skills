@@ -216,8 +216,12 @@ and compares what it claims against the tree.
 | `check_report.py` | one `tasks/T-n.md` plus `git` | the REPORT block ↔ the committed tree |
 | `check_scope.py` | `BOARD.md`, `tasks/*.md` | declared scopes ↔ each other, and ↔ what was written |
 
-All four read **git-tracked files only**, so scratch work is never a finding,
-and all four exit `0` clean · `1` findings · `2` could not run.
+All four read **git-tracked files only**, so scratch work is never a finding.
+Every check exits `0` clean · `1` findings · `2` could not run · `3` not
+evaluated, and takes `--json`. `3` means the check ran and names a part it did
+not look at, with the reason — which is never clean (cycle 0.3's L-6). The
+contract, and what each result means, is `scripts/result.py`'s (roadmap
+0.3.1, L-1.1).
 
 ## The identifier prefixes are reserved
 

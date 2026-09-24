@@ -245,6 +245,12 @@ is the only signal the verifier reads (P-19).
 **They are not deleted silently — they become exit-2 conditions**, so the
 information survives and moves to the code path that means what it says.
 
+**Moved again in roadmap 0.3.1 (L-1.1), to exit 3 — not evaluated.** Exit 2
+now means only that the tool cannot answer, whose remedy is the invocation.
+A project file the check cannot decode is the project's state, whose remedy
+is in the project, so it ends the run as not evaluated and names the file.
+The reasoning above — that it is not a *finding* — still holds.
+
 ### Rules written
 
 - **P-45 — a task graph is acyclic, and a probe names what it de-risks.**

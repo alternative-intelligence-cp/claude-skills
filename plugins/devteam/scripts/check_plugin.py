@@ -11,7 +11,8 @@ list them: it used to, and ten classes were emitted, controlled, and
 absent from the lists here. `unruled-finding` in check_plugin.py keeps
 docs/CHECKS.md and the code equal in both directions.
 
-Exit 0 clean, 1 findings, 2 could not run.
+Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract
+is result.py's (roadmap 0.3.1, L-1.1).
 """
 import ast
 import json
@@ -21,6 +22,9 @@ import tempfile
 import subprocess
 import shutil
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 PLUGIN = os.path.normpath(os.path.join(HERE, ".."))
@@ -214,15 +218,15 @@ def checks_table(path):
     return table
 
 
-def main():
+def main(argv=None):
+    as_json, _ = result.flag(list(sys.argv[1:] if argv is None else argv), "--json")
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
     rel = lambda p: os.path.relpath(p, PLUGIN)
 
     proto = os.path.join(PLUGIN, "PROTOCOL.md")
     if not os.path.isfile(proto):
-        print("check_plugin: PROTOCOL.md missing", file=sys.stderr)
-        return 2
+        return result.could_not_run("check_plugin", "PROTOCOL.md missing", as_json)
     declared = {int(n) for n in re.findall(r"^\*\*P-(\d+) ", open(proto).read(), re.M)}
 
     skills_dir = os.path.join(PLUGIN, "skills")
@@ -561,8 +565,8 @@ def main():
         # could not read the repository, which is the loudest possible way to
         # be wrong about the quietest possible cause.
         if not readable:
-            print("check_plugin: cannot read the repository root from git", file=sys.stderr)
-            return 2
+            return result.could_not_run(
+                "check_plugin", "cannot read the repository root from git", as_json)
         for name in sorted(present - root_rows):
             add("stray-root-entry", name,
                 "not listed in README.md's root table — a temporary file "
@@ -571,25 +575,26 @@ def main():
             add("stale-root-row", "README.md",
                 f"the root table lists `{name}` and the tree does not have it")
 
-    if findings:
-        print(f"devteam plugin: {len(findings)} finding(s)")
-        for kind, where, detail in sorted(findings):
-            print(f"  {kind:20} {where}  {detail}")
-        return 1
-    skipped = []
+    res = result.Result("check_plugin", "devteam plugin", width=20)
+    for kind, where, detail in findings:
+        res.finding(kind, where, detail)
+    # A part this check could not reach used to be printed as "SKIPPED" inside
+    # a CLEAN line, exit 0 -- the shape of nothing wrong when what happened was
+    # nothing looked at (roadmap 0.3.1, L-1.1). Each is now a part not
+    # evaluated, so a plugin missing one of them cannot pass as clean.
     if not scaffolded:
-        skipped.append("scaffold check SKIPPED — no setup.py or templates/")
+        res.gap("the template checks", "no setup.py or templates/ to scaffold a project from")
     if not ruled:
-        skipped.append("unruled-finding SKIPPED — no docs/")
+        res.gap("unruled-finding and stale-row", "no docs/ to diff the classes against")
     if root_rows is None:
-        skipped.append("root-table check SKIPPED — no root_guard.py, or no "
-                       "`## What is in this repository` in README.md")
-    root_note = f", {len(root_rows)} root entries" if root_rows else ""
-    tail = ("; " + "; ".join(skipped)) if skipped else ""
-    print(f"devteam plugin: clean  [{len(skills)} skills, "
-          f"{len(os.listdir(agents_dir))} agents, {len(declared)} rules"
-          f"{root_note}{tail}]")
-    return 0
+        res.gap("the root-table checks", "no root_guard.py, or no "
+                "`## What is in this repository` in README.md")
+    res.count(len(skills), "skills")
+    res.count(len(os.listdir(agents_dir)), "agents")
+    res.count(len(declared), "rules")
+    if root_rows:
+        res.count(len(root_rows), "root entries")
+    return result.emit([res], as_json)
 
 
 if __name__ == "__main__":

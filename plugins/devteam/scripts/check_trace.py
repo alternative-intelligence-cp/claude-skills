@@ -13,13 +13,17 @@ list them: it used to, and ten classes were emitted, controlled, and
 absent from the lists here. `unruled-finding` in check_plugin.py keeps
 docs/CHECKS.md and the code equal in both directions.
 
-Exit 0 clean, 1 findings, 2 could not run. Grammar: templates/FORMATS.md.
+Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract
+is result.py's (roadmap 0.3.1, L-1.1). Grammar: templates/FORMATS.md.
 Control: test_check_trace.py (P-35).
 """
 import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -916,38 +920,42 @@ def main(argv):
     # Before planning, no task exists, so EVERY requirement is uncovered by
     # construction. Reporting that at the onboarding gate makes a clean run
     # impossible and leaves a manager choosing between ignoring the check and
-    # inventing tasks. `--pre-plan` suppresses exactly that one class and
+    # inventing tasks. `--pre-plan` holds back exactly that one class and
     # nothing else: orphan-scope, unverified-requirement, missing-field,
     # unknown-reference and dependency-cycle all still apply, and those are
     # the ones onboarding actually needs clean.
-    pre_plan = "--pre-plan" in argv[1:]
-    args = [a for a in argv[1:] if a != "--pre-plan"]
-    total = 0
+    #
+    # Held back is not the same as clean (roadmap 0.3.1, L-1.2). The class is
+    # EXCLUDED by the caller's declaration, so the line names it and how many
+    # findings it held back, and the exit code is the rest's.
+    as_json, args = result.flag(argv[1:], "--json")
+    pre_plan, args = result.flag(args, "--pre-plan")
+    results = []
     for t in (args or ["."]):
         devteam = resolve(t)
         if not os.path.isdir(devteam):
-            print(f"check_trace: not a directory: {devteam}", file=sys.stderr)
-            return 2
+            return result.could_not_run("check_trace", f"not a directory: {devteam}", as_json)
         if not is_project(devteam):
-            print(f"check_trace: not a devteam project: {devteam} holds no "
-                  f"devteam/ directory", file=sys.stderr)
-            return 2
+            return result.could_not_run(
+                "check_trace", f"not a devteam project: {devteam} holds no "
+                f"devteam/ directory", as_json)
         got = check(devteam)
         if got is None:
-            print(f"check_trace: not a git repository: {devteam}", file=sys.stderr)
-            return 2
+            return result.could_not_run("check_trace", f"not a git repository: {devteam}", as_json)
         findings, ng, nr, nt = got
+        res = result.Result("check_trace", os.path.relpath(devteam, os.getcwd()), width=22)
         if pre_plan:
+            held = [f for f in findings if f[0] == "uncovered-requirement"]
             findings = [f for f in findings if f[0] != "uncovered-requirement"]
-        label = os.path.relpath(devteam, os.getcwd())
-        if findings:
-            print(f"{label}: {len(findings)} finding(s)  [{ng} goals, {nr} requirements, {nt} tasks]")
-            for kind, where, detail in sorted(findings):
-                print(f"  {kind:22} {where}  {detail}")
-            total += len(findings)
-        else:
-            print(f"{label}: clean  [{ng} goals, {nr} requirements, {nt} tasks traced end to end]")
-    return 1 if total else 0
+            res.exclude("uncovered-requirement", f"--pre-plan ({len(held)} held back)")
+        for kind, where, detail in findings:
+            res.finding(kind, where, detail)
+        res.count(ng, "goals")
+        res.count(nr, "requirements")
+        res.count(nt, "tasks")
+        res.clean_note = "traced end to end"
+        results.append(res)
+    return result.emit(results, as_json)
 
 
 if __name__ == "__main__":

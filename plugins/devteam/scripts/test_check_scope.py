@@ -229,7 +229,7 @@ def main():
             build(root, tasks, writes, subject, later, dirty)
             argv = [sys.executable, CHECK, root] + ([task_id] if task_id else [])
             proc = subprocess.run(argv, capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (\S+)", proc.stdout, re.M)}
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
             want_exit = 1 if expected else 0
             if got == expected and proc.returncode == want_exit:
                 passed += 1

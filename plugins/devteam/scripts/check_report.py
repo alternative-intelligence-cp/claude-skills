@@ -14,13 +14,17 @@ absent from the lists here. `unruled-finding` in check_plugin.py keeps
 docs/CHECKS.md and the code equal in both directions.
 
 Usage:  check_report.py <project-or-devteam> <T-n>
-Exit 0 clean, 1 findings, 2 could not run.  Control: test_check_report.py.
+Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract is
+result.py's (roadmap 0.3.1, L-1.1).  Control: test_check_report.py.
 """
 import json
 import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
 REQUIRED = ("status", "model", "env", "requirements", "scope", "commits",
             "checks", "questions", "findings-for-protocol", "budget", "notes")
@@ -197,30 +201,62 @@ def report_budget(line, field):
     return float(m.group(1)) if m else None
 
 
-def harness_budget(repo, task_id):
-    """What the harness metered for this task's last dispatched step, or None.
+CONTAINMENT = re.compile(r"^\|\s*Containment\s*\|\s*`?(structural|guard-only)`?(?![\w-])")
 
-    SILENT when there is nothing to compare against, which is the whole
-    contract. A `guard-only` project has no sandbox at all and a report from
-    one is not defective for lacking a budget file -- so an absent sandbox
-    must produce no finding, never a `could not run`. A check that reports its
-    own inapplicability as a problem trains people to ignore it.
+
+def charter_containment(devteam):
+    """`structural`, `guard-only`, or None when the charter declares neither.
+
+    Read from the charter's own row (FORMATS.md, charter `Containment`), because
+    only a DECLARATION may exclude the harness comparison (roadmap 0.3.1,
+    L-1.2). An unfilled template cell starts with `<` and declares nothing.
+    """
+    try:
+        with open(os.path.join(devteam, "CHARTER.md"), encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                m = CONTAINMENT.match(line)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    return None
+
+
+def harness_budget(repo, task_id):
+    """(what the harness metered for this task's last step, None) -- or
+    (None, why there is nothing to compare against).
+
+    NO LONGER SILENT (roadmap 0.3.1, L-1.2). This used to return None for every
+    absence, on the reasoning that a `guard-only` project has no sandbox and a
+    report from one is not defective for lacking a budget file. That reasoning
+    stands, and the charter's `Containment: guard-only` now EXCLUDES the
+    comparison by declaration, named in the line (see `check`). What it hid was
+    the other case: a `structural` project whose sandboxes had been closed read
+    `clean` because the comparator was gone (F-32's T-4 case, pricelog
+    RECORD.md:356). With no declaration behind it, that absence is a part not
+    evaluated, and the reason says which file was missing.
     """
     lock = os.path.join(repo, "devteam", ".run", "locks", f"{task_id}.sandbox")
     try:
         with open(lock, encoding="utf-8") as fh:
             line = fh.read().strip()
     except OSError:
-        return None
+        return None, f"no devteam/.run/locks/{task_id}.sandbox names a sandbox to compare against"
     m = re.search(r"\broot\s+(\S.*)$", line)
     if not m:
-        return None
+        return None, f"devteam/.run/locks/{task_id}.sandbox names no `root`"
+    budget = os.path.join(m.group(1).strip(), "meta", "budget.json")
     try:
-        with open(os.path.join(m.group(1).strip(), "meta", "budget.json")) as fh:
+        with open(budget) as fh:
             doc = json.load(fh)
-    except (OSError, ValueError):
-        return None
-    return doc if isinstance(doc, dict) else None
+    except OSError:
+        return None, (f"the sandbox's meta/budget.json is gone (its root no longer "
+                      f"exists, or it was closed)")
+    except ValueError:
+        return None, "the sandbox's meta/budget.json is not JSON"
+    if not isinstance(doc, dict):
+        return None, "the sandbox's meta/budget.json is not a JSON object"
+    return doc, None
 
 
 def check(project, want_id):
@@ -230,12 +266,15 @@ def check(project, want_id):
     step_id = step_id or None
     findings = []
     add = lambda kind, detail: findings.append((kind, detail))
+    gaps, excluded = [], []  # (part, reason, advisory); (part, declaration)
+    outcome = lambda: (findings, gaps, excluded)
 
     devteam = project if os.path.basename(project) == "devteam" else os.path.join(project, "devteam")
     repo = os.path.dirname(devteam)
     path = os.path.join(devteam, "tasks", f"{task_id}.md")
     if not os.path.isfile(path):
-        return [("no-file", os.path.relpath(path, repo))]
+        add("no-file", os.path.relpath(path, repo))
+        return outcome()
 
     with open(path, encoding="utf-8", errors="replace") as fh:
         lines = fh.read().split("\n")
@@ -253,7 +292,7 @@ def check(project, want_id):
     parsed = parse_report(lines, task_id, step_id)
     if parsed is None:
         add("no-report", "no REPORT block in the execution record")
-        return findings
+        return outcome()
 
     _role, reported_task, reported_step, fields = parsed
     found = f"{reported_task}.{reported_step}" if reported_step else reported_task
@@ -363,7 +402,14 @@ def check(project, want_id):
                                for l in log.split("\n")):
             add("head-subject", f"no commit's subject begins with {task_id}")
 
-    harness = harness_budget(repo, task_id)
+    containment = charter_containment(devteam)
+    harness, missing = (None, None) if containment == "guard-only" else harness_budget(repo, task_id)
+    if containment == "guard-only":
+        excluded.append(("budget-mismatch and model-mismatch",
+                         "the charter's `Containment: guard-only`, which has no harness meter"))
+    elif harness is None:
+        gaps.append(("budget-mismatch", missing, True))
+        gaps.append(("model-mismatch", missing, False))
     if harness:
         # P-17c. Both figures are self-reported today by the party least placed
         # to know them, and MEASURED 0.2.3 a live worker reported
@@ -397,7 +443,7 @@ def check(project, want_id):
                     f"the report says {field}={claimed:g} and the harness "
                     f"metered {actual:g} ({tol:.0%} tolerance)")
 
-    return findings
+    return outcome()
 
 
 # ADVISORY findings say something true about the REPORT that is not a claim
@@ -428,35 +474,32 @@ ADVISORY = {"budget-mismatch"}
 
 
 def main(argv):
-    argv = [a for a in argv]
-    blocking_only = "--blocking-only" in argv
-    if blocking_only:
-        argv.remove("--blocking-only")
+    as_json, argv = result.flag(list(argv), "--json")
+    blocking_only, argv = result.flag(argv, "--blocking-only")
     if len(argv) < 3:
-        print(__doc__.strip().split("Usage:")[-1].strip(), file=sys.stderr)
-        return 2
+        return result.could_not_run(
+            "check_report", __doc__.strip().split("Usage:")[-1].strip(), as_json)
     project, task_id = os.path.realpath(argv[1]), argv[2]
     if not re.fullmatch(r"T-\d+(\.S-\d+)?", task_id):
-        print(f"check_report: {task_id!r} is not a task or step id", file=sys.stderr)
-        return 2
-    findings = check(project, task_id)
-    blocking = [f for f in findings if f[0] not in ADVISORY]
-    if findings:
-        print(f"{task_id}: {len(findings)} finding(s)")
-        for kind, detail in sorted(findings):
-            mark = "  (advisory)" if kind in ADVISORY else ""
-            print(f"  {kind:18} {detail}{mark}")
-        # ADVISORY findings are still PRINTED under --blocking-only. Suppressing
-        # them would make the flag a way to not see something, which is how a
-        # check loses the thing it was built for; it changes the verdict, never
-        # the report.
-        if blocking_only and not blocking:
-            print(f"{task_id}: no blocking findings — every one above is advisory, "
-                  f"a fact about the report that the work does not depend on")
-            return 0
-        return 1
-    print(f"{task_id}: clean")
-    return 0
+        return result.could_not_run("check_report", f"{task_id!r} is not a task or step id", as_json)
+    findings, gaps, excluded = check(project, task_id)
+    res = result.Result("check_report", task_id, width=18)
+    res.blocking_only = blocking_only
+    anchor = f"tasks/{task_id.partition('.')[0]}.md"
+    for kind, detail in findings:
+        res.finding(kind, anchor, detail, advisory=kind in ADVISORY)
+    for part, reason, advisory in gaps:
+        res.gap(part, reason, advisory)
+    for part, declaration in excluded:
+        res.exclude(part, declaration)
+    # ADVISORY findings are still PRINTED under --blocking-only. Suppressing
+    # them would make the flag a way to not see something, which is how a
+    # check loses the thing it was built for; it changes the verdict, never
+    # the report.
+    if blocking_only and findings and res.exit_code == result.CLEAN:
+        res.trailer.append(f"{task_id}: no blocking findings — every one above is advisory, "
+                           f"a fact about the report that the work does not depend on")
+    return result.emit([res], as_json)
 
 
 if __name__ == "__main__":

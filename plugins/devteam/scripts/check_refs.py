@@ -12,7 +12,8 @@ absent from the lists here. `unruled-finding` in check_plugin.py keeps
 docs/CHECKS.md and the code equal in both directions.
 
 Reads GIT-TRACKED files only, so scratch work is never a finding.
-Exit 0 clean, 1 findings, 2 could not run.
+Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract
+is result.py's (roadmap 0.3.1, L-1.1).
 
 The grammar it implements is templates/FORMATS.md, which is its one home
 (P-34). Its negative control is test_check_refs.py; a check that has never
@@ -22,6 +23,9 @@ import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
 # --- the grammar (templates/FORMATS.md) ----------------------------------
 
@@ -243,6 +247,13 @@ def tracked_markdown(root: str):
 
 class CouldNotRun(Exception):
     """A file this check cannot read or decode.
+
+    SUPERSEDED IN 0.3.1 (L-1.1): such a file now ends the run as NOT EVALUATED,
+    exit 3, naming the file -- not exit 2. The reasoning below still holds for
+    why it is not a finding; what changed is that exit 2 means the TOOL cannot
+    answer, whose remedy is the invocation, while a file it cannot decode is
+    the PROJECT's state, whose remedy is in the project. The name is kept
+    because it is what the exception has always meant to this file's readers.
 
     WITHDRAWN AS FINDINGS IN 0.2.6 (`unreadable`, `not-utf8`). Both reported
     "the check could not read a file" as an exit-1 finding, and the script
@@ -505,45 +516,47 @@ def scan(files, base):
                          f"{ident} {why} and nothing cites it — filed is not "
                          f"routed; disposition is `routed T-n`, `raised Q-n` "
                          f"or `declined (D-n)`"))
-    return findings
+    return findings, (len(files), len(declared), len(cited))
 
 
-def check(target: str):
+def check(target: str, as_json=False):
+    """A Result for one target, or an int exit code when it could not run."""
     target = os.path.realpath(target)
     if os.path.basename(target) != "devteam" and os.path.isdir(os.path.join(target, "devteam")):
         target = os.path.join(target, "devteam")
     if not os.path.isdir(target):
-        print(f"check_refs: not a directory: {target}", file=sys.stderr)
-        return None
+        return result.could_not_run("check_refs", f"not a directory: {target}", as_json)
     files = tracked_markdown(target)
     if files is None:
-        print(f"check_refs: not a git repository: {target}", file=sys.stderr)
-        return None
+        return result.could_not_run("check_refs", f"not a git repository: {target}", as_json)
+    res = result.Result("check_refs", os.path.relpath(target, os.getcwd()), width=16)
     try:
-        return scan(files, target), target
+        findings, (nfiles, ndeclared, ncited) = scan(files, target)
     except CouldNotRun as exc:
-        print(f"check_refs: could not run: {exc}", file=sys.stderr)
-        return None
+        # One unreadable file makes every cross-file class untrustworthy -- a
+        # declaration inside it would read as `cited-undefined` everywhere else
+        # -- so the whole run is not evaluated, naming the file, rather than a
+        # partial run whose findings are the gap's artifacts.
+        res.gap("every class", str(exc))
+        res.count(len(files), "files tracked")
+        return res
+    for kind, path, line, detail in findings:
+        res.finding(kind, f"{path}:{line}", detail)
+    res.count(nfiles, "files")
+    res.count(ndeclared, "declared")
+    res.count(ncited, "cited")
+    return res
 
 
 def main(argv):
-    targets = argv[1:] or ["."]
-    total, ran = 0, 0
-    for t in targets:
-        got = check(t)
-        if got is None:
-            return 2
-        findings, resolved = got
-        ran += 1
-        label = os.path.relpath(resolved, os.getcwd())
-        if findings:
-            print(f"{label}: {len(findings)} finding(s)")
-            for kind, path, line, detail in sorted(findings, key=lambda f: (f[0], f[1], f[2])):
-                print(f"  {kind:16} {path}:{line}  {detail}")
-            total += len(findings)
-        else:
-            print(f"{label}: clean")
-    return 1 if total else 0
+    as_json, targets = result.flag(argv[1:], "--json")
+    results = []
+    for t in (targets or ["."]):
+        got = check(t, as_json)
+        if isinstance(got, int):
+            return got
+        results.append(got)
+    return result.emit(results, as_json)
 
 
 if __name__ == "__main__":

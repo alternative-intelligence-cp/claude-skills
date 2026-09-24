@@ -12,7 +12,9 @@ with exit codes, not careful readings, and each ships a negative control
 beside it because *a check that has never failed has not been shown to work*
 (P-35).
 
-All four exit `0` clean, `1` findings, `2` could not run, and read
+All four exit `0` clean, `1` findings, `2` could not run, `3` not evaluated —
+a part the check did not look at, named with its reason, which is never
+clean — and take `--json`. They read
 **git-tracked files only** — so scratch work is never a finding, and a file
 you have not committed yet is invisible to them.
 
