@@ -165,6 +165,25 @@ BOARD = """# The board
 | T-2 | write the README | R-2 | T-1 | `README.md` | {s2} |
 """
 
+
+def flight(*tids, note="—"):
+    """An `## In flight` table holding a row for each task named (roadmap 0.3.2,
+    L-2.2). A claim is held while its task has a row here. The row's last cell
+    is a Note, which the old row grammar read as a state, because it took the
+    last cell of every table on the board."""
+    rows = "\n".join(f"| {t} | x | {t.replace('-', '')}-a-1200 | `a1` | — | "
+                     f"2026-09-24 12:00 | claude-opus-5-5 | `src/` | {note} |" for t in tids)
+    return ("\n## In flight\n\n| Task | Title | Agent label | Agent id | Sandbox | Since "
+            "| Model | Scope | Note |\n|---|---|---|---|---|---|---|---|---|\n"
+            + (rows or "| — | — | — | — | — | — | — | — | nothing running |") + "\n")
+
+
+T1_RUNNING = T1.replace("— PLANNED", "— RUNNING (since 2026-09-24, T1-a-1200)")
+T1_STOPPED = T1.replace("— PLANNED", "— NEEDS-DECISION (Q-1: which way)")
+REQS_R1_RUNNING = REQS.replace("- **Status.** open", "- **Status.** in-progress (T-1)", 1)
+_UNREAD_FLIGHT = ("| — | — | — | — | — | — | — | — | nothing running |",
+                  "| the first task | x | T1-a-1200 | `a1` | — | — | — | — | — |")
+
 CASES = [
     # --- unparseable-protected-path ---------------------------------------
     # The row that fooled 0.2.8, verbatim. It reads correctly to a human, and
@@ -293,16 +312,31 @@ CASES = [
     # that the grammar did not read. The case expects the part named, and a
     # finding only where the missed row really does cause one.
     #
-    # ZERO ROWS: F-70's own board, every row a link. board-drift compared
-    # nothing for a project's whole life and said clean.
-    ("zero-rows-a-board-of-link-rows-is-not-evaluated",
-     {"BOARD.md": BOARD.format(s1="—", s2="—").replace(
-         "| T-1 |", "| [T-1](tasks/T-1.md) |").replace("| T-2 |", "| [T-2](tasks/T-2.md) |")},
+    # ZERO ROWS. These two were F-70's link rows until 0.3.2 read that form
+    # (L-2.1); a link row is now read, so the rows the grammar still cannot
+    # read are a row short of a cell and a row naming two tasks.
+    ("zero-rows-a-tasks-table-whose-rows-are-all-short-a-cell",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace(" | — |\n", " |\n")},
      set(), [], None, {"BOARD.md's task rows"}),
     # A PARTIAL READ: one row among parsed ones.
-    ("partial-read-one-link-row-among-bare-rows",
-     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| T-2 |", "| [T-2](tasks/T-2.md) |")},
+    ("partial-read-one-row-naming-two-tasks",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| T-2 |", "| T-2 and T-3 |")},
      set(), [], None, {"BOARD.md's task rows"}),
+    # A pipe inside a cell misaligns the row, so its State cell is not where
+    # the header says: the row is named, never read with the wrong cell.
+    ("partial-read-a-row-with-a-cell-too-many",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| R-1 |", "| R-1 | R-3 |")},
+     set(), [], None, {"BOARD.md's task rows"}),
+    # The State column is found by its header, not by being the last cell.
+    ("fp-the-state-column-is-found-by-its-header",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| State |", "| State | Note |")
+      .replace("|---|---|---|---|---|---|", "|---|---|---|---|---|---|---|")
+      .replace("| `src/` | — |", "| `src/` | — | DONE |")
+      .replace("| `README.md` | — |", "| `README.md` | — | DONE |")},
+     set()),
+    ("a-board-with-no-tasks-table-is-not-evaluated",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| State |", "| Status |")},
+     set(), [], None, {"BOARD.md's Tasks table"}),
     ("partial-read-a-requirement-heading-with-a-colon",
      {"REQUIREMENTS.md": REQS + "\n### R-3: it is fast\n\n- **Statement.** fast.\n"},
      set(), [], None, {"REQUIREMENTS.md's requirement headings"}),
@@ -428,6 +462,90 @@ CASES = [
       "tasks/T-1.md": T1.replace("— PLANNED", "— ACCEPTED (2026-09-05, D-41)"),
       "REQUIREMENTS.md": REQS.replace("- **Status.** open",
                                       "- **Status.** discharged (T-1)", 1)},
+     set()),
+
+    # --- the board read as its grammar writes it (roadmap 0.3.2, L-2.1) -----
+    # F-70'S OWN ROWS: every real row is a link, and the old grammar wanted a
+    # bare id, so board-drift compared nothing for a project's whole life.
+    ("f70-a-link-row-that-disagrees-with-its-title-fires",
+     {"BOARD.md": BOARD.format(s1="DONE", s2="—").replace(
+         "| T-1 |", "| [T-1](tasks/T-1.md) |").replace("| T-2 |", "| [T-2](tasks/T-2.md) |")},
+     {"board-drift"}),
+    ("fp-f70-link-rows-that-agree-are-read-and-clean",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace(
+         "| T-1 |", "| [T-1](tasks/T-1.md) |").replace("| T-2 |", "| [T-2](tasks/T-2.md) |")},
+     set()),
+    # The template writes backticks, and pricelog writes its states in bold.
+    ("backticked-row-with-a-bold-state-that-disagrees-fires",
+     {"BOARD.md": BOARD.format(s1="**DONE**", s2="—").replace("| T-1 |", "| `T-1` |")},
+     {"board-drift"}),
+    ("fp-backticked-and-bold-rows-and-states-are-read",
+     {"BOARD.md": BOARD.format(s1="**—**", s2="`—`").replace(
+         "| T-1 |", "| `T-1` |").replace("| T-2 |", "| **T-2** |")},
+     set()),
+    # F-107'S OWN: T-12 read DONE on the board and NEEDS-DECISION in its title
+    # for three days, and every check passed (pricelog RECORD.md:1181).
+    ("f107-done-on-the-board-over-a-needs-decision-title",
+     {"BOARD.md": BOARD.format(s1="DONE", s2="—"), "tasks/T-1.md": T1_STOPPED},
+     {"board-drift"}),
+    # THE IN-FLIGHT ROW IS NOT A TASKS ROW. Its last cell is a Note, and the old
+    # grammar read that as the task's state (0.3.1 §3.2's T-19).
+    ("fp-an-in-flight-rows-note-is-not-a-state",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—")
+      + flight("T-1", note="DONE — waiting on the verifier"),
+      "tasks/T-1.md": T1_RUNNING, "REQUIREMENTS.md": REQS_R1_RUNNING},
+     set()),
+    # L-2.2, BOTH WAYS: CLAIMED over a title its supervisor wrote at a close or a
+    # stop is legal while the claim is held, and drifts once its row is gone --
+    # the run's own mutation (pricelog RECORD.md:487).
+    ("fp-l22-claimed-over-a-done-title-while-in-flight",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight("T-1"),
+      "tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-24)"),
+      "REQUIREMENTS.md": REQS_R1_DONE},
+     set()),
+    ("l22-claimed-over-a-done-title-with-the-row-removed",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight(),
+      "tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-24)"),
+      "REQUIREMENTS.md": REQS_R1_DONE},
+     {"board-drift"}),
+    ("fp-l22-claimed-over-a-needs-decision-stop-while-in-flight",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight("T-1"),
+      "tasks/T-1.md": T1_STOPPED},
+     set()),
+    ("l22-claimed-over-a-needs-decision-stop-with-the-row-removed",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight(),
+      "tasks/T-1.md": T1_STOPPED},
+     {"board-drift"}),
+    # ...and the allowance is what a supervisor writes, not anything at all:
+    # ACCEPTED is the client's.
+    ("l22-an-accepted-title-drifts-under-claimed-even-in-flight",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight("T-1"),
+      "tasks/T-1.md": T1.replace("— PLANNED", "— ACCEPTED (2026-09-24, D-1)"),
+      "REQUIREMENTS.md": REQS_R1_DONE},
+     {"board-drift"}),
+    # The in-flight table is read when a row is CLAIMED, and a row of it this
+    # cannot read is then a part not evaluated: the allowance fails closed on
+    # it. With nothing CLAIMED, the table is not read at all.
+    ("an-unreadable-in-flight-row-under-a-claim-is-not-evaluated",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight().replace(*_UNREAD_FLIGHT),
+      "tasks/T-1.md": T1_RUNNING, "REQUIREMENTS.md": REQS_R1_RUNNING},
+     set(), [], None, {"BOARD.md's in-flight rows"}),
+    ("fp-an-unreadable-in-flight-row-with-nothing-claimed-is-not-read",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + flight().replace(*_UNREAD_FLIGHT)},
+     set()),
+    # --- bad-board-state: a state outside the vocabulary (L-2.1) ------------
+    # pricelog's T-16 and T-19 at the stop. A state the check did not know
+    # compared nothing and said nothing (`if allowed and …`).
+    ("bad-board-state-a-state-the-vocabulary-lacks",
+     {"BOARD.md": BOARD.format(s1="**STOPPED (D-67)** — never restarted", s2="—")},
+     {"bad-board-state"}),
+    # A known state with a sentence after it, as pricelog wrote a dozen times.
+    ("bad-board-state-a-reason-written-after-the-state",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200 — stopped; restarts under §9a", s2="—"),
+      "tasks/T-1.md": T1_RUNNING, "REQUIREMENTS.md": REQS_R1_RUNNING},
+     {"bad-board-state"}),
+    ("fp-blocked-on-several-named-blockers",
+     {"BOARD.md": BOARD.format(s1="BLOCKED on Q-1, Q-2", s2="—")},
      set()),
 
     ("clean", {}, set()),
@@ -913,9 +1031,10 @@ ACCEPT_CASES = [
          _ACCEPT_VERIFY, more="\n### D-2 — T-1 gets its Verify. after all\n\n"
                               "- **Decision.** add it.\n- **Supersedes.** D-1\n")},
      [], 1, {"missing-field"}, set(), set()),
-    # A PART ACCEPTED: F-70's board, blind until 0.3.2 reads link rows.
+    # A PART ACCEPTED: a board row naming two tasks, which the grammar reads as
+    # neither. (It was F-70's link row until 0.3.2 read that form.)
     ("an-accepted-part-exits-0-and-is-named",
-     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| T-1 |", "| [T-1](tasks/T-1.md) |"),
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| T-2 |", "| T-2 and T-3 |"),
       "DECISIONS.md": decisions("`check_trace` not evaluated: BOARD.md's task rows")},
      [], 0, set(), {("D-1", "BOARD.md's task rows")}, set()),
     ("a-part-now-evaluated-leaves-its-acceptance-stale",

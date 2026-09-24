@@ -53,7 +53,7 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 23 classes
+## `check_trace.py` — 24 classes
 
 Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`, `BOARD.md` and `audits/`,
 tracked or untracked and not ignored, and `DECISIONS.md`'s acceptances. Diffs
@@ -71,7 +71,8 @@ goals ↔ requirements ↔ tasks ↔ acceptance criteria.
 | `dependency-cycle` | P-45 — a task graph is acyclic | a task's `Depends-on.` closure ↔ itself | `enforces` (P-45, written here) |
 | `gate-omits-decision` | P-18 — reported green is not green; P-5 | decisions a requirement's `Statement.`/`Acceptance.` rests on ↔ the `Gate.` of every discharging task | `enforces` |
 | `re-litigated-requirement` | P-46 — rewritten three times means shape review | a requirement's revision count ↔ the threshold 3 | `enforces` (P-46, written here) |
-| `board-drift` | P-11 — the board is the lock; P-34 — facts have one home | `BOARD.md`'s `State` column ↔ each task file's own title status | `enforces` |
+| `board-drift` | P-11 — the board is the lock; P-34 — facts have one home | the `State` of each row of `BOARD.md`'s Tasks table — the table whose header names `Task` first and has a `State` column — ↔ each task file's own title status. `CLAIMED` allows the title a supervisor writes at a close or a stop while the task has a row in the in-flight table (roadmap 0.3.2, L-2.2) | `enforces` |
+| `bad-board-state` | `FORMATS.md` §"Status vocabularies", board task state | a Tasks-table `State` cell, bold and backticks removed ↔ the closed set `—` · `CLAIMED <label>` · `BLOCKED on T-n` or `Q-n`, several comma-separated · `DONE` · `ACCEPTED (<date>, D-n)`, matched whole (roadmap 0.3.2, L-2.1) | `enforces` |
 | `one-sided-link` | P-4 | a requirement's `Status.` task list ↔ that task's `Discharges.` | `enforces` |
 | `template-drift` | `FORMATS.md` §"An artifact conforms to the template it came from, at the current version" | the charter's constraint rows ↔ the **current** template's rows | `enforces` |
 | `amendment-omits-condition` | P-48 — an amendment re-affirms every done-means and constraint row | the charter's current `DM-n` list and constraint row labels ↔ the latest amendment's `Re-affirmed.` enumeration | `enforces` |

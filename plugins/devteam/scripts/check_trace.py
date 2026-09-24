@@ -475,7 +475,88 @@ def first_declared(devteam):
     return seen, churn, gaps
 
 
-BOARD_ROW = re.compile(r"^\|\s*(T-\d+)\s*\|.*\|\s*([^|]+?)\s*\|\s*$")
+# THE BOARD, READ AS ITS GRAMMAR WRITES IT (roadmap 0.3.2, L-2.1). The Tasks
+# table is the one whose header row names `Task` first and has a `State`
+# column, and a row's state is the cell under that header. The regex this
+# replaces ran over EVERY line of the board and took a row's LAST cell as its
+# state, so pricelog's in-flight row for T-19 was compared with its `Note`; and
+# it wanted a bare `T-n` where every real row is a link, so for that project's
+# whole life board-drift compared nothing and said clean (F-70). The table is
+# found by its header rather than by its `## Tasks` heading, so a board written
+# without the heading reads the same.
+TABLE_ROW = re.compile(r"^\|")
+LINK_TEXT = re.compile(r"^\[([^\]]*)\]\([^)]*\)$")
+TASK_ID = re.compile(r"^T-\d+$")
+
+# FORMATS' board task states (§"Status vocabularies"), matched WHOLE. A reason
+# goes in the in-flight table's Note, never after the state: pricelog wrote
+# `CLAIMED <label> — stopped; restarts under §9a …` and a dozen like it, a
+# sentence where a token belongs (N-4's second cause). BLOCKED may name several
+# blockers, comma-separated, for the reason a requirement's status may name
+# several tasks: pricelog blocked tasks on two at once, and one id would have
+# said something untrue.
+BOARD_STATE = re.compile(r"^(?:—|-|CLAIMED \S+|BLOCKED on [TQ]-\d+(?:, [TQ]-\d+)*|DONE"
+                         r"|ACCEPTED \(\d{4}-\d{2}-\d{2}, D-\d+\))$")
+
+
+def cells(line):
+    """A table row's cells, stripped, without the empty cells outside its pipes."""
+    parts = line.strip().split("|")
+    return [c.strip() for c in parts[1:-1 if line.strip().endswith("|") else None]]
+
+
+def plain(cell):
+    """A cell's text with its decoration peeled, in any order: a link becomes
+    its text, and bold, italics and backticks come off both ends."""
+    c = cell.strip()
+    while True:
+        before = c
+        c = c.strip("*`_ ").strip()
+        m = LINK_TEXT.match(c)
+        if m:
+            c = m.group(1).strip()
+        if c == before:
+            return c
+
+
+def board_rows(lines):
+    """([(T-n, its state, its line)], [lines offered and not read], found).
+
+    `found` is False when no table on the board has a `Task` first column and
+    a `State` column. A row of that table is OFFERED when its first cell looks
+    like a task in any decoration (`BOARD_ROW_ISH`), and READ when that cell
+    names exactly one task and the row has one cell per column of the header.
+    A row in any other table -- the in-flight table above all -- is not
+    offered: `in_flight` reads that one.
+    """
+    out, missed, found, n = [], [], False, 0
+    while n < len(lines):
+        if not TABLE_ROW.match(lines[n]):
+            n += 1
+            continue
+        start = n
+        while n < len(lines) and TABLE_ROW.match(lines[n]):
+            n += 1
+        table = lines[start:n]
+        head = [plain(c).lower() for c in cells(table[0])]
+        if (len(table) < 2 or not TABLE_RULE.match(table[1])
+                or not head or head[0] != "task" or "state" not in head):
+            continue
+        found, col = True, head.index("state")
+        for line_no, line in enumerate(table[2:], start + 3):
+            if not BOARD_ROW_ISH.match(line):
+                continue
+            row = cells(line)
+            tid = plain(row[0]) if row else ""
+            if len(row) != len(head) or not TASK_ID.match(tid) or not plain(row[col]):
+                missed.append(line_no)
+                continue
+            # Bold and backticks anywhere in the state are decoration:
+            # pricelog writes `**DONE**` and `**STOPPED (D-67)** — …`.
+            out.append((tid, " ".join(re.sub(r"\*\*|`", "", row[col]).split()), line_no))
+    return out, missed, found
+
+
 # What a board State and a task title may say about one task at one moment.
 # Not an equality -- the two vocabularies are different by design, the board
 # saying what a reader needs and the title saying what the task holds.
@@ -508,15 +589,16 @@ BOARD_PHASES = {
     "ACCEPTED": ("ACCEPTED",),
 }
 
-
-def board_states(devteam):
-    """{T-n: the board's State cell} from the Tasks table."""
-    out = {}
-    for line in read(devteam, "BOARD.md"):
-        m = BOARD_ROW.match(line)
-        if m:
-            out[m.group(1)] = m.group(2).strip().strip("`")
-    return out
+# WHILE A CLAIM IS HELD (roadmap 0.3.2, L-2.2). The manager moves the board only
+# after the verifier returns (P-13, P-18), and the title is the supervisor's
+# line, so every supervisor's close and every stop lands with CLAIMED still on
+# the board. 0.3.1 met this at its gate for DONE, which is F-19's window; a
+# supervisor that stops NEEDS-DECISION meets it too, and could not repair it,
+# because the board is not its to edit. So while the task has a row in the
+# in-flight table -- the claim protocol releases that row only on a PASS --
+# CLAIMED allows every state a supervisor writes. Without the row, only the two
+# above. Planted both ways, as the run's own mutation (pricelog RECORD.md:487).
+CLAIM_HELD = ("DONE", "READY-TO-AUDIT", "NEEDS-DECISION", "BLOCKED")
 
 
 IN_FLIGHT_ROW = re.compile(r"^\|\s*(?:\[|\*\*|\*|`)*\s*(T-\d+)\b")
@@ -929,30 +1011,55 @@ def check(devteam):
     # is the same property that lets them disagree.
     #
     # AND IT COMPARED NOTHING FOR A PROJECT'S WHOLE LIFE (F-70): every row of
-    # a real board is written as a link, `| [T-1](tasks/T-1.md) | … |`, and the
-    # row grammar wants a bare id, so no row parsed and the check said clean.
-    # Reading the link form is 0.3.2's; naming each row it did not read is
-    # this (L-1.3).
+    # a real board is written as a link, and the row grammar wanted a bare id,
+    # so no row parsed and the check said clean. 0.3.1 named each row it did
+    # not read (L-1.3); 0.3.2 reads them (L-2.1), and names only a row that
+    # is still not in the grammar.
     board = read(devteam, "BOARD.md")
-    offered = [n for n, line in enumerate(board, 1) if BOARD_ROW_ISH.match(line)]
-    missed = [n for n in offered if not BOARD_ROW.match(board[n - 1])]
+    rows, missed, found = board_rows(board)
     if missed:
         gaps.append(("BOARD.md's task rows", result.unparsed(
-            [("BOARD.md", n) for n in missed], len(offered), "table rows naming a task",
-            "`| T-n | … | <state> |`", "board-drift compared nothing for them")))
-    for tid, state in sorted(board_states(devteam).items()):
+            [("BOARD.md", n) for n in missed], len(rows) + len(missed),
+            "rows of the Tasks table naming a task",
+            "`| T-n | … | <state> |` with one cell per column, the task bare, "
+            "linked, bold or in backticks", "board-drift compared nothing for them")))
+    if board and not found:
+        gaps.append(("BOARD.md's Tasks table", "no table on BOARD.md has `Task` as its "
+                     "first column and a `State` column, so board-drift compared nothing"))
+    # The in-flight table decides L-2.2's allowance, so it is read only when
+    # some row is CLAIMED -- and then a row of it this cannot read is a part
+    # not evaluated, because the allowance fails closed on it.
+    flying, unread = in_flight(devteam) if any(
+        s.split()[:1] == ["CLAIMED"] for _, s, _ in rows) else ({}, [])
+    if unread:
+        gaps.append(("BOARD.md's in-flight rows", result.unparsed(
+            [("BOARD.md", n) for n in unread], len(flying) + len(unread),
+            "in-flight rows", "`| T-n | … |`",
+            "a CLAIMED task's in-flight row may not have been seen")))
+    for tid, state, n in sorted(rows):
         if tid not in tasks:
             add("board-drift", "BOARD.md",
                 f"the board lists {tid}, which has no task file")
             continue
+        if not BOARD_STATE.match(state):
+            add("bad-board-state", f"BOARD.md:{n}",
+                f"{tid}'s state is {state!r}, which is not a board state: FORMATS "
+                "allows `—`, `CLAIMED <label>`, `BLOCKED on T-n` or `Q-n` (several, "
+                "comma-separated), `DONE` and `ACCEPTED (<date>, D-n)`. A reason goes "
+                "in the in-flight table's Note, not after the state")
         title_phase = (tasks[tid][2].split() or [""])[0]
         key = state.split()[0] if state.split() else state
         allowed = BOARD_PHASES.get(key)
+        held = key == "CLAIMED" and tid in flying
+        if held:
+            allowed = allowed + CLAIM_HELD
         if allowed and title_phase and title_phase not in allowed:
             add("board-drift", "BOARD.md",
                 f"the board says {tid} is {state!r} and its title says "
                 f"{tasks[tid][2].strip()!r} — a board state of {key} wants a "
-                f"title of {' or '.join(allowed)}")
+                f"title of {' or '.join(allowed)}"
+                + (f", or, while {tid} has a row in the in-flight table, "
+                   f"{' or '.join(CLAIM_HELD)}" if key == "CLAIMED" and not held else ""))
 
     # COMPARE PHASE, NOT IDENTITY. Naming the task was the whole test, so
     # `in-progress (T-6)` passed while T-6 was DONE -- a requirement claiming to

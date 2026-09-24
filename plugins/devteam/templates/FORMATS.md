@@ -162,7 +162,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | question `Class.` | `REVERSIBLE` · `IRREVERSIBLE` · `CHARTER` |
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
 | REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT` |
-| board task state | `—` · `CLAIMED <label>` · `BLOCKED on T-n` · `BLOCKED on Q-n` · `DONE` |
+| board task state | `—` · `CLAIMED <label>` · `BLOCKED on T-n` · `BLOCKED on Q-n` · `DONE` · `ACCEPTED (<date>, D-n)`. **Several blockers are comma-separated** — `BLOCKED on T-2, Q-4` — for the reason a requirement's status may name several tasks. The cell holds the state and nothing after it: a reason goes in the in-flight table's `Note`. `check_trace` reads the state from the Tasks table, the one whose header names `Task` first and has a `State` column, and a row may name its task bare, as a link, in bold or in backticks (roadmap 0.3.2, L-2.1) |
 | charter `Containment` | `structural` · `guard-only`. Written by `/devteam:setup` from `sandbox_probe.py`'s exit code and re-checked at every `/devteam:run` startup. **Not a preference and never copied from an example** — it is a fact about the machine |
 | promotion findings | `promote-base-disagreement` · `promote-conflict` · `promote-extraction-failed` · `promote-fetch-failed` · `promote-foreign-subject` · `promote-history-rewrite` · `promote-host-index-dirty` · `promote-no-commits` · `promote-no-scope` · `promote-no-task-file` · `promote-out-of-scope` · `promote-task-file-unparsed` · `promote-task-file-untracked` · `promote-uncommitted`. Check output, closed set, emitted by `sandbox.py promote` and by its `--dry-run`. 0.2.6 is where each is named against the rule it enforces |
 | `check_report` harness findings | `budget-mismatch` · `model-mismatch`. Silent on a `guard-only` project, which has no harness meter — **an absent measurement is not a finding** |
@@ -211,7 +211,7 @@ and compares what it claims against the tree.
 
 | Check | Reads | Diffs |
 |---|---|---|
-| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`, `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles |
+| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles |
 | `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
 | `check_report.py` | one `tasks/T-n.md`, `git`, and the harness's `.run/locks/T-n.sandbox` line | the REPORT block ↔ the committed tree |
 | `check_scope.py` | `BOARD.md`, `tasks/*.md`, `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written |

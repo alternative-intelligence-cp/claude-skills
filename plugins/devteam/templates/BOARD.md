@@ -31,6 +31,11 @@ a session that is not you, do not write in `devteam/`. This file is exempt: it
 | `ACCEPTED (<date>, D-n)` | closed and released **over a failed or absent verification**, on a client decision (P-2). The decision is in the state because a task closed against its own evidence is only legible with the reason attached |
 | `DONE` | closed, verified, and released |
 
+**A state is exactly one of these, with nothing after it.** Several blockers
+are comma-separated — `BLOCKED on T-n, Q-n` — and a reason goes in the
+in-flight table's `Note`. `check_trace` reports anything else as
+`bad-board-state`.
+
 ## In flight
 
 **`Agent id` is written at claim time from the dispatch's return value, and it

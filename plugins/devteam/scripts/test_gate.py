@@ -174,6 +174,17 @@ ADVANCED = CLAIMED + [
             "| `T-1` | make it work | R-1 | none | `src/` | DONE |",
             "| `T-2` | tidy the docs | none | none | `src/` | CLAIMED T2-src-0900 |"))}),
 ]
+# A SUPERVISOR'S STOP (roadmap 0.3.2, L-2.2): its title and report land with
+# CLAIMED still on the board, which the manager moves afterwards.
+STOPPED_T1 = task(1, "make it work", "NEEDS-DECISION (which way the docs go)", T1_FIELDS,
+                  report("NEEDS-DECISION", "  - HEAD T-1: stop"))
+# pricelog's board form: every row's first cell a link (F-70), which the gate
+# now reads rather than naming the rows as a part not evaluated.
+LINK_ROWS = ("| [T-1](tasks/T-1.md) | make it work | R-1 | none | `src/` | CLAIMED T1-work-1200 |",
+             "| [T-2](tasks/T-2.md) | tidy the docs | none | none | `docs/` | — |")
+CLAIMED_LINKED = [("setup: the fixture", SETUP),
+                  ("board: claim T-1", {**CLAIM, "devteam/BOARD.md": board(IN_FLIGHT_T1, rows=LINK_ROWS)})]
+T2_PLANNED = task(2, "tidy the docs", "PLANNED", T2_FIELDS)
 STUB = "raise NotImplementedError\n"
 STUBBED = CLAIMED + [("T-1.S-1: the stub first", {"src/app.py": STUB})]
 FOREIGN = ("other/x.py is modified and lies outside every live scope (T-1). No agent of this "
@@ -445,6 +456,38 @@ CASES = [
                                           for f in T2_FIELDS if f[0] not in ("Kind", "Because")])}),
      MSG + ["--", "devteam/tasks/T-2.md"], 1, {"adds-finding"},
      refused_by(adds_finding="T-2 is RUNNING and discharges R-1")),
+
+    # --- the board's rows, read at the gate (roadmap 0.3.2, L-2.1, L-2.2) ---
+    # Once board-drift reads the rows, a supervisor's own close or stop meets
+    # CLAIMED on the board, which only the manager moves. While the claim is
+    # held both land; with the in-flight row removed both are refused, now by
+    # board-drift as well.
+    ("fp-l22-a-supervisors-stop-lands-while-its-claim-is-held", CLAIMED,
+     edit({"devteam/tasks/T-1.md": STOPPED_T1}), ["-m", "T-1: stop", "--", "devteam/tasks/T-1.md"],
+     0, set(), committed(["devteam/tasks/T-1.md"])),
+    ("l22-a-supervisors-stop-is-refused-with-the-in-flight-row-removed",
+     CLAIMED + [("board: T-1's row", {"devteam/BOARD.md": board()})],
+     edit({"devteam/tasks/T-1.md": STOPPED_T1}), ["-m", "T-1: stop", "--", "devteam/tasks/T-1.md"],
+     1, {"adds-finding"}, refused_by(adds_finding="board-drift")),
+    # F-19's close on pricelog's board form, both ways.
+    ("fp-f19-a-close-on-a-board-of-link-rows-lands-while-in-flight", CLAIMED_LINKED,
+     edit({"devteam/tasks/T-1.md": CLOSED_T1}), ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"],
+     0, set(), committed(["devteam/tasks/T-1.md"])),
+    ("f19-a-close-on-a-board-of-link-rows-is-refused-with-the-row-removed",
+     CLAIMED_LINKED + [("board: T-1's row", {"devteam/BOARD.md": board(rows=LINK_ROWS)})],
+     edit({"devteam/tasks/T-1.md": CLOSED_T1}), ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"],
+     1, {"adds-finding"}, both(refused_by(adds_finding="board-drift"),
+                               refused_by(adds_finding="one-sided-link"))),
+    # The plan commit on a board written as the template writes it. Until 0.3.2
+    # this was refused for *BOARD.md's task rows*, and the plan skill told the
+    # manager to accept the part by a decision (roadmap 0.3.1, §3.7).
+    ("fp-a-plan-commit-on-a-template-shaped-board-lands-with-no-acceptance", UNPLANNED,
+     edit({"devteam/tasks/T-1.md": task(1, "make it work", "PLANNED", T1_FIELDS),
+           "devteam/tasks/T-2.md": T2_PLANNED,
+           "devteam/BOARD.md": board(rows=("| `T-1` | make it work | R-1 | none | `src/` | — |",
+                                           "| `T-2` | tidy the docs | none | none | `docs/` | — |"))}),
+     ["-m", "devteam: the plan", "--", "devteam/tasks", "devteam/BOARD.md"],
+     0, set(), committed(["devteam/tasks/T-1.md", "devteam/tasks/T-2.md", "devteam/BOARD.md"])),
 
     # --- F-24 and F-117: a red result, with nothing left to chain ------------
     ("f24-a-red-result-exits-1-with-head-the-index-and-the-tree-untouched", CLAIMED,

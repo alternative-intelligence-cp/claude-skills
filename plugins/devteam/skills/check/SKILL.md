@@ -125,9 +125,9 @@ number (P-51). The grammar is FORMATS §"Accepted findings", and the
 - **`unparseable-acceptance`** means an `Accepts.` line is outside the
   grammar, so it accepts nothing. Fix the line.
 
-## Until 0.3.2: three refusals that are not defects
+## Until 0.3.2: two refusals that are not defects
 
-The corpus replay found three shapes the checks cannot yet read correctly
+The corpus replay found shapes the checks could not yet read correctly
 (roadmap 0.3.1, §3.5). Each makes the gate refuse a correct commit, and 0.3.2
 fixes the check. Until then, accept each by a decision. 0.3.2's fix then makes
 the acceptance stale, and `stale-acceptance` says to supersede it.
@@ -137,9 +137,10 @@ the acceptance stale, and `stale-acceptance` says to supersede it.
   counts that write as the task's (F-135).
 - **`check_trace` `one-sided-link` on a requirement honestly left `open`**
   over a DONE task. The check has no term for a partial or awaited discharge.
-- **`check_trace` not evaluated, *BOARD.md's task rows*,** on a board whose
-  rows are written as the template writes them, or with a link in their first
-  cell (F-70).
+
+The third, the board's rows not evaluated on a board written as the template
+or with links (F-70), is fixed: `check_trace` reads those rows (roadmap 0.3.2,
+§3.1).
 
 ## Reading a finding
 

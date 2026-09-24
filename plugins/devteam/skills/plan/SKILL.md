@@ -487,17 +487,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit -C . -F "$msgfile" \
 Until the plan is committed, every task file is untracked, and the gate
 refuses any other commit that leaves one unnamed (F-131).
 
-Until 0.3.2 reads the board's rows, the gate also refuses this commit for
-adding *BOARD.md's task rows* as a part not evaluated, on a board written as
-the template writes it. Accept that part by a decision in `DECISIONS.md`, with
-an item reading ``- `check_trace` not evaluated: BOARD.md's task rows``, cite
-the decision with a line in `RECORD.md`, and name both files in the same
-commit, as the `check` skill's *Accepting a finding* says:
-
-```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" commit -C . -F "$msgfile" \
-    -- devteam/tasks devteam/BOARD.md devteam/DECISIONS.md devteam/RECORD.md
-```
+Each row of the board's Tasks table takes one state from its legend and
+nothing after it, or `check_trace` reports `bad-board-state` and the gate
+refuses the commit.
 
 Then **`/devteam:run`**.
 
