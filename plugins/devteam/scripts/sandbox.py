@@ -1477,13 +1477,19 @@ def declared_scope(repo, task):
     loaded = check_scope.load_tasks(devteam)
     if not loaded:
         return "no-task-file", []
-    tasks, _unparsed = loaded
+    tasks, _unparsed, untracked = loaded
+    # AN UNCOMMITTED TASK FILE STILL GRANTS NOTHING. `load_tasks` read tracked
+    # files only, and this gate relied on it: a task file in no commit declared
+    # no scope here, because a scope nobody committed read as permission is
+    # F-118's shape exactly. Roadmap 0.3.1 (L-1.4) made the checks read
+    # untracked files too, so the reliance is now stated rather than inherited.
+    if rel.replace(os.sep, "/") in untracked:
+        return "untracked", []
     if task not in tasks:
         # `load_tasks` returning nothing for this task has TWO causes and they
         # need opposite fixes, so asking git directly is the only honest way to
-        # tell them apart. It enumerates tracked files only, so an uncommitted
-        # task file declares no scope -- and an empty scope read as permission
-        # is F-118's shape exactly. But a file git DOES track can also be
+        # tell them apart. An uncommitted task file is answered above; a file
+        # git DOES track can also be
         # dropped, silently, by failing to parse: `# T-1 - say hello` has no
         # status segment, so the heading never matches and the task is not in
         # the map and not in `unparsed` either.

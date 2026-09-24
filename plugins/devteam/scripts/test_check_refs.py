@@ -459,8 +459,31 @@ S-1 is the only step.
        "One file per task, named `T-1.md`. See `C-1-<date>.md` for checkpoints.\n"),
       ("tracked", "research/README.md", "Digests live here; see D-9 for the policy.\n")],
      set()),
-    ("fp-untracked-file-is-not-scanned",
-     [("untracked", "SCRATCH.md", "Broken [link](nope.md) and R-99 and /home/x/y/\n")], set()),
+    # --- untracked files (roadmap 0.3.1, L-1.4) ----------------------------
+    # THIS CASE USED TO BE `fp-untracked-file-is-not-scanned`, and asserted
+    # F-131's defect: a file under devteam/ that is in no commit was invisible
+    # to the check. It is now read -- its link and its leak are found -- and
+    # named. Its `R-99` is still no citation, because SCRATCH.md is not one of
+    # the artifacts the identifier grammar governs.
+    ("untracked-file-is-read-and-named",
+     [("untracked", "SCRATCH.md", "Broken [link](nope.md) and R-99 and /home/x/y/\n")],
+     {"untracked-file", "broken-link", "leak"}),
+    # F-131's own (pricelog RECORD.md:1641-1642): a new task file untracked
+    # while another file cites it. Its declaration is read, so there is no
+    # `cited-undefined`, and the file is named.
+    ("untracked-file-f131-a-new-task-another-file-cites",
+     [("untracked", "tasks/T-2.md", "# T-2 — a new task — PLANNED\n\n- **Discharges.** R-1\n"),
+      append("RECORD.md", "- T-2 is planned next.\n")],
+     {"untracked-file"}),
+    # ...and one nothing cites, which used to be "not checked at all".
+    ("untracked-file-a-new-task-nothing-cites",
+     [("untracked", "tasks/T-3.md", "# T-3 — another — PLANNED\n\n- **Discharges.** R-1\n")],
+     {"untracked-file"}),
+    # IGNORED FILES STAY INVISIBLE: devteam/.run/ is ignored in every project.
+    ("fp-an-ignored-file-under-run-produces-nothing",
+     [("ignore", "devteam/.run/"),
+      ("untracked", ".run/notes.md", "Broken [link](nope.md) and /home/x/y/\n")],
+     set()),
 
     # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
     # A fourth element names the parts expected NOT EVALUATED. Each case here
@@ -558,8 +581,13 @@ def build(root, mutations):
         if mut[0] == "untracked":
             _, name, text = mut
             untracked.append(name)
+            os.makedirs(os.path.dirname(os.path.join(dt, name)), exist_ok=True)
             with open(os.path.join(dt, name), "w", encoding="utf-8") as fh:
                 fh.write(text)
+            continue
+        if mut[0] == "ignore":                 # a pattern for the root .gitignore
+            with open(os.path.join(root, ".gitignore"), "a", encoding="utf-8") as fh:
+                fh.write(mut[1] + "\n")
             continue
         name = mut[1]
         p = os.path.join(dt, name)

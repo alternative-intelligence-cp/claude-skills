@@ -11,7 +11,9 @@ list them: it used to, and ten classes were emitted, controlled, and
 absent from the lists here. `unruled-finding` in check_plugin.py keeps
 docs/CHECKS.md and the code equal in both directions.
 
-Reads GIT-TRACKED files only, so scratch work is never a finding.
+Reads what git would show under devteam/: tracked files, and untracked ones
+no ignore rule covers, each of which is reported as `untracked-file` (roadmap
+0.3.1, L-1.4). Ignored files, devteam/.run/ among them, stay invisible.
 Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract
 is result.py's (roadmap 0.3.1, L-1.1).
 
@@ -234,15 +236,14 @@ def how_to_declare(ident):
     where, shape = home
     return f". Declare it in {where.format(id=ident)} as `{shape.format(id=ident)}`"
 
-def tracked_markdown(root: str):
-    """Git-tracked .md files under root, as absolute paths."""
-    try:
-        out = subprocess.run(
-            ["git", "-C", root, "ls-files", "-z", "--", "*.md"],
-            capture_output=True, text=True, check=True).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError):
+def listed_markdown(root: str):
+    """(.md files under root as git would show them, as absolute paths; the
+    untracked ones, relative) -- or None outside a repository (L-1.4)."""
+    got = result.listed(root, "*.md")
+    if got is None:
         return None
-    return [os.path.join(root, p) for p in out.split("\0") if p]
+    every, untracked = got
+    return [os.path.join(root, p) for p in every], untracked
 
 
 class CouldNotRun(Exception):
@@ -315,7 +316,7 @@ VOCAB_ISH = {
 DISPOSITION_ISH = named_field("Disposition")
 
 
-def scan(files, base):
+def scan(files, base, untracked=frozenset()):
     declared, cited, findings = {}, {}, []
     step_cited = {}
     # ident -> (file:line, disposition-text-or-None) for audit findings only.
@@ -325,6 +326,10 @@ def scan(files, base):
 
     for path in files:
         rel = os.path.relpath(path, base)
+        # Read, and named: a file in no commit is invisible to every reader
+        # of the tree but this one (F-131).
+        if rel.replace(os.sep, "/") in untracked:
+            findings.append(("untracked-file", rel, 1, result.UNTRACKED))
         try:
             raw = open(path, "rb").read()
         except OSError as exc:
@@ -640,19 +645,20 @@ def check(target: str, as_json=False):
         target = os.path.join(target, "devteam")
     if not os.path.isdir(target):
         return result.could_not_run("check_refs", f"not a directory: {target}", as_json)
-    files = tracked_markdown(target)
-    if files is None:
+    got = listed_markdown(target)
+    if got is None:
         return result.could_not_run("check_refs", f"not a git repository: {target}", as_json)
+    files, untracked = got
     res = result.Result("check_refs", os.path.relpath(target, os.getcwd()), width=16)
     try:
-        findings, gaps, (nfiles, ndeclared, ncited) = scan(files, target)
+        findings, gaps, (nfiles, ndeclared, ncited) = scan(files, target, untracked)
     except CouldNotRun as exc:
         # One unreadable file makes every cross-file class untrustworthy -- a
         # declaration inside it would read as `cited-undefined` everywhere else
         # -- so the whole run is not evaluated, naming the file, rather than a
         # partial run whose findings are the gap's artifacts.
         res.gap("every class", str(exc))
-        res.count(len(files), "files tracked")
+        res.count(len(files), "files")
         return res
     for kind, path, line, detail in findings:
         res.finding(kind, f"{path}:{line}", detail)

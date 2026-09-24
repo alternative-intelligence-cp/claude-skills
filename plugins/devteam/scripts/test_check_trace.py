@@ -823,11 +823,32 @@ CASES = [
      {"REQUIREMENTS.md": REQS.replace("- **Acceptance.** `test -s README.md`",
                                       "- **Acceptance.** a new user follows the README and succeeds unaided")},
      set()),
-    ("fp-untracked-task-is-not-scanned",
-     {"tasks/DRAFT.md": ("untracked", """# T-9 — a draft nobody committed — PLANNED
+    # --- untracked files (roadmap 0.3.1, L-1.4) ----------------------------
+    # THIS USED TO BE `fp-untracked-task-is-not-scanned`, asserting F-131's
+    # defect: a task file in no commit was invisible, so what it discharged
+    # read as uncovered and the file was never mentioned. It is now read --
+    # R-3, discharged only by the untracked T-3, is covered -- and named.
+    ("untracked-file-f131-a-new-task-is-read-and-named",
+     {"REQUIREMENTS.md": REQS + """
+### R-3 — it is fast
 
-- **Discharges.** none
-""")},
+- **Statement.** it runs in a second.
+- **Satisfies.** G-1
+- **Source.** interview 2026-09-03
+- **Acceptance.** `make bench` → `ok`
+- **Requires-write.**
+  - `bench/`
+- **Priority.** should
+- **Status.** open
+""",
+      "tasks/T-3.md": ("untracked", T1.replace("T-1 — make it work", "T-3 — make it fast")
+                       .replace("- **Discharges.** R-1", "- **Discharges.** R-3")
+                       .replace("  - `src/`", "  - `bench/`"))},
+     {"untracked-file"}),
+    # IGNORED FILES STAY INVISIBLE, whatever pattern they match.
+    ("fp-an-ignored-task-file-produces-nothing",
+     {"../.gitignore": ("untracked", "devteam/tasks/T-9.md\n"),
+      "tasks/T-9.md": ("untracked", "# T-9 — scratch — PLANNED\n")},
      set()),
 ]
 

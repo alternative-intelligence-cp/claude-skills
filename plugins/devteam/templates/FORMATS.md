@@ -216,7 +216,14 @@ and compares what it claims against the tree.
 | `check_report.py` | one `tasks/T-n.md` plus `git` | the REPORT block ↔ the committed tree |
 | `check_scope.py` | `BOARD.md`, `tasks/*.md` | declared scopes ↔ each other, and ↔ what was written |
 
-All four read **git-tracked files only**, so scratch work is never a finding.
+`check_trace`, `check_refs` and `check_scope` read **what git would show**
+under `devteam/`: tracked files, and untracked ones that no ignore rule
+covers. Each untracked file a check reads is a finding of its own,
+`untracked-file`, because a file in no commit is invisible to a clone, a
+review and the gate (roadmap 0.3.1, L-1.4; F-131). Ignored files,
+`devteam/.run/` among them, stay invisible, so scratch belongs outside
+`devteam/` or under an ignore rule. `check_report` reads the one task file
+it is given.
 Every check exits `0` clean · `1` findings · `2` could not run · `3` not
 evaluated, and takes `--json`. `3` means the check ran and names a part it did
 not look at, with the reason — which is never clean (cycle 0.3's L-6). The

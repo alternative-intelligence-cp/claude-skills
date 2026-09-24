@@ -44,6 +44,7 @@ Its control is test_result.py.
 """
 import json
 import re
+import subprocess
 import sys
 
 CLEAN, FINDINGS, COULD_NOT_RUN, NOT_EVALUATED = 0, 1, 2, 3
@@ -254,3 +255,33 @@ def unparsed(rows, offered, what, grammar, consequence=""):
 def wrapped(where, check):
     """The reason a field is not evaluated: it continues past the line read."""
     return f"{where} continues past its first line, and {check} reads only the first"
+
+
+# --- untracked files (roadmap 0.3.1, L-1.4) ---------------------------------
+#
+# A check that enumerates `devteam/` reads what git would show: tracked files
+# AND untracked ones that no ignore rule covers. It used to read the index
+# alone, so a new task file was invisible to all three plan checks until it
+# was staged, and the checks said clean over it (F-131). Each untracked file is
+# now read, and reported as `untracked-file`, which turns the miss into a
+# finding rather than a step someone must remember -- the register's reason
+# for choosing this remedy. Ignored files, `devteam/.run/` among them, stay
+# invisible.
+
+def listed(root, *patterns):
+    """(every file, the untracked ones among them) that git lists under `root`
+    for these pathspecs, relative to `root` -- or None outside a repository."""
+    run = lambda *a: subprocess.run(["git", "-C", root, "ls-files", "-z", *a, "--", *patterns],
+                                    capture_output=True, text=True, check=True).stdout
+    try:
+        every = run("--cached", "--others", "--exclude-standard")
+        untracked = run("--others", "--exclude-standard")
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    split = lambda out: [p for p in out.split("\0") if p]
+    return sorted(set(split(every))), set(split(untracked))
+
+
+UNTRACKED = ("is not tracked by git, so it is in no commit: every check reads it, "
+             "and a clone, a review or the gate at HEAD does not. Commit it, or "
+             "move it out of devteam/ if it is scratch")

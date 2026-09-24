@@ -238,15 +238,6 @@ def contains(scope, path):
             return True
     return False
 
-def tracked(root, pattern):
-    try:
-        out = subprocess.run(["git", "-C", root, "ls-files", "-z", "--", pattern],
-                             capture_output=True, text=True, check=True).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    return [p for p in out.split("\0") if p]
-
-
 def read(root, rel):
     try:
         with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as fh:
@@ -534,6 +525,18 @@ def check(devteam):
 
     goals, reqs, tasks = {}, {}, {}
 
+    # WHAT THIS CHECK READS, AS GIT WOULD SHOW IT (roadmap 0.3.1, L-1.4):
+    # tracked files and untracked ones no ignore rule covers. Task files were
+    # read from the index alone, so a new one was invisible until staged
+    # (F-131). Each untracked file read is now a finding of its own.
+    listing = result.listed(devteam, "CHARTER.md", "REQUIREMENTS.md", "BOARD.md",
+                            "tasks/*.md", "audits/*.md")
+    if listing is None:
+        return None
+    every, untracked = listing
+    for rel in sorted(untracked):
+        add("untracked-file", rel, result.UNTRACKED)
+
     charter = read(devteam, "CHARTER.md")
     for n, line in enumerate(charter, 1):
         m = GOAL.match(line)
@@ -773,9 +776,7 @@ def check(devteam):
             if f not in fields:
                 add("missing-field", f"REQUIREMENTS.md:{n}", f"{ident} has no **{f}.**")
 
-    task_files = tracked(devteam, "tasks/*.md")
-    if task_files is None:
-        return None
+    task_files = [p for p in every if p.startswith("tasks/")]
     scopes = {}
     for rel in task_files:
         lines = read(devteam, rel)
@@ -1139,7 +1140,7 @@ def check(devteam):
     closed = lambda t: (t in tasks and (tasks[t][2].split() or [""])[0].strip().upper()
                         in ("DONE", "ACCEPTED"))
     if os.path.isdir(audits_dir):
-        for name in sorted(os.listdir(audits_dir)):
+        for name in sorted(os.path.basename(p) for p in every if p.startswith("audits/")):
             m = AUDIT_FILE.match(name)
             if not m:
                 # A file NAMING a closed task in another form, and holding

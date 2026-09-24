@@ -53,10 +53,11 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 21 classes
+## `check_trace.py` — 22 classes
 
-Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`. Diffs goals ↔ requirements
-↔ tasks ↔ acceptance criteria.
+Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`, `BOARD.md` and `audits/`,
+tracked or untracked and not ignored. Diffs goals ↔ requirements ↔ tasks ↔
+acceptance criteria.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
@@ -78,14 +79,16 @@ Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`. Diffs goals ↔ requirement
 | `unrecorded-amendment` | P-2 — changing what is being built is a charter amendment | a requirement's committed `Requires-write.` ↔ its current one | `enforces` |
 | `unreachable-acceptance` | P-10 — a worker writes only inside its declared scope; P-5 | a requirement's `Requires-write.` ↔ the `Scope.` of each single discharging task | `enforces` |
 | `unparseable-task` | `FORMATS.md` §"Status vocabularies", task title | the file's first line ↔ the `# T-n — <title> — <status>` grammar | `enforces` |
+| `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
 | `bad-kind` | `FORMATS.md` §"Status vocabularies", task `Kind.` | the declared `Kind.` ↔ the closed set `implementation · probe · spike · chore` | `enforces` |
 | `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values ↔ the audited task's title status | `enforces` |
 | `unjustified-task` | P-45 — a probe names what it de-risks | a probe/spike's `Informs.` ↔ the declared requirements and goals | `enforces` (P-45, written here) |
 
-## `check_refs.py` — 8 classes
+## `check_refs.py` — 9 classes
 
-Reads every git-tracked `.md` under `devteam/`. Diffs citations ↔ declarations,
-links ↔ files, and scans for leaks.
+Reads every `.md` under `devteam/` that git would show: tracked, or untracked
+and not ignored. Diffs citations ↔ declarations, links ↔ files, and scans for
+leaks.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
@@ -96,6 +99,7 @@ links ↔ files, and scans for leaks.
 | `bad-status` | `FORMATS.md` §"Status vocabularies" | a written status value ↔ its closed set | `enforces` |
 | `leak` | P-47 — a tracked artifact contains only what a reader can see, and no credential | tracked file content ↔ the absolute-path and credential patterns | `enforces` |
 | `control-character` | P-47 | file bytes ↔ the printable set, outside tab and newline | `enforces` |
+| `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
 | `undispositioned-finding` | CONSOLIDATION 7; `FORMATS.md` §"The namespace" — an exemption is a debt, and something must watch it | an audit finding's `Disposition.` ↔ the set of dispositions that are not `open` | `enforces` |
 
 ## `check_report.py` — 13 classes
@@ -127,10 +131,10 @@ advisory finding is still printed and the verifier copies each into its verdict.
 `model-mismatch` is deliberately not advisory: a report naming a model that did
 not run is a report about a different run (P-40).
 
-## `check_scope.py` — 7 classes
+## `check_scope.py` — 8 classes
 
-Reads `BOARD.md`, `tasks/*.md`. Diffs declared scopes ↔ each other and ↔ what
-was written.
+Reads `BOARD.md`'s history and `tasks/*.md`, tracked or untracked and not
+ignored. Diffs declared scopes ↔ each other and ↔ what was written.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
@@ -141,6 +145,7 @@ was written.
 | `unparseable-scope-entry` | `FORMATS.md` §"Identifier declarations" — a `Scope.` item is a bare path | a list item under `Scope.` ↔ the bare-path grammar | `enforces` |
 | `foreign-write` | P-12 | uncommitted paths ↔ the union of every live scope | `enforces` |
 | `misattributed-write` | P-10, P-12 | a commit's touched paths ↔ the live scope of a task that did **not** author it | `enforces` |
+| `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
 
 ## `check_plugin.py` — 18 classes
 

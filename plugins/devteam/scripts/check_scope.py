@@ -66,7 +66,10 @@ TITLE_ISH = re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])")
 
 
 def load_tasks(devteam, gaps=None):
-    """{T-n: (relpath, status, [scope entries])} for every tracked task file.
+    """({T-n: (relpath, status, [scope entries])}, unparsed items, untracked
+    files) for every task file git would show -- tracked, or untracked and not
+    ignored (roadmap 0.3.1, L-1.4). It read the index alone, so a new task was
+    in no comparison until it was staged (F-131).
 
     `gaps`, when given, collects (part, reason) for what a file offered and
     this did not read: a task whose title does not parse -- it was dropped
@@ -74,11 +77,12 @@ def load_tasks(devteam, gaps=None):
     overlap with it could not be seen -- and an inline `Scope.` value that
     continues past its line.
     """
-    rc, out = git(devteam, "ls-files", "-z", "--", "tasks/*.md")
-    if rc != 0:
+    listing = result.listed(devteam, "tasks/*.md")
+    if listing is None:
         return None
+    every, untracked = listing
     tasks, unparsed = {}, []
-    for rel in (p for p in out.split("\0") if p):
+    for rel in every:
         try:
             with open(os.path.join(devteam, rel), encoding="utf-8", errors="replace") as fh:
                 lines = fh.read().split("\n")
@@ -123,7 +127,7 @@ def load_tasks(devteam, gaps=None):
                     f"{rel}:{offered[0]} does not parse as `# T-n — <title> — <status>`"
                     if offered else f"{rel} has no title line")
                     + ", so its scope and state were in no comparison"))
-    return tasks, unparsed
+    return tasks, unparsed, untracked
 
 
 def normalise(entry):
@@ -176,10 +180,13 @@ def check(project, task_id=None):
     loaded = load_tasks(devteam, gaps)
     if loaded is None:
         return None
-    tasks, unparsed = loaded
+    tasks, unparsed, untracked = loaded
 
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
+
+    for rel in sorted(untracked):
+        add("untracked-file", rel, result.UNTRACKED)
 
     for rel, n, text in unparsed:
         add("unparseable-scope-entry", f"{rel}:{n}",

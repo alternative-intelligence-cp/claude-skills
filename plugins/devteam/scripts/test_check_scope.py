@@ -230,6 +230,17 @@ CASES = [
     # title failed, so the heading has to be in a file with none.)
     ("fp-a-step-heading-in-a-notes-file-is-not-a-title",
      {**BASE, "notes": "# Notes\n\n# T-1.S-2 adversarial pass\n\nProse.\n"}, None, [], set()),
+    # --- untracked files (roadmap 0.3.1, L-1.4) ----------------------------
+    # A new task in no commit is read -- its overlap with T-1 is found -- and
+    # named. With no claim in history, its window is a part not evaluated.
+    ("untracked-file-a-new-task-is-read-and-named",
+     BASE, None, [], {"untracked-file", "overlapping-scope"}, "T-1: the work", (),
+     [("devteam/tasks/T-3.md", task("T-3", "RUNNING (since x, y)", ["src/loader/"]))],
+     {"misattributed-write for T-3"}),
+    ("fp-an-ignored-task-file-produces-nothing",
+     BASE, None, [], set(), "T-1: the work", (),
+     [("devteam/.gitignore", "tasks/T-9.md\n"),
+      ("devteam/tasks/T-9.md", task("T-9", "RUNNING (since x, y)", ["src/loader/"]))]),
     # An inline value FOLLOWED BY LIST ITEMS is not a wrap: the items are read.
     ("fp-an-inline-scope-with-list-items-under-it",
      {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", []).replace(

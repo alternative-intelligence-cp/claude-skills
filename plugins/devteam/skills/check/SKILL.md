@@ -16,9 +16,11 @@ All four exit `0` clean, `1` findings, `2` could not run, `3` not evaluated —
 a part the check did not look at, named with its reason, which is never
 clean: a row it could not parse, named by file and line, or a field it reads
 that continues past its first line (FORMATS.md §"What each check reads") —
-and take `--json`. They read
-**git-tracked files only** — so scratch work is never a finding, and a file
-you have not committed yet is invisible to them.
+and take `--json`. `check_trace`, `check_refs` and `check_scope` read
+**what git would show** — tracked files, and untracked ones no ignore rule
+covers — and name each untracked file they read as `untracked-file`, so a
+file you have not committed yet is read and reported rather than invisible
+(F-131). Ignored files, `devteam/.run/` among them, stay invisible.
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py"  <project>
