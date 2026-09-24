@@ -284,7 +284,7 @@ benchmark files are in the tracked tree.
 | 0.3.1 — the check contract | one result contract for every check — clean, findings, or `not-evaluated` with its reason (L-6); zero rows parsed is `not-evaluated`; untracked files read (F-131); accepted findings as a reasoned, first-class baseline; a commit gate shipped in the plugin that commits only on green, scoped so that a concurrent task's red file cannot block an unrelated commit (F-12, F-19, F-24), with a post-commit re-run of history-derived checks (F-114) | 0.3.0 | yes — every later check is built to it |
 | 0.3.2 — what the checks read | the silent-clean and wrong-window defects, check by check: `check_trace` (F-36 and F-68's slice, F-95's prose edges, F-132's two parses, partial and re-established requirement states, the header against the newest amendment, estimates against `S-` lines); `check_report` (F-34, F-37 and F-88 fail loudly; F-32's hedged figures; per-block meters, F-103 and F-109; `added` and `reconstructed`, F-86); `check_scope` and `check_report` keyed to the current claim window (F-135, F-136); board state against task title (F-107); checkpoint tallies from parsed verdicts (A12) | 0.3.1 | yes |
 | 0.3.3 — the disposition ledger | one ledger for every open item — raised by an adversary, a worker, an auditor, an outgoing manager, or the client between writes — each a countable line with an owner and a decision or an expiry; report grammars that carry open items as lines (F-139); a check that fails any landing that leaves one without; question status in one home (F-63, F-64); the audit skill's output and `check_refs`' audit namespace made one contract (F-99, F-104, F-112); a place outside the writer lock for what the client says during a handoff (F-21) | 0.3.1 | yes |
-| 0.3.4 — manager primitives | one command each, each checking its own preconditions (L-5): **claim** (generates every board value that restates another; counts in-flight and stopped rows against width, F-130), **take the lock**, **land** a brief, report or verdict whole with its digest, **commit** named paths on a green gate, **close** a task (title, board row and requirement in one commit — F-78, F-90, F-98, F-107), **dispatch** (a model field required, real CLI ids — F-7, F-25, F-73, F-121), **re-claim** (F-39) and **stop**; `run` and `resume` rewritten to call them | 0.3.1, 0.3.3 | **yes — §2** |
+| 0.3.4 — manager primitives | one command each, each checking its own preconditions (L-5): **claim** (generates every board value that restates another; counts in-flight and stopped rows against width, F-130), **take the lock**, **land** a brief, report or verdict whole with its digest, **commit** named paths on a green gate, **close** a task (title, board row and requirement in one commit — F-78, F-90, F-98, F-107), **dispatch** (a model field required, real CLI ids — F-7, F-25, F-73, F-121 — defaulting to Opus 5.5 for every role, L-17), **re-claim** (F-39) and **stop**; `run` and `resume` rewritten to call them | 0.3.1, 0.3.3 | **yes — §2** |
 | 0.3.5 — meters that see what the gauge sees | the meter from 0.3.0 made the ceiling's instrument (L-7): every session and in-process agent; a rotation's window opened at the successor's first request and closed at the predecessor's true close (F-110, F-116); a running total at every report; each dispatch's model recorded; worker meters and reports kept outside the overlay and the dispatching process (F-9, F-76, F-87); the estimate model given a term for adversarial rounds and the stops they cause (A8), and a tenure priced at the measured average plus resume and tail (A11) | 0.3.0 | yes |
 | 0.3.6 — the handoff | `handoff-ready` made a structured record whose required fields are what fifteen successors had to ask for — client words since the last write, work outside the tree, probe directories, open items from the ledger, the session's name, the trigger if off-cadence — with a check on it; rotation after a checkpoint enforced rather than remembered; `cancelled` and `stopped` states the guard reads (F-141); a direct handoff to an open successor (F-129); the recovery table's missing rows — resume in place (F-17), a quota stop (F-106), a stopped claim (F-130); **start the successor** — the outgoing manager starts it with `claude --bg` and hands over by message, under L-15's four conditions | 0.3.3, 0.3.4, 0.3.5 | yes |
 | 0.3.7 — frozen sandboxes and the worker's edges | L-3: a commit as each overlay's lower layer, `devteam/` read-only, the report returned in the worker's final message and committed by its supervisor (F-5, F-26, F-31, F-71); an inventory that survives `close` — pid, spent or promoted, budget (F-9, F-66, F-124); `close` refusing to discard an abnormal exit's overlay (F-43, F-51, F-56); a probe directory the record can cite, for workers too (F-134); every pinned tool bound from the pin — the CLI, and for a Nitpick project the compiler (F-42, F-81, F-96); `--model` and `--step` validated before `open` (F-111, F-121); a worker able to amend its own unpromoted commit (F-122); trailers added at promotion (F-8, F-27); scope-aware whole-suite gates (F-74); then width 2 measured again | 0.3.0, 0.3.1 | yes — it is what restores width above 1 |
@@ -292,7 +292,7 @@ benchmark files are in the tracked tree.
 | 0.3.9 — signed text | L-4: superseding a requirement made one command, an in-place edit of a signed requirement made a check failure, and P-46 superseded so that its shape review counts supersessions; a shape review at onboarding that flags a list of cases under a goal that quantifies — R-4 cost seven `CHARTER` stops in one day — and an acceptance worded as a method rather than a property (A9); an amendment grammar that can say *in force, currently broken* and records which amendments the client approved; a check for code-level exclusions that no signed text names (F-48); plans that cite a prototype's measurement as the prototype's (F-140) | 0.3.1 | yes |
 | 0.3.10 — iterate, checkpoints and the stop | iterate's opening records whether the tool was used and names any substitute input; the new cycle priced after its scope exists; carried audit findings dispositioned before the charter gate (F-99); the short close that `stop` runs — claims, heartbeats, a pending rotation, signed text left false, and everything deferred to a next cycle (F-141); the checkpoint triggered at its cadence by the loop rather than by memory, with P-30's size trigger naming its meter; the keepalive on by default, with window expiry computed on its tick (F-84, F-138) | 0.3.4, 0.3.5, 0.3.9 | yes — the third run iterates twice |
 | 0.3.11 — the guard and the platform | agent definitions that say injected instructions — MCP server blocks, another plugin's skills — are not instructions (F-69, F-101, F-102); every skill name qualified, with a check; the guard judging targets rather than command text, against the command's real working directory (F-6), honouring P-10b outside the project, and telling a read-only `git remote` from a push; the push grant settled (§10.3); a manager launched from another repository warned whose guards reach its agents (F-137) | 0.3.1 | yes, and small |
-| 0.3.12 — the liaison | **only if 0.3.0's probe passes** (L-2): the restarter, the relay, the escalation classification applied as a rule, the rotation log, and liaison tokens per rotation as its instrument ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §6–§8) | 0.3.0's decision; 0.3.4, 0.3.5, 0.3.6 | conditional |
+| 0.3.12 — the liaison | **0.3.0's probe passed** (L-2, L-15), and the owner scoped it as **the signal** (L-16): one client-facing session that tells the client when any of the project's background sessions waits on input or a permission prompt, the rotation log, a restart for a manager that stopped without handing over, and liaison tokens per rotation as its instrument ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §6–§8); it first measures whether a signal reaches the client away from the workstation; the relay and the escalation classification are left out, each with a trigger (L-16) | 0.3.0's decision; 0.3.4, 0.3.5, 0.3.6 | yes, as L-16 scopes it |
 | 0.3.13 — release 0.3.0 | version, self-check and controls; DESIGN and PROTOCOL brought level; the README's Known problems rows removed only where the fix has been shown working; the register's rows marked with the subcycle that closed each; a fresh `setup` on a throwaway Nitpick project | everything shipped | yes |
 | 0.3.14 — the third run | a cowsay clone written in Nitpick, in its own repository beside `pricelog` (L-10, L-11) — cycle 1 one animal and the most basic behaviour, `/devteam:iterate` adding animals and flags — planned from §8's model once 0.3.5 exists: a cycle that closes, the owner using what it built before iterating, a second iteration after unreviewed decisions exist, width 2, rotation at every checkpoint, the liaison if it was built, and one pinned compiler build throughout (L-12); then row 20's judgement | 0.3.13 | **yes — it is what the cycle is for** |
 | 0.3.15 — a toolchain no model knows | L-10's price, because no model has seen Nitpick: `setup` detects a Nitpick project and its toolchain; a compiler built from a pinned commit rather than taken from the compiler's working tree, recorded in the environment pin and bound into every sandbox through 0.3.7 (L-12); the language reference made a worker input — the compiler's own `meta/specs/` at the pinned commit, with the user guides in `nitpick-docs` admitted only once every example in them has been compiled and run against that build, each failure a finding carried to the owner; every finding in a run tagged with its cause — the pipeline, the language or compiler, the model's knowledge of the language, or the product; a compiler defect recorded with a reproduction and never fixed mid-run (L-12) | 0.3.0, 0.3.3, 0.3.7 | yes, for this run — it is L-10's price |
@@ -530,6 +530,47 @@ grants what its recommendation said and nothing adjacent to it.*
   started in, not the worktree it wrote in. *Not measured:* a background
   session running `/devteam:resume` itself. *Declined:* keeping 0.2's L-8
   premise — measured false.
+- **L-16 — 0.3.12 builds the liaison as the signal.** *Settled by:* owner,
+  2026-09-24, choosing *"The signal (Recommended)"* over *"The backlog's full
+  liaison"* and *"A watcher, no session"*. He was asked with A6's figure beside
+  §10.4, under [0.3.0](0.3.0.md) §4's rule for probe A. *Why:* L-15 removed the
+  pause the liaison was proposed for, because the outgoing manager now starts
+  its successor. Probe A4 measured what is still missing. Nothing told the owner
+  that a background session was waiting: one waited 10 min 47 s with only the
+  listing to show it. But once he knew, the list of background sessions let him
+  answer any waiting session without knowing its id. *So:* 0.3.12 builds one
+  client-facing session, the one the client keeps open. It reads
+  `claude agents --json` for the project's sessions waiting on input or on a
+  permission prompt and says so in its own conversation, naming the session. It
+  keeps the rotation log in a file, restarts a manager that stopped without
+  handing over, and is measured by liaison tokens per rotation. Its first act is
+  to measure whether any signal reaches the client away from the workstation,
+  which no probe has shown. A6 prices a handover at 7 to 8 requests and 367,000
+  to 424,000 processed tokens on Sonnet 5. *Declined, each with a trigger:* the
+  relay and the escalation classification of the backlog's §2 and §7, because
+  the platform already gives the client a surface to answer on and the manager
+  keeps applying the reversibility classes — triggered if the third run shows an
+  escalation the client missed despite the signal; and a watcher with no
+  session, because no delivery channel has been shown to reach the client (A4's
+  push notifications were refused both times) — triggered by one that has.
+- **L-17 — every role runs on Opus 5.5, and the pipeline runs nothing on
+  Fable.** *Settled by:* owner, 2026-09-24, choosing *"Opus 5.5 throughout
+  (Recommended)"* over *"0.2.9's split, no Fable"* and *"Fable to interview and
+  plan"*. This answers §10.4 with 0.3.0's figures, as he asked on 2026-09-23.
+  *Why:* per list-price dollar, Fable moves the all-model gauge 1.7 to 2.3 times
+  as much as Opus or Sonnet does ([0.3.0](0.3.0.md) §3.2). Its list prices are
+  higher again, and it draws on the Fable cap the compiler runs on. Opus 5.5's
+  cache reads cost the same per token as Sonnet 5's, so Sonnet saves only on
+  output and cache writes (`REASONED`: about 20 % on a long agent session). The
+  third run's language is one no model has seen. And a single model removes the
+  per-dispatch choice that 0.2.9's dispatch findings are about. *So:* 0.3.4's
+  `dispatch` takes its required model field with `claude-opus-5-5` as every
+  role's default, workers included, and the verifier agent's `model: sonnet`
+  pin is changed to match. This supersedes the backlog's routing
+  ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §7) for
+  this cycle. *Declined:* 0.2.9's split — Sonnet for the in-process agents, the
+  workers and the liaison — which is cheaper at list price; and Fable for the
+  interviewer and planner, the backlog's *"possibly Fable"*.
 
 ## 7. Excluded from this cycle, with the trigger that would include it
 
@@ -634,8 +675,9 @@ Each blocks only the subcycle it names. None blocks 0.3.0.
    minimally, in 0.3.9 (L-13).
 3. ~~**The push grant.**~~ **Answered 2026-09-23** — refused at onboarding
    unless the guard honours it; pushing stays the owner's (L-14).
-4. **Which model runs which role — blocks 0.3.12, and the model field in
-   0.3.4's `dispatch`.** The backlog proposes a Sonnet liaison and an
+4. ~~**Which model runs which role — blocks 0.3.12, and the model field in
+   0.3.4's `dispatch`.**~~ **Answered 2026-09-24** — Opus 5.5 for every role,
+   workers included, and nothing on Fable (L-17). The question as it stood: the backlog proposes a Sonnet liaison and an
    Opus-or-Fable interviewer and planner
    ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §7). The
    owner, 2026-09-23: *"lets see what the probe says."* Asked again with 0.3.0's
