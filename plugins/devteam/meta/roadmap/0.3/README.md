@@ -5,12 +5,12 @@
 > are the territory. Read this whole file first, then §3's reading list, then
 > the subcycle you are working, in full, before touching the tree.
 
-**Status: PLANNING since 2026-09-23, and PROVISIONAL.** The four decisions in
-§6 marked *owner* were made by the owner on 2026-09-23 and bind. Everything
-else here — the map, the order, the planning decisions — is the planning
-session's proposal and has not yet been reviewed by the owner. No subcycle file
-exists yet. §10 lists what is still open and which subcycle each question
-blocks.
+**Status: PLANNING since 2026-09-23.** The owner reviewed the map on
+2026-09-23 — *"it all looks fine to me. I say go ahead with it"* — and the
+decisions in §6 marked *owner* bind. It stays `PROVISIONAL` in one sense only:
+0.3.0's probes exist to change it, and a probe result that does supersedes the
+line it overturns here, with a new number. §10 lists what is still open and
+which subcycle each question blocks.
 
 ## 1. What this cycle is for
 
@@ -39,10 +39,12 @@ three parts.
    liaison layer is the owner's answer to the hard pause at every rotation.
    0.3.0 measures whether the platform can carry one, and 0.3.12 builds it only
    if so (L-2). Then 0.3.14 runs the pipeline again on a real project of the
-   owner's, designed to see what 0.2.9 could not: an iteration whose owner has
-   used what was built, a second iteration after unreviewed decisions exist,
-   and a cycle that closes rather than stops. Row 20's judgement is made again
-   after it.
+   owner's — a cowsay clone written in Nitpick (L-10) — designed to see what
+   0.2.9 could not: an iteration whose owner has used what was built, a second
+   iteration after unreviewed decisions exist, and a cycle that closes rather
+   than stops. Because the language is one no model has seen, 0.3.15 first
+   teaches the pipeline to run a toolchain it cannot assume it knows. Row 20's
+   judgement is made again after the run.
 
 Throughout, *theme n* is one of the register's ten themes (*Where v3 should
 start*), and *An* is one of its fourteen areas (*Findings by area*). F-numbers
@@ -204,25 +206,44 @@ same listing is also a scriptable join between a session's id and its name
 (F-118) and a liveness reading for sessions — `REASONED` until a subcycle reads
 it under load. Whether it lists headless `claude -p` workers is not known.
 
+**4.7 The Nitpick compiler moves daily, and the user guides for it were
+written by another model.** The compiler (`~/Workspace/REPOS/nitpick`) is
+self-hosted and under active development: step 1.5.8b landed commits on the
+day this was planned, each carrying its own reference-document changes
+(`LEXICAL_REFERENCE`, `OP_REFERENCE`, `TYPE_REFERENCE`), and its standard
+library tier includes `nio`, `nstr`, `nproc` and `nsys` — enough, `REASONED`,
+for a program that reads its arguments and standard input. Separately,
+`~/Workspace/REPOS/nitpick-docs` holds three user guides (quick start, cheat
+sheet, driver model) and two examples, written by another model on 2026-09-21
+and reviewed by the owner, who reports finding and fixing a couple of errors
+and possibly missing more. Its history names where the model went wrong: two
+same-day fixes, for numeric literal syntax and suffixes, `pick`, address-of,
+and explicit error declarations. **That is a measurement of the very risk
+L-10 accepts** — a model writing Nitpick fills gaps from languages it does
+know — and it is why 0.3.15 admits those guides as worker input only once every
+example in them has been compiled and run against the pinned build. No
+benchmark files are in the tracked tree.
+
 ## 5. The map
 
 | Subcycle | What it produces | Depends on | Core? |
 |---|---|---|---|
-| 0.3.0 — probes, and the README made true | the plugin README's status line and Known problems revised from the register (it still says rotation has never rotated a project); three probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), and **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2) | — | **yes — first, small, and it can change the design** |
+| 0.3.0 — probes, and the README made true | the plugin README's status line and Known problems revised from the register (it still says rotation has never rotated a project); three probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2), and **the Nitpick compiler inside a sandbox** (a compiler built from a pinned commit, bound read-only, compiling and running a program that reads its arguments and standard input — L-10) | — | **yes — first, small, and it can change the design** |
 | 0.3.1 — the check contract | one result contract for every check — clean, findings, or `not-evaluated` with its reason (L-6); zero rows parsed is `not-evaluated`; untracked files read (F-131); accepted findings as a reasoned, first-class baseline; a commit gate shipped in the plugin that commits only on green, scoped so that a concurrent task's red file cannot block an unrelated commit (F-12, F-19, F-24), with a post-commit re-run of history-derived checks (F-114) | 0.3.0 | yes — every later check is built to it |
 | 0.3.2 — what the checks read | the silent-clean and wrong-window defects, check by check: `check_trace` (F-36 and F-68's slice, F-95's prose edges, F-132's two parses, partial and re-established requirement states, the header against the newest amendment, estimates against `S-` lines); `check_report` (F-34, F-37 and F-88 fail loudly; F-32's hedged figures; per-block meters, F-103 and F-109; `added` and `reconstructed`, F-86); `check_scope` and `check_report` keyed to the current claim window (F-135, F-136); board state against task title (F-107); checkpoint tallies from parsed verdicts (A12) | 0.3.1 | yes |
 | 0.3.3 — the disposition ledger | one ledger for every open item — raised by an adversary, a worker, an auditor, an outgoing manager, or the client between writes — each a countable line with an owner and a decision or an expiry; report grammars that carry open items as lines (F-139); a check that fails any landing that leaves one without; question status in one home (F-63, F-64); the audit skill's output and `check_refs`' audit namespace made one contract (F-99, F-104, F-112); a place outside the writer lock for what the client says during a handoff (F-21) | 0.3.1 | yes |
 | 0.3.4 — manager primitives | one command each, each checking its own preconditions (L-5): **claim** (generates every board value that restates another; counts in-flight and stopped rows against width, F-130), **take the lock**, **land** a brief, report or verdict whole with its digest, **commit** named paths on a green gate, **close** a task (title, board row and requirement in one commit — F-78, F-90, F-98, F-107), **dispatch** (a model field required, real CLI ids — F-7, F-25, F-73, F-121), **re-claim** (F-39) and **stop**; `run` and `resume` rewritten to call them | 0.3.1, 0.3.3 | **yes — §2** |
 | 0.3.5 — meters that see what the gauge sees | the meter from 0.3.0 made the ceiling's instrument (L-7): every session and in-process agent; a rotation's window opened at the successor's first request and closed at the predecessor's true close (F-110, F-116); a running total at every report; each dispatch's model recorded; worker meters and reports kept outside the overlay and the dispatching process (F-9, F-76, F-87); the estimate model given a term for adversarial rounds and the stops they cause (A8), and a tenure priced at the measured average plus resume and tail (A11) | 0.3.0 | yes |
 | 0.3.6 — the handoff | `handoff-ready` made a structured record whose required fields are what fifteen successors had to ask for — client words since the last write, work outside the tree, probe directories, open items from the ledger, the session's name, the trigger if off-cadence — with a check on it; rotation after a checkpoint enforced rather than remembered; `cancelled` and `stopped` states the guard reads (F-141); a direct handoff to an open successor (F-129); the recovery table's missing rows — resume in place (F-17), a quota stop (F-106), a stopped claim (F-130) | 0.3.3, 0.3.4, 0.3.5 | yes |
-| 0.3.7 — frozen sandboxes and the worker's edges | L-3: a commit as each overlay's lower layer, `devteam/` read-only, the report returned in the worker's final message and committed by its supervisor (F-5, F-26, F-31, F-71); an inventory that survives `close` — pid, spent or promoted, budget (F-9, F-66, F-124); `close` refusing to discard an abnormal exit's overlay (F-43, F-51, F-56); a probe directory the record can cite, for workers too (F-134); the CLI bound from the pin (F-42, F-81, F-96); `--model` and `--step` validated before `open` (F-111, F-121); a worker able to amend its own unpromoted commit (F-122); trailers added at promotion (F-8, F-27); scope-aware whole-suite gates (F-74); then width 2 measured again | 0.3.0, 0.3.1 | yes — it is what restores width above 1 |
+| 0.3.7 — frozen sandboxes and the worker's edges | L-3: a commit as each overlay's lower layer, `devteam/` read-only, the report returned in the worker's final message and committed by its supervisor (F-5, F-26, F-31, F-71); an inventory that survives `close` — pid, spent or promoted, budget (F-9, F-66, F-124); `close` refusing to discard an abnormal exit's overlay (F-43, F-51, F-56); a probe directory the record can cite, for workers too (F-134); every pinned tool bound from the pin — the CLI, and for a Nitpick project the compiler (F-42, F-81, F-96); `--model` and `--step` validated before `open` (F-111, F-121); a worker able to amend its own unpromoted commit (F-122); trailers added at promotion (F-8, F-27); scope-aware whole-suite gates (F-74); then width 2 measured again | 0.3.0, 0.3.1 | yes — it is what restores width above 1 |
 | 0.3.8 — verification and the adversarial layer | a coverage field in every verdict — what was attacked and what was not, with acceptance and gate answered separately; *shown able to fail* required of every test step and trip-wire (F-77, F-79, F-91); a fresh task verifier on every `NEEDS-DECISION`, aimed at the supervisor's recommendation (F-133); verifier briefs that carry no expected result (F-115); the literal acceptance command (F-16, F-29); a structural comparison for claims that code is unchanged (F-120); no published reproduction that was not run (F-40, F-41); audits inside the build loop, and metered; the verify fallback made a clone (F-94); a stated precedence between a dispatch and a skill (F-108) | 0.3.3 | yes — the register calls this layer where the value was |
 | 0.3.9 — signed text | L-4: superseding a requirement made one command, an in-place edit of a signed requirement made a check failure, and P-46 superseded so that its shape review counts supersessions; a shape review at onboarding that flags a list of cases under a goal that quantifies — R-4 cost seven `CHARTER` stops in one day — and an acceptance worded as a method rather than a property (A9); an amendment grammar that can say *in force, currently broken* and records which amendments the client approved; a check for code-level exclusions that no signed text names (F-48); plans that cite a prototype's measurement as the prototype's (F-140) | 0.3.1 | yes |
 | 0.3.10 — iterate, checkpoints and the stop | iterate's opening records whether the tool was used and names any substitute input; the new cycle priced after its scope exists; carried audit findings dispositioned before the charter gate (F-99); the short close that `stop` runs — claims, heartbeats, a pending rotation, signed text left false, and everything deferred to a next cycle (F-141); the checkpoint triggered at its cadence by the loop rather than by memory, with P-30's size trigger naming its meter; the keepalive on by default, with window expiry computed on its tick (F-84, F-138) | 0.3.4, 0.3.5, 0.3.9 | yes — the third run iterates twice |
 | 0.3.11 — the guard and the platform | agent definitions that say injected instructions — MCP server blocks, another plugin's skills — are not instructions (F-69, F-101, F-102); every skill name qualified, with a check; the guard judging targets rather than command text, against the command's real working directory (F-6), honouring P-10b outside the project, and telling a read-only `git remote` from a push; the push grant settled (§10.3); a manager launched from another repository warned whose guards reach its agents (F-137) | 0.3.1 | yes, and small |
 | 0.3.12 — the liaison | **only if 0.3.0's probe passes** (L-2): the restarter, the relay, the escalation classification applied as a rule, the rotation log, and liaison tokens per rotation as its instrument ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §6–§8) | 0.3.0's decision; 0.3.4, 0.3.5, 0.3.6 | conditional |
-| 0.3.13 — release 0.3.0 | version, self-check and controls; DESIGN and PROTOCOL brought level; the README's Known problems rows removed only where the fix has been shown working; the register's rows marked with the subcycle that closed each; a fresh `setup` on a throwaway project | everything shipped | yes |
-| 0.3.14 — the third run | a real project of the owner's (§10.1), planned from §8's model once 0.3.5 exists: a cycle that closes, the owner using what it built before `/devteam:iterate`, a second iteration after unreviewed decisions exist, width 2, rotation at every checkpoint, and the liaison if it was built; then row 20's judgement | 0.3.13 | **yes — it is what the cycle is for** |
+| 0.3.13 — release 0.3.0 | version, self-check and controls; DESIGN and PROTOCOL brought level; the README's Known problems rows removed only where the fix has been shown working; the register's rows marked with the subcycle that closed each; a fresh `setup` on a throwaway Nitpick project | everything shipped | yes |
+| 0.3.14 — the third run | a cowsay clone written in Nitpick, in its own repository beside `pricelog` (L-10, L-11) — cycle 1 one animal and the most basic behaviour, `/devteam:iterate` adding animals and flags — planned from §8's model once 0.3.5 exists: a cycle that closes, the owner using what it built before iterating, a second iteration after unreviewed decisions exist, width 2, rotation at every checkpoint, the liaison if it was built, and one pinned compiler build throughout (L-12); then row 20's judgement | 0.3.13 | **yes — it is what the cycle is for** |
+| 0.3.15 — a toolchain no model knows | L-10's price, because no model has seen Nitpick: `setup` detects a Nitpick project and its toolchain; a compiler built from a pinned commit rather than taken from the compiler's working tree, recorded in the environment pin and bound into every sandbox through 0.3.7 (L-12); the language reference made a worker input — the compiler's own references at the pinned commit, with the user guides in `nitpick-docs` admitted only once every example in them has been compiled and run against that build, each failure a finding carried to the owner; every finding in a run tagged with its cause — the pipeline, the language or compiler, the model's knowledge of the language, or the product; a compiler defect recorded with a reproduction and never fixed mid-run (L-12) | 0.3.0, 0.3.3, 0.3.7 | yes, for this run — it is L-10's price |
 
 **Order.** 0.3.0 → 0.3.1 → 0.3.3 → 0.3.4 → 0.3.6 → 0.3.13 → 0.3.14 is the
 critical path. 0.3.2 follows 0.3.1 at any point before 0.3.13. 0.3.5 needs
@@ -230,10 +251,11 @@ only 0.3.0's meter probe, and 0.3.6 needs it. 0.3.7 needs 0.3.0's overlay probe
 and 0.3.1, and is otherwise independent: it changes `sandbox.py`, `supervise`
 and `work`, which nothing on the critical path touches. 0.3.8, 0.3.9 and 0.3.11
 are independent of each other. 0.3.10 needs 0.3.4, 0.3.5 and 0.3.9. 0.3.12
-waits on 0.3.0's decision and, if it goes ahead, on 0.3.6. *Independent* means
-no dependency, not that two sessions may work one tree at once. Numbers above
-0.3.9 sort before 0.3.2 in a directory listing; this table is authoritative
-over that order.
+waits on 0.3.0's decision and, if it goes ahead, on 0.3.6. 0.3.15 needs 0.3.0's
+compiler probe, 0.3.3 and 0.3.7, and comes before 0.3.13 although its number
+sorts last. *Independent* means no dependency, not that two sessions may work
+one tree at once. Numbers above 0.3.9 sort before 0.3.2 in a directory listing;
+this table is authoritative over that order.
 
 **CONSOLIDATION 8a is included.** The accepted-findings block
 ([`docs/CONSOLIDATION.md`](../../../docs/CONSOLIDATION.md) §8a) was excluded
@@ -352,6 +374,63 @@ evidence cited, and stand until the owner overrules one.
   from 0.2.9 cited as that run's.** Bookkeeping, recorded so that nobody argues
   about it mid-cycle. The last clause is F-140's lesson applied to this plan: a
   measurement taken on a prototype belongs to the prototype.
+- **L-10 — the third run builds a cowsay clone in Nitpick.** *Settled by:*
+  owner, who proposed it — *"a simple nitpick app? Something like a cowsay
+  clone … Could start with just one animal and the most basic funtionality and
+  then add more animals and maybe flags or whatnot in iterate"* — and then chose
+  *"Yes, in Nitpick (Recommended)"* over *"Yes, but in Python"* once the price
+  below was put to him. *Why:* use actually happens, because cowsay's output is
+  visual and is judged in seconds, so iterate's interview finally has real use
+  to start from; one animal first and more animals and flags second is a
+  natural iteration, whose second-cycle request can be expected to collide with
+  a first-cycle promise — a width flag against a bubble promised to align for
+  any input, say (`REASONED`) — which is the hidden cost an iteration exists to
+  price; and it points `devteam` at the language every project the owner has
+  named for it is written in, making the run a consumer of the compiler as well.
+  *Price, accepted:* 0.3.15; a compiler pinned for the whole run (L-12); a run
+  that will stop more often than a Python one, with some stops Nitpick's rather
+  than the pipeline's, so every finding carries its cause. *Declined:* Python,
+  which compares directly with `pricelog` and says nothing about `devteam` on
+  Nitpick.
+- **L-11 — the run's repository is its own, beside `pricelog`.** *Settled by:*
+  owner, choosing *"Its own repo, beside pricelog (Recommended)"* over *"In
+  nitpick-apps from the start"*. The experiment stays out of the `nitpick-apps`
+  registry and the libraries' board while it is an experiment. Adopting what it
+  builds into `nitpick-apps` afterwards is the owner's decision, made then.
+  *Declined:* registering it in `nitpick-apps` from the start, under which the
+  run's sessions would have to satisfy the ecosystem's process and `devteam`'s at
+  once.
+- **L-12 — a compiler defect the run finds is recorded, never fixed mid-run.**
+  *Settled by:* owner, choosing *"Record it; never fix it mid-run
+  (Recommended)"* over *"Fix it in the compiler as it comes up"*. The run uses
+  one compiler, built from a pinned commit, for its whole length; a defect in it
+  is recorded with a reproduction, and the run works around it or stops; the
+  compiler takes it up on its own schedule. *Why:* the compiler is changing
+  daily — step 1.5.8b landed commits on the day this was planned — so a run that
+  tracked it would measure two moving things at once, and fixing the compiler
+  mid-run would interleave bug-fixing with the compiler's roadmap work, which
+  the owner keeps apart. *Declined:* fixing as it comes up — faster for the run,
+  and it moves the pin mid-run.
+- **L-13 — a client profile is taken at the interview, minimally, in 0.3.9.**
+  *Settled by:* owner, accepting §10.2's recommendation in prose — *"I'm fine
+  with your recommendation"*. The interview asks how comfortable the client is
+  with development and how involved they want to be; the answers are recorded
+  in the charter and set two things only — how often the loop asks rather than
+  proceeding on its recommendation, and whether an escalation arrives as a
+  recommendation or as options with their trade-offs. Rigour never varies with
+  the profile (§7). *Declined:* the fuller set of dials in the owner's proposal
+  of 2026-09-11 — check-in frequency and the register of explanations — until
+  a run has measured these two.
+- **L-14 — onboarding refuses to record a push grant the guard will not
+  honour; pushing stays the owner's.** *Settled by:* owner, accepting §10.3's
+  recommendation in prose — *"also fine with this recommendation"*. Publishing
+  outward is `IRREVERSIBLE` under P-26 and always blocks. The guard learns to
+  allow a read-only `git remote -v`. *Declined:* a guard that reads a charter's
+  push grant, which would widen what an agent can do outward on the strength of
+  a document an agent drafted.
+
+*The last two were accepted in prose rather than by selecting an option; each
+grants what its recommendation said and nothing adjacent to it.*
 
 ## 7. Excluded from this cycle, with the trigger that would include it
 
@@ -372,9 +451,9 @@ derived** (L-7). Two anchors exist, both measured during 0.2.
 
 - **A build subcycle costs about a point.** 0.2's §8 table records the owner's
   readings for ten build sessions, from 58 to 256 requests each, and each moved
-  the weekly gauge by about one point. This cycle has fourteen build
-  subcycles, 0.3.0 to 0.3.13, one of them conditional — so about fourteen
-  points if they are the same size. That is `REASONED`: 0.3.1, 0.3.2 and 0.3.4
+  the weekly gauge by about one point. This cycle has fifteen build
+  subcycles — 0.3.0 to 0.3.13, and 0.3.15 — one of them conditional, so about
+  fifteen points if they are the same size. That is `REASONED`: 0.3.1, 0.3.2 and 0.3.4
   touch more files than any 0.2 subcycle did, and 0.2.4, the one that touched
   the most, was the most expensive in tokens.
 - **The run costs far more, and how much more is not known in points.** 0.2.9
@@ -434,35 +513,15 @@ impossible, stop and record it under `## Findings`. Four additions:
 
 Each blocks only the subcycle it names. None blocks 0.3.0.
 
-1. **The third run's project — blocks 0.3.14.** It needs a real principal (the
-   owner), a size at which a round finishes in hours, and — the part 0.2.9
-   could not supply — something the owner will use in the ordinary course of
-   his work between its cycles, because iterate's interview starts from what
-   use taught, and `pricelog` was never used. *Recommendation:* a small tool he
-   would reach for every week regardless of the experiment. Failing one, run
-   iterate's no-use path deliberately (0.3.10 builds it) and record that the
-   use-half is still unexercised, rather than asking him to use something he
-   has no need for.
-2. **A client profile taken at the interview — would land in 0.3.9.** The
-   owner's proposal of 2026-09-11, recorded but not yet decided: the interview
-   asks how comfortable the client is with development and how involved they
-   want to be, and the answers set how often the loop asks and whether an
-   escalation arrives as a recommendation or as options with their trade-offs.
-   *Recommendation:* in this cycle, minimally — the profile recorded in the
-   charter, and those two settings — because 0.3.9 changes the interview anyway,
-   and in 0.2.9 the recommendation was taken eight times in eight (A10), which
-   makes it the decision at the novice end. Rigour does not vary with the
-   profile; only the interface does (§7).
-3. **The push grant — blocks 0.3.11.** In 0.2.9 the signed charter let the
-   manager push (D-1), and the guard refused every `git remote` command, so the
-   grant was never usable. *Recommendation:* onboarding refuses to record a
-   grant the guard will not honour, pushing stays the owner's — publishing
-   outward is `IRREVERSIBLE` under P-26 and always blocks — and the guard learns
-   to allow a read-only `git remote -v`. *Declined:* a guard that reads a
-   charter's push grant, which would widen what an agent can do outward on the
-   strength of a document an agent drafted.
+1. ~~**The third run's project.**~~ **Answered 2026-09-23** — a cowsay clone in
+   Nitpick (L-10), in its own repository (L-11), on one pinned compiler (L-12).
+2. ~~**A client profile taken at the interview.**~~ **Answered 2026-09-23** —
+   minimally, in 0.3.9 (L-13).
+3. ~~**The push grant.**~~ **Answered 2026-09-23** — refused at onboarding
+   unless the guard honours it; pushing stays the owner's (L-14).
 4. **Which model runs which role — blocks 0.3.12, and the model field in
    0.3.4's `dispatch`.** The backlog proposes a Sonnet liaison and an
    Opus-or-Fable interviewer and planner
-   ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §7). This
-   waits on 0.3.0's probe, and is asked then, with its figures.
+   ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §7). The
+   owner, 2026-09-23: *"lets see what the probe says."* Asked again with 0.3.0's
+   figures.
