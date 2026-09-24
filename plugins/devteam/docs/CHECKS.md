@@ -53,7 +53,7 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 24 classes
+## `check_trace.py` — 26 classes
 
 Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`, `BOARD.md` and `audits/`,
 tracked or untracked and not ignored, and `DECISIONS.md`'s acceptances. Diffs
@@ -61,7 +61,7 @@ goals ↔ requirements ↔ tasks ↔ acceptance criteria.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
-| `unparseable-protected-path` | `templates/CHARTER.md`'s `Protected paths` cell — *"one path per entry, comma-separated, and nothing else in this cell"* | each entry the **guard** splits out of the charter's row ↔ that grammar. The guard's own regexes are imported, not restated (P-34) | `enforces` |
+| `unparseable-protected-path` | `templates/CHARTER.md`'s `Protected paths` cell — *"one path per entry, comma-separated, and nothing else in this cell"* | each entry the **guard** splits out of the charter's row ↔ that grammar. The guard's own regexes are imported, not restated (P-34). A cell that is one placeholder, as the template ships it, is tested whole before it is split, and is clean (roadmap 0.3.2, L-2.11) | `enforces` |
 | `orphan-scope` | P-1 — the charter is what the project is | charter goals ↔ the `Satisfies.` fields of every requirement | `enforces` |
 | `uncovered-requirement` | P-4, P-5 | requirements ↔ the `Discharges.` fields of every task | `enforces` |
 | `unmotivated-task` | P-4 | an implementation task's `Discharges.` and `Re-establishes.`, each read as bare identifiers (`FORMATS.md` §"Identifier declarations"; roadmap 0.3.2, L-2.3, L-2.4) ↔ the declared requirements | `enforces` |
@@ -75,13 +75,15 @@ goals ↔ requirements ↔ tasks ↔ acceptance criteria.
 | `bad-board-state` | `FORMATS.md` §"Status vocabularies", board task state | a Tasks-table `State` cell, bold and backticks removed ↔ the closed set `—` · `CLAIMED <label>` · `BLOCKED on T-n` or `Q-n`, several comma-separated · `DONE` · `ACCEPTED (<date>, D-n)`, matched whole (roadmap 0.3.2, L-2.1) | `enforces` |
 | `one-sided-link` | P-4 | a requirement's `Status.` task list ↔ that task's `Discharges.`, read as bare identifiers. A RUNNING task's requirement reads `in-progress` naming it; a closed task's reads `discharged`, `partly-discharged` or `awaiting-judgement` naming it, or `in-progress` naming another task that has not finished (roadmap 0.3.2, L-2.4). A task that only re-establishes a requirement is not one its status may name | `enforces` |
 | `template-drift` | `FORMATS.md` §"An artifact conforms to the template it came from, at the current version" | the charter's constraint rows ↔ the **current** template's rows | `enforces` |
-| `amendment-omits-condition` | P-48 — an amendment re-affirms every done-means and constraint row | the charter's current `DM-n` list and constraint row labels ↔ the latest amendment's `Re-affirmed.` enumeration | `enforces` |
-| `amendment-names-unknown` | P-48 | the latest amendment's `Re-affirmed.` names ↔ the charter's current conditions | `enforces` |
+| `amendment-omits-condition` | P-48 — an amendment re-affirms every done-means and constraint row | the charter's current `DM-n` list and constraint row labels ↔ the `Re-affirmed.` enumeration of the latest entry — the highest `Version n` — read from its heading to the next entry heading or the section's end, each item whole. A verdict is `holds`, `amended (this entry)`, `added (this entry)` or `struck (D-n, why)`. An entry that lists conditions under any other opener is a part not evaluated, naming the entry (roadmap 0.3.2, L-2.9) | `enforces` |
+| `amendment-names-unknown` | P-48 | the latest entry's `Re-affirmed.` names, `added (this entry)` among them ↔ the charter's current conditions | `enforces` |
+| `stale-version-header` | `templates/CHARTER.md` — the header's `Version.`, and *"Entries are numbered `Version <n>` … The number is what identifies the latest entry"*; `FORMATS.md` §"Status vocabularies", charter header | the charter header's `**Version.** <n>` ↔ the newest amendment entry's number, or 1 with no entry (roadmap 0.3.2, L-2.9; pricelog's Version 18, RECORD.md:1350) | `enforces` |
 | `unrecorded-amendment` | P-2 — changing what is being built is a charter amendment | a requirement's committed `Requires-write.` ↔ its current one | `enforces` |
 | `unreachable-acceptance` | P-10 — a worker writes only inside its declared scope; P-5 | a requirement's `Requires-write.` ↔ the `Scope.` of each single discharging task | `enforces` |
 | `unparseable-task` | `FORMATS.md` §"Status vocabularies", task title | the file's first line ↔ the `# T-n — <title> — <status>` grammar | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
 | `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_trace` finding or part ↔ what this run reported, less any class a declaration excluded | `enforces` |
+| `estimate-step-mismatch` | P-41 — estimates come from a stated model; `FORMATS.md` §"Identifier declarations", the estimate | a `PLANNED` task's `Estimate.` `model=<n>x…` ↔ the step lines under its `## Steps`, struck ones included, a step named twice counted once. Compared only while the title reads `PLANNED`: the model counts the steps as planned, and its rounds rate prices each step a supervisor adds once the task runs (roadmap 0.3.2, L-2.10, the owner's answer of 2026-09-24). No `## Steps` is compared with nothing | `enforces` |
 | `bad-kind` | `FORMATS.md` §"Status vocabularies", task `Kind.` | the declared `Kind.` ↔ the closed set `implementation · probe · spike · chore` | `enforces` |
 | `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values, read whole, open when the first word is `open` ↔ the audited task's title status | `enforces` |
 | `unjustified-task` | P-45 — a probe names what it de-risks | a probe/spike's `Informs.`, read as bare identifiers ↔ the declared requirements and goals | `enforces` (P-45, written here) |
@@ -171,7 +173,7 @@ lists (P-4).
 | `broken-link` | `FORMATS.md` §"What each check reads" | relative link targets in plugin docs ↔ files on disk | `enforces` |
 | `bad-manifest` | P-34 | `plugin.json` and the marketplace entry ↔ the tree they describe | `enforces` |
 | `namespace-drift` | `FORMATS.md` §"The namespace" — *this table is the whole of it* | prefixes reserved in `FORMATS.md` ↔ prefixes recognised by `check_refs.py` | `enforces` |
-| `template-ships-a-finding` | P-35b; the general rule that an installed template declares nothing of this repository | a freshly scaffolded project's `check_refs` output ↔ empty | `enforces` |
+| `template-ships-a-finding` | P-35b; the general rule that an installed template declares nothing of this repository | a freshly scaffolded project's `check_trace --pre-plan`, `check_refs` and `check_scope` output ↔ empty (roadmap 0.3.2, L-2.11; `check_refs` alone until then) | `enforces` |
 | `template-scaffold-fails` | P-35b | `setup.py`'s exit ↔ success, before any other template check runs | `enforces` |
 | `unruled-finding` **(new)** | L-6.1 / this file | classes emitted by each check (AST) ↔ the rows of `docs/CHECKS.md` | `enforces` |
 | `stale-row` **(new)** | L-6.1 / this file | the rows of `docs/CHECKS.md` ↔ classes emitted by each check (AST) | `enforces` |

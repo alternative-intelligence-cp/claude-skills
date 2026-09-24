@@ -447,7 +447,7 @@ def main(argv=None):
     # Neither is visible from inside this repository: `F-100` resolves here,
     # and `T-2` is never checked here because the templates are not a project.
     # So the check has to BE a scaffold -- install the templates the way
-    # `setup.py` does, into a throwaway, and run the client's own `check_refs`
+    # `setup.py` does, into a throwaway, and run the client's own plan checks
     # against it. Zero findings, on a project where no work has been done.
     #
     # It reuses `setup.py` itself rather than reimplementing the install, so
@@ -480,19 +480,30 @@ def main(argv=None):
             subprocess.run(["git", "-C", proj, "add", "-A"], capture_output=True)
             subprocess.run(["git", "-C", proj, "commit", "-qm", "scaffold"],
                            capture_output=True)
-            out = subprocess.run(
-                [sys.executable, os.path.join(PLUGIN, "scripts", "check_refs.py"), proj],
-                capture_output=True, text=True)
-            if out.returncode != 0:
+            # ALL THREE PLAN CHECKS, as the client's first commit meets them
+            # (roadmap 0.3.2, L-2.11). This ran check_refs alone, and the
+            # template's unfilled Protected paths cell read as four sentences
+            # to check_trace on every fresh project with nothing here to say so
+            # (0.3.1 §3.2): a control that did not look is the same defect as
+            # a check that did not look. check_trace runs with `--pre-plan`,
+            # as the onboarding gate runs it, because before planning every
+            # requirement is uncovered by construction.
+            for check, *flags in (("check_trace", "--pre-plan"), ("check_refs",),
+                                  ("check_scope",)):
+                out = subprocess.run(
+                    [sys.executable, os.path.join(PLUGIN, "scripts", f"{check}.py"), proj,
+                     *flags], capture_output=True, text=True)
+                if out.returncode == 0:
+                    continue
                 said = [line.strip() for line in out.stdout.strip().split("\n")[1:] if line.strip()]
                 for line in said:
                     add("template-ships-a-finding", "templates/",
-                        f"a freshly scaffolded project reports: {line}")
+                        f"a freshly scaffolded project's {check} reports: {line}")
                 # A NON-ZERO EXIT WITH NOTHING TO READ -- exit 2 prints to
                 # stderr, and a crash prints a traceback -- was taken as no
                 # finding at all (L-1.3). The scaffold was not shown clean.
                 if not said:
-                    gaps.append(("the template checks", f"check_refs exited "
+                    gaps.append(("the template checks", f"{check} exited "
                                  f"{out.returncode} on a fresh scaffold and reported nothing "
                                  f"this could read: {(out.stderr.strip() or 'no output')[-160:]}"))
     except _SkipScaffold:

@@ -226,12 +226,29 @@ AMENDMENT_ENTRY = re.compile(r"^###\s+(.+?)\s*$")
 # the FIRST entry.
 AMENDMENT_VERSION = re.compile(r"^Version\s+(\d+)\b", re.I)
 REAFFIRM_OPEN = re.compile(r"^-\s+\*\*Re-affirmed\.\*\*\s*$")
-# `  - <name> — <verdict>` under that block. The name may itself contain a
+# `  - <name> — <verdict>` under that block, read WHOLE -- the item's line and
+# every line continuing it, joined (roadmap 0.3.2, L-2.3) -- so this matches
+# the joined text, whose indentation is gone. The name may itself contain a
 # hyphen (`DM-1`, `Lint / format command`), so the separator is a dash with
 # whitespace on both sides -- the same rule every other title in this grammar
 # uses, and for the same reason.
-REAFFIRM_ITEM = re.compile(r"^\s+-\s+(.+?)" + SEP + r"(.+?)\s*$")
-REAFFIRM_VERDICT = re.compile(r"^(holds|amended \(this entry\)|struck \(D-\d+[^)]*\))\.?\s*$", re.I)
+REAFFIRM_ITEM = re.compile(r"^-\s+(.+?)" + SEP + r"(.+?)\s*$")
+# `added (this entry)` is L-2.9's: the vocabulary had no word for a condition
+# the entry adds, so four authors invented one (N-4, pricelog RECORD.md:938,
+# :970-971).
+REAFFIRM_VERDICT = re.compile(r"^(holds|amended \(this entry\)|added \(this entry\)"
+                              r"|struck \(D-\d+[^)]*\))\.?\s*$", re.I)
+# What an entry OFFERS as a re-affirmation when it has no `Re-affirmed.` block:
+# a list item, at any depth, whose text before its first separator is one of
+# the charter's conditions. F-36's entry opened its list with `**Every other
+# row, checked rather than assumed:**` (pricelog RECORD.md:563); a prose bullet
+# about the change, as Version 13 carries two, names no condition this way.
+REAFFIRM_ISH = re.compile(r"^\s*[-*+]\s+(.+?)" + SEP)
+# The charter's header, `**Version.** <n> · **Status.** …`: the pointer to its
+# newest entry (L-2.9's `stale-version-header`). What it OFFERS is any line
+# above the first section that starts by naming a version.
+HEADER_VERSION = re.compile(r"^\*\*Version\.\*\*\s*(\d+)\b")
+HEADER_ISH = re.compile(r"^[*_\s]*Version\b", re.I)
 
 
 
@@ -457,6 +474,41 @@ def section_lines(lines, title):
         elif m and start is not None:
             return start, lines[start:n - 1]
     return (start, lines[start:]) if start is not None else (None, [])
+
+
+# --- estimate-step-mismatch (roadmap 0.3.2, L-2.10) --------------------------
+# The estimate states its model, `model=<steps>x440000x1.78+150000` (P-41), and
+# `<steps>` is the step-units AS PLANNED -- the plan skill's model, whose rounds
+# rate `r` prices every step a supervisor adds once the task is running. So the
+# count is compared with the task's steps only while its title reads PLANNED:
+# the owner's answer of 2026-09-24, over comparing in every state, which would
+# have refused 13 of pricelog's 19 tasks for steps their supervisors added.
+# pricelog's T-12 and T-16 each listed four steps under `model=3x…`, and only
+# arithmetic caught it (RECORD.md:946); T-8 was committed that way and never
+# caught at all.
+ESTIMATE_MODEL = re.compile(r"\bmodel=(\d+)x")
+# A step line, FORMATS §"Status vocabularies": `- [ ] **S-n** — …`, ticked
+# `[x]` or struck `[~]`. A struck step was estimated, so it counts.
+STEP_LINE = re.compile(r"^[-*+]\s+(?:\[[ xX~]\]\s+)?(?:~~)?\**\s*S-(\d+)\b")
+# What `## Steps` OFFERS (L-1.3): every top-level list item in it.
+STEP_ISH = re.compile(r"^(?:[-*+]|\d+[.)])\s+\S")
+
+
+def planned_steps(lines):
+    """([the step numbers under `## Steps`], [1-based lines offered there that
+    are not a step line]). A step named twice -- a re-attempt's own line --
+    is one step."""
+    start, body = section_lines(lines, "steps")
+    got, missed = [], []
+    for k, line in enumerate(body):
+        if not STEP_ISH.match(line):
+            continue
+        m = STEP_LINE.match(line)
+        if not m:
+            missed.append(start + 1 + k)
+        elif m.group(1) not in got:
+            got.append(m.group(1))
+    return got, missed
 
 
 def blocks_of(lines, header):
@@ -826,6 +878,16 @@ def check(devteam):
             m = _guard.PROTECTED_ROW.match(line)
             if not m:
                 continue
+            # AN UNFILLED CELL IS ONE PLACEHOLDER, tested whole before it is
+            # split (roadmap 0.3.2, L-2.11). The template's cell is a single
+            # `<…>` whose prose holds commas, and split first it read as four
+            # sentences: every fresh project failed this check on its first
+            # commit, and the only control that scaffolded one never ran it
+            # (0.3.1 §3.2). The guard is unchanged: it drops each piece holding
+            # `<` or `>` and reads the rest as paths that match nothing, which
+            # protects nothing, as an unfilled cell should.
+            if PLACEHOLDER.match(m.group(1)):
+                break
             for raw in re.split(r"[,;]", m.group(1)):
                 raw = raw.strip().strip("`").strip()
                 if (not raw or _guard.PLACEHOLDER.search(raw)
@@ -882,8 +944,33 @@ def check(devteam):
                 if not mr:
                     row_missed.append(n)
 
+    # The charter's header: the first line above the first section that offers
+    # a version, read for stale-version-header below.
+    header_at, header_n = None, None
+    for n, line in enumerate(charter, 1):
+        if SECTION.match(line):
+            break
+        if HEADER_ISH.match(line):
+            mh = HEADER_VERSION.match(line)
+            header_at, header_n = n, (int(mh.group(1)) if mh else None)
+            break
+    # The newest version the entries hold, and its line. A charter with no
+    # entry is Version 1, its signed original; None is an entry unnumbered.
+    newest, newest_at = 1, None
+
     if amend_start is not None:
-        tail = charter[amend_start:]
+        # THE LATEST ENTRY, AND ONLY IT (roadmap 0.3.2, L-2.9). The slice ran
+        # to the end of the file, so an entry whose list the parse could not
+        # open was scored on the NEXT entry's list -- an older one, because
+        # entries are written newest first -- and reported as the latest's: a
+        # true statement about Version 4 presented as a finding about Version
+        # 5 (F-36, pricelog RECORD.md:563). And with two or more entries the
+        # older lists supplied whatever the latest omitted, so the check could
+        # not fire at all (F-68, RECORD.md:922). An entry runs to the next
+        # entry heading, and the section to the next section.
+        end = next((k for k in range(amend_start, len(charter))
+                    if SECTION.match(charter[k])), len(charter))
+        tail = charter[amend_start:end]
         entries = [i for i, l in enumerate(tail) if AMENDMENT_ENTRY.match(l)]
         if entries:
             versions = {}
@@ -892,74 +979,119 @@ def check(devteam):
                     AMENDMENT_ENTRY.match(tail[i]).group(1))
                 if mv:
                     versions[i] = int(mv.group(1))
-            pick = (max(versions, key=versions.get) if len(versions) == len(entries)
-                    else entries[0])
-            last = tail[pick:]
+            numbered = len(versions) == len(entries)
+            pick = max(versions, key=versions.get) if numbered else entries[0]
+            later = [i for i in entries if i > pick]
+            last = tail[pick:later[0] if later else len(tail)]
             title = AMENDMENT_ENTRY.match(last[0]).group(1)
             where = f"CHARTER.md:{amend_start + pick + 1}"
-            named, collecting = {}, False
+            label = f"Version {versions[pick]}" if pick in versions else "the latest amendment"
+            newest, newest_at = ((versions[pick], amend_start + pick + 1) if numbered
+                                 else (None, None))
+            wanted = dm_ids + constraint_rows
+            named = {}
             # What each `Re-affirmed.` list OFFERS, for L-1.3: every indented
-            # item from that line to the next line that is not indented. The
-            # parse stops at the first line it cannot read, so an item after it
-            # is offered and never read, as well as one that does not parse.
-            # This measures the same window the parse reads -- every list after
-            # the entry's heading, which is F-36's slice and 0.3.2's to bound.
-            in_list, extent, consumed = False, [], set()
-            for k, line in enumerate(last[1:], 1):
-                if REAFFIRM_OPEN.match(line):
-                    in_list = True
-                elif in_list and line.strip():
-                    if not line[:1].isspace():
-                        in_list = False
-                    elif LIST_ITEMISH.match(line):
-                        extent.append(k)
-                if REAFFIRM_OPEN.match(line):
-                    collecting = True
-                    continue
-                if collecting:
-                    mi = REAFFIRM_ITEM.match(line)
+            # item from that line to the next line that is not indented. Each
+            # item is read whole, across the lines that continue it, so a
+            # verdict that wraps is read entire, and an item that does not
+            # parse no longer stops the parse: the items after it are read.
+            opens = [k for k, line in enumerate(last) if REAFFIRM_OPEN.match(line)]
+            extent, consumed = [], set()
+            for o in opens:
+                for k in range(o + 1, len(last)):
+                    line = last[k]
+                    if line.strip() and not line[:1].isspace():
+                        break
+                    if not LIST_ITEMISH.match(line):
+                        continue
+                    extent.append(k)
+                    mi = REAFFIRM_ITEM.match(result.joined(last, k, line, until=LIST_ITEMISH))
                     if mi:
                         named[mi.group(1).strip()] = mi.group(2).strip()
                         consumed.add(k)
-                        continue
-                    if line.strip():
-                        collecting = False
-            first_line = amend_start + pick + 1
-            for missed, offered, what, grammar in (
-                    (dm_missed, dm_offered, "the charter's done-means",
-                     "`- **DM-n** — <one line>`"),
-                    (row_missed, row_offered, "the charter's constraint rows",
-                     "`| <Constraint> | <value> |`")):
-                if missed:
-                    gaps.append((what, result.unparsed(
-                        [("CHARTER.md", n) for n in missed], offered, "rows", grammar,
-                        "amendment-omits-condition cannot ask the amendment for them")))
-            unread = [first_line + k for k in extent if k not in consumed]
-            if unread:
-                gaps.append(("the latest amendment's Re-affirmed. list", result.unparsed(
-                    [("CHARTER.md", n) for n in unread], len(extent), "items",
-                    "`  - <name> — <verdict>`",
-                    "what they re-affirm was not read, and any condition they name "
-                    "reads as omitted")))
-            wanted = dm_ids + constraint_rows
-            missing = [w for w in wanted if w not in named]
-            if missing:
-                add("amendment-omits-condition", where,
-                    f"the latest amendment ({title[:40]}) re-affirms "
-                    f"{len(named)} of {len(wanted)} — omits "
-                    f"{', '.join(missing[:6])}"
-                    + (f" and {len(missing) - 6} more" if len(missing) > 6 else "")
-                    + ". Backfill with ONE entry, dated today, citing P-48 and "
-                    "enumerating the charter's current state.")
-            for name, verdict in sorted(named.items()):
-                if name not in wanted:
-                    add("amendment-names-unknown", where,
-                        f"the latest amendment re-affirms {name!r}, which the "
-                        f"charter no longer has")
-                elif not REAFFIRM_VERDICT.match(verdict):
+            # AN ENTRY WHOSE LIST OPENS WITH ANYTHING BUT `- **Re-affirmed.**`
+            # IS NOT READ (L-2.9). Its conditions sit under another opener, so
+            # scoring it would report every one of them omitted -- F-36's wrong
+            # subject in a new form -- and the entry is named instead.
+            listed = [] if opens else [
+                k for k, line in enumerate(last[1:], 1)
+                if REAFFIRM_ISH.match(line)
+                and REAFFIRM_ISH.match(line).group(1).strip(" *`") in wanted]
+            if listed:
+                opener = next((last[k].strip() for k in range(listed[0] - 1, 0, -1)
+                               if last[k].strip()), "")
+                gaps.append((f"{label}'s Re-affirmed. list",
+                             f"{where} lists {len(listed)} of the charter's conditions "
+                             + (f"under {opener[:60]!r}" if opener else "under its heading")
+                             + ", not under `- **Re-affirmed.**`, so none of them was read "
+                             "and amendment-omits-condition did not run on the entry. "
+                             "Open the list with `- **Re-affirmed.**`"))
+            else:
+                first_line = amend_start + pick + 1
+                for missed, offered, what, grammar in (
+                        (dm_missed, dm_offered, "the charter's done-means",
+                         "`- **DM-n** — <one line>`"),
+                        (row_missed, row_offered, "the charter's constraint rows",
+                         "`| <Constraint> | <value> |`")):
+                    if missed:
+                        gaps.append((what, result.unparsed(
+                            [("CHARTER.md", n) for n in missed], offered, "rows", grammar,
+                            "amendment-omits-condition cannot ask the amendment for them")))
+                # The part names its entry, so an acceptance of one entry's
+                # unread items never covers the next entry's.
+                unread = [first_line + k for k in extent if k not in consumed]
+                if unread:
+                    gaps.append((f"{label}'s Re-affirmed. list", result.unparsed(
+                        [("CHARTER.md", n) for n in unread], len(extent), "items",
+                        "`  - <name> — <verdict>`",
+                        "what they re-affirm was not read, and any condition they name "
+                        "reads as omitted")))
+                missing = [w for w in wanted if w not in named]
+                if missing:
                     add("amendment-omits-condition", where,
-                        f"{name} is re-affirmed as {verdict!r} — wanted "
-                        f"`holds`, `amended (this entry)` or `struck (D-n, why)`")
+                        f"the latest amendment ({title[:40]}) re-affirms "
+                        f"{len(named)} of {len(wanted)} — omits "
+                        f"{', '.join(missing[:6])}"
+                        + (f" and {len(missing) - 6} more" if len(missing) > 6 else "")
+                        + ". Backfill with ONE entry, dated today, citing P-48 and "
+                        "enumerating the charter's current state.")
+                for name, verdict in sorted(named.items()):
+                    if name not in wanted:
+                        add("amendment-names-unknown", where,
+                            f"the latest amendment re-affirms {name!r}, which the "
+                            f"charter no longer has")
+                    elif not REAFFIRM_VERDICT.match(verdict):
+                        add("amendment-omits-condition", where,
+                            f"{name} is re-affirmed as {verdict!r} — wanted `holds`, "
+                            "`amended (this entry)`, `added (this entry)` or "
+                            "`struck (D-n, why)`")
+
+    # --- stale-version-header (roadmap 0.3.2, L-2.9) -----------------------
+    # The header's `Version.` is the charter's pointer to its newest entry.
+    # pricelog's charter moved it in the same commit as its own entry at every
+    # version from 3 to 17, and Version 18 did not: "bookkeeping no check
+    # reads" (RECORD.md:1350), found by a person reading `git log -L`. Read
+    # now. A charter with no entry is Version 1; one with no header line and
+    # no entry has nothing to compare.
+    if header_at is not None and header_n is None:
+        gaps.append(("the charter's Version. header", f"CHARTER.md:{header_at} does not "
+                     "read `**Version.** <n>`, so stale-version-header compared nothing"))
+    elif newest is None:
+        gaps.append(("the charter's Version. header", "an amendment heading carries no "
+                     "`Version <n>`, so the newest entry is unknown and "
+                     "stale-version-header compared nothing"))
+    elif header_n is None:
+        if newest_at is not None:
+            gaps.append(("the charter's Version. header", "CHARTER.md has amendment entries "
+                         "and no `**Version.** <n>` line above its first section, so "
+                         "stale-version-header compared nothing"))
+    elif header_n != newest:
+        add("stale-version-header", f"CHARTER.md:{header_at}",
+            f"the charter's header reads `Version. {header_n}`, "
+            + (f"and its newest amendment entry is Version {newest} (CHARTER.md:{newest_at})"
+               if newest_at is not None else
+               "and it has no amendment entry, so its version is 1")
+            + ". The header moves in the commit that adds the entry")
 
     req_lines = read(devteam, "REQUIREMENTS.md")
     req_blocks = blocks_of(req_lines, REQ)
@@ -995,6 +1127,29 @@ def check(devteam):
             for f in TASK_FIELDS:
                 if f not in fields:
                     add("missing-field", f"{rel}:{n}", f"{ident} has no **{f}.**")
+            # THE ESTIMATE AGAINST THE STEPS IT PRICES, while the task is
+            # PLANNED (L-2.10). No `## Steps` is compared with nothing and is
+            # clean, because the plan skill lets a supervisor write the steps.
+            status = extra[1] if len(extra) > 1 else ""
+            if status.split()[:1] == ["PLANNED"] and "Estimate" in fields:
+                steps, unread = planned_steps(lines)
+                at = f"{rel}:{fields.line['Estimate']}"
+                model = ESTIMATE_MODEL.search(fields["Estimate"])
+                if unread:
+                    gaps.append((f"{ident}'s steps", result.unparsed(
+                        [(rel, u) for u in unread], len(steps) + len(unread),
+                        "items under `## Steps`", "`- [ ] **S-n** — <goal>`",
+                        "estimate-step-mismatch did not count them")))
+                if steps and not model:
+                    gaps.append((f"{ident}'s Estimate.", f"{at} states no "
+                                 "`model=<steps>x…`, so estimate-step-mismatch compared "
+                                 f"its {len(steps)} step(s) with nothing"))
+                elif steps and int(model.group(1)) != len(steps):
+                    add("estimate-step-mismatch", at,
+                        f"{ident}'s estimate prices {model.group(1)} step(s) "
+                        f"(`model={model.group(1)}x…`) and its `## Steps` lists "
+                        f"{len(steps)}. An estimate counts the steps as planned (P-41), "
+                        "so correct the model or the steps")
         # A task file whose title will not parse yields no block at all, so the
         # task is INVISIBLE: the requirements it discharges read as uncovered
         # and the file itself is never mentioned. Same class as a research

@@ -26,6 +26,10 @@ carries the status and is the first thing recovery reads (P-14).>
 > be written. A bare number can only be right or wrong; a model can be
 > corrected, and the next measurement then fixes every remaining estimate at
 > once. `r` is re-fitted at every checkpoint from the harness's own budgets.
+> `steps` is the steps as planned: while this title reads `PLANNED`,
+> `check_trace` compares it with the step lines under `## Steps`, struck ones
+> included (`estimate-step-mismatch`). A step the supervisor adds once the
+> task runs is what `r` prices, so the estimate is not re-stated for it.
 >
 > **`Kind.` decides what this task owes.** `implementation` (the default) owes
 > at least one requirement. A `probe` or a `spike` owes an **Informs.** naming

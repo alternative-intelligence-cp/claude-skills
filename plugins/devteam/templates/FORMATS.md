@@ -93,6 +93,17 @@ today: `guard.py` reads only the list items, `check_trace` splits the value at
 commas, and `check_scope` reads it as one entry and reports it when it is not
 one path. Both checks read it whole, across its continuation lines.
 
+**A task's estimate counts its steps as planned.** `Estimate.` states its
+model, `model=<steps>x440000x1.78+150000` (P-41), and while the task's title
+reads `PLANNED`, `check_trace` compares `<steps>` with the step lines under
+its `## Steps` — struck ones included, because a struck step was estimated,
+and a step named twice counted once — as `estimate-step-mismatch`. Once the
+task is claimed, a step its supervisor adds is what the model's rounds rate
+prices, so the estimate stays as planned and is not compared. A task with no
+`## Steps` is compared with nothing, because a supervisor may write the steps;
+one with steps and no `model=` is named as not evaluated (roadmap 0.3.2,
+L-2.10).
+
 ---
 
 ## The namespace, and how not to collide with it
@@ -205,6 +216,8 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
 | REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT` |
 | board task state | `—` · `CLAIMED <label>` · `BLOCKED on T-n` · `BLOCKED on Q-n` · `DONE` · `ACCEPTED (<date>, D-n)`. **Several blockers are comma-separated** — `BLOCKED on T-2, Q-4` — for the reason a requirement's status may name several tasks. The cell holds the state and nothing after it: a reason goes in the in-flight table's `Note`. `check_trace` reads the state from the Tasks table, the one whose header names `Task` first and has a `State` column, and a row may name its task bare, as a link, in bold or in backticks (roadmap 0.3.2, L-2.1) |
+| charter `Re-affirmed.` verdict | `holds` · `amended (this entry)` · `added (this entry)` · `struck (D-n, <why>)`, one item per `DM-n` and constraint row label, `- <name> — <verdict>`. **`added (this entry)`** is a condition the entry adds (roadmap 0.3.2, L-2.9). `check_trace` reads the latest entry only — the highest `Version <n>`, from its heading to the next entry heading or the section's end — and each item whole, across its continuation lines. Its list opens `- **Re-affirmed.**`: an entry listing conditions under any other opener is named as not evaluated, and an entry with no list re-affirms nothing |
+| charter header `Version.` | the number of the newest amendment entry, or `1` while there is none. It moves in the commit that adds the entry, and `check_trace` reports a header that disagrees as `stale-version-header` (roadmap 0.3.2, L-2.9) |
 | charter `Containment` | `structural` · `guard-only`. Written by `/devteam:setup` from `sandbox_probe.py`'s exit code and re-checked at every `/devteam:run` startup. **Not a preference and never copied from an example** — it is a fact about the machine |
 | promotion findings | `promote-base-disagreement` · `promote-conflict` · `promote-extraction-failed` · `promote-fetch-failed` · `promote-foreign-subject` · `promote-history-rewrite` · `promote-host-index-dirty` · `promote-no-commits` · `promote-no-scope` · `promote-no-task-file` · `promote-out-of-scope` · `promote-task-file-unparsed` · `promote-task-file-untracked` · `promote-uncommitted`. Check output, closed set, emitted by `sandbox.py promote` and by its `--dry-run`. 0.2.6 is where each is named against the rule it enforces |
 | `check_report` harness findings | `budget-mismatch` · `model-mismatch`. Silent on a `guard-only` project, which has no harness meter — **an absent measurement is not a finding** |
@@ -253,7 +266,7 @@ and compares what it claims against the tree.
 
 | Check | Reads | Diffs |
 |---|---|---|
-| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles |
+| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps |
 | `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
 | `check_report.py` | one `tasks/T-n.md`, `git`, and the harness's `.run/locks/T-n.sandbox` line | the REPORT block ↔ the committed tree |
 | `check_scope.py` | `BOARD.md`, `tasks/*.md`, `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written |

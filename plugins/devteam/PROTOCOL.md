@@ -624,6 +624,29 @@ assertion visible: a reader can then see `DM-7 — holds` recorded under an
 amendment made **the same day as D-37**, and ask the question a script cannot.
 The rule converts a silent gap into a claim somebody signed.
 
+**P-48b supersedes P-48 in one respect: an entry can say it adds a condition.**
+The verdicts are `holds`, `amended (this entry)`, `added (this entry)` or
+`struck (D-n, <why>)`, and `added (this entry)` marks a condition the entry
+itself adds (roadmap 0.3.2, L-2.9).
+
+*Why.* P-48's three words had none for an addition, which is an ordinary act:
+adding a done-means condition is half of what amendments do. So four authors
+in one run invented a word for it, each after the record had described the
+last one doing the same (pricelog, N-4, RECORD.md:938 and :970–971). **A
+vocabulary with no word for an ordinary act gets one from every author in
+turn**, and a written warning did not stop the next. Three more of that run's
+instances were a sentence where a token belongs, which no vocabulary prevents,
+so this closes the first cause and not the second.
+
+*What the check reads.* The latest entry's list, and only it: the entry with
+the highest `Version <n>`, from its heading to the next entry heading.
+`check_trace` once read every older list after it too, and so scored an older
+entry as the latest (F-36) and could not fire on a charter with two amendments
+(F-68). The charter's header `Version.` names that entry, and moves in the
+commit that adds it.
+
+P-48's text stands unedited, and its reason still governs.
+
 **P-45 — A task graph is acyclic, and a probe names what it de-risks.** Two
 halves of one rule: a task may not, through its `Depends-on.` closure, wait on
 itself, and a task whose `Kind.` is `probe` or `spike` carries an `Informs.`

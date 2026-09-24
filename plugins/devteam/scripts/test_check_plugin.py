@@ -587,6 +587,19 @@ def main():
     def append_to(rel, text):
         return lambda p: open(os.path.join(p, rel), "a", encoding="utf-8").write(text)
 
+    def both(*plants):
+        return lambda p: [plant(p) for plant in plants]
+
+    def prose_protected_paths(p):
+        """The charter template's Protected paths cell filled in as prose, the
+        way 0.2.8's walk wrote it: a check_trace finding and nothing else."""
+        path = os.path.join(p, "templates", "CHARTER.md")
+        text = open(path, encoding="utf-8").read()
+        text = re.sub(r"^\| Protected paths \|.*$",
+                      "| Protected paths | `vendor/` - the vendored deps, and `dist/` |",
+                      text, count=1, flags=re.M)
+        open(path, "w", encoding="utf-8").write(text)
+
     scaffold_cases = [
         # (name, plant, expected findings, expected parts not evaluated)
         ("clean-a-whole-plugin-scaffolds-a-clean-project", None, set(), set()),
@@ -594,6 +607,26 @@ def main():
         # class 0.2.4 built this check for (`F-100`, `in-progress (T-2, T-5)`).
         ("template-ships-a-finding",
          append_to("templates/REQUIREMENTS.md", "\nSee R-99 for why.\n"),
+         {"template-ships-a-finding"}, set()),
+        # ALL THREE PLAN CHECKS RUN on the scaffold (roadmap 0.3.2, L-2.11).
+        # Each plant is one that only its check reports: a prose Protected
+        # paths cell is check_trace's alone, and an acceptance naming
+        # check_scope, of a finding no fresh project has, is check_scope's
+        # stale-acceptance alone once the record cites its decision.
+        ("template-ships-a-finding-check-trace-reports",
+         prose_protected_paths, {"template-ships-a-finding"}, set()),
+        ("template-ships-a-finding-check-scope-reports",
+         both(append_to("templates/DECISIONS.md",
+                        "\n### D-1 — a planted acceptance\n\n"
+                        "- **Decision.** Accept a planted finding.\n"
+                        "- **Because.** planted.\n"
+                        "- **Alternatives declined.**\n  - none — planted\n"
+                        "- **Date.** 2026-09-24\n"
+                        "- **Supersedes.** none\n"
+                        "- **Reviewed.** unreviewed\n"
+                        "- **Accepts.**\n"
+                        "  - `check_scope` `overlapping-scope` `tasks/T-1.md` — planted\n"),
+              append_to("templates/RECORD.md", "\n- D-1 is cited here.\n")),
          {"template-ships-a-finding"}, set()),
         ("template-scaffold-fails",
          lambda p: open(os.path.join(p, "scripts", "setup.py"), "w").write(

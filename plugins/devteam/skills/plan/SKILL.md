@@ -23,7 +23,7 @@ One file, `devteam/tasks/T-n.md`, from
 | **Depends on** | tasks that must be `DONE` first. A named task, never "after the backend" |
 | **Gate** | what must be **true** afterwards — a condition, not a feeling |
 | **Verify** | the exact command that proves the gate, decided **now**, before anyone is invested in passing it — and **scoped to this task's own files**, because at any width above one a whole-suite command measures other tasks' half-finished work and fails for reasons that have nothing to do with this one |
-| **Estimate** | tokens and minutes. Wrong is fine; absent is not, because an estimate never compared to a measurement stays wrong forever (P-41) |
+| **Estimate** | tokens and minutes, and the model they came from, `model=<steps>x440000x1.78+150000`. Wrong is fine; absent is not, because an estimate never compared to a measurement stays wrong forever (P-41). While the task is `PLANNED`, `<steps>` must equal the step lines under its `## Steps`, or `check_trace` reports `estimate-step-mismatch` |
 
 **`Discharges`, `Depends on`, `Informs` and `Re-establishes` hold identifiers
 and nothing else** — `none`, or bare identifiers separated by commas. A reason
@@ -409,6 +409,14 @@ tokens = steps × unit × (1 + r) + overhead
   r         0.78 rounds rate                  sample: 10 tasks, cycle 0.1, C-3 §4
   overhead  150,000 per task                  sample: cycle 0.1, T-2's note
 ```
+
+**`steps` is checked against the steps you wrote, while the task is
+`PLANNED`.** `check_trace`'s `estimate-step-mismatch` compares it with the
+step lines under `## Steps`, struck ones included. It does the arithmetic a
+manager once did by hand, which found two tasks listing four steps under
+`model=3x…`, 783,200 tokens short apiece (pricelog RECORD.md:946). Once the task
+is claimed it is not compared: a step the supervisor adds is what `r`
+prices, so **the estimate stays as planned** and is never re-stated for it.
 
 **Every constant carries its sample, and the sample is part of the number.** A
 per-step figure drawn from one task is drawn from one task, and a first task is

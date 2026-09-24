@@ -143,7 +143,15 @@ _REAFFIRM = "\n".join(
     [f"  - {d} — holds" for d in _DMS]
     + [f"  - {r} — holds" for r in _template_rows()])
 
-CHARTER_AMENDED = CHARTER_DM + f"""
+def headed(charter, n):
+    """The charter with the template's header line, reading `Version. n`. A
+    charter with amendment entries and no header is a part not evaluated
+    (roadmap 0.3.2, L-2.9), so every amended fixture carries one."""
+    return charter.replace("# Charter — Fixture\n",
+                           f"# Charter — Fixture\n\n**Version.** {n} · **Status.** SIGNED\n", 1)
+
+
+CHARTER_AMENDED = headed(CHARTER_DM, 2) + f"""
 ## Amendments
 
 ### Version 2 — 2026-09-07 — the test command changed
@@ -153,6 +161,52 @@ CHARTER_AMENDED = CHARTER_DM + f"""
 - **Re-affirmed.**
 {_REAFFIRM}
 """
+
+
+def entry(n, body):
+    """One amendment entry, numbered `n`, whose list is `body`."""
+    return f"### Version {n} — 2026-09-0{n} — entry {n}\n\n**Carried by D-{n}.**\n\n{body}\n\n"
+
+
+def reaffirm(*omit, verdicts=None):
+    """A `Re-affirmed.` block naming every condition but `omit`."""
+    verdicts = verdicts or {}
+    return "- **Re-affirmed.**\n" + "\n".join(
+        f"  - {c} — {verdicts.get(c, 'holds')}" for c in _DMS + _template_rows()
+        if c not in omit)
+
+
+# pricelog's Version 11 omitted four rows that Version 2 had re-affirmed, and
+# the check read Version 2's list as Version 11's (F-68, RECORD.md:922).
+_F68 = ("Budget ceiling", "Licence", "Repository", "Public?")
+CHARTER_F68 = (headed(CHARTER_DM, 4) + "\n## Amendments\n\n"
+               + entry(4, reaffirm(*_F68)) + entry(3, reaffirm()) + entry(2, reaffirm()))
+# F-36's opener, verbatim (RECORD.md:563), over an older entry whose own list
+# omits DM-2: that omission is what the check used to report as the latest's.
+_EVERY_OTHER = "**Every other row, checked rather than assumed:**"
+CHARTER_F36 = (headed(CHARTER_DM, 3) + "\n## Amendments\n\n"
+               + entry(3, "- " + _EVERY_OTHER + "\n" + reaffirm().split("\n", 1)[1])
+               + entry(2, reaffirm("DM-2")))
+# The template's own unfilled Protected paths cell, read from the template so
+# this case follows it (roadmap 0.3.2, L-2.11).
+_TEMPLATE_PROTECTED = next(
+    l for l in open(os.path.join(os.path.dirname(HERE), "templates", "CHARTER.md"),
+                    encoding="utf-8").read().split("\n")
+    if l.startswith("| Protected paths |"))
+
+# The estimate against its steps (roadmap 0.3.2, L-2.10): T-1 PLANNED, with a
+# model and a `## Steps` section.
+def stepped(model, *lines, state="PLANNED"):
+    """T-1 estimated at `model=<model>x…` with `lines` under its `## Steps`."""
+    body = T1.replace("- **Estimate.** tokens=1000 minutes=10",
+                      f"- **Estimate.** tokens=1000 minutes=10 model={model}x440000x1.78+150000")
+    return (body.replace("— PLANNED", f"— {state}") + "\n## Steps\n\n"
+            + "\n".join(lines) + "\n")
+
+
+def steps(n, box="[ ]"):
+    return [f"- {box} **S-{k}** — step {k} · class: `standard` · verify: `true`"
+            for k in range(1, n + 1)]
 
 FIXTURE = {"CHARTER.md": CHARTER, "REQUIREMENTS.md": REQS,
            "tasks/T-1.md": T1, "tasks/T-2.md": T2}
@@ -259,7 +313,7 @@ CASES = [
     # the deficient Version 2 is chosen and the check fires; by version the
     # complete Version 3 is chosen and it is clean.
     ("amendment-latest-is-by-version-not-position",
-     {"CHARTER.md": CHARTER_DM + "\n## Amendments\n\n"
+     {"CHARTER.md": headed(CHARTER_DM, 3) + "\n## Amendments\n\n"
       "### Version 3 — 2026-09-08 — later, and complete\n\n"
       "**Carried by D-1.**\n\n- **Re-affirmed.**\n" + _REAFFIRM + "\n\n"
       "### Version 2 — 2026-09-07 — earlier, and deficient\n\n"
@@ -280,6 +334,151 @@ CASES = [
     ("fp-charter-subheadings-outside-an-amendments-section",
      {"CHARTER.md": CHARTER_DM + "\n### A note about scope\n\nProse.\n"},
      set()),
+
+    # --- THE LATEST ENTRY, AND ONLY IT (roadmap 0.3.2, L-2.9) --------------
+    # F-68: three entries, newest first, and the latest omits four rows the
+    # older two re-affirm. Read to the end of the file, the older lists
+    # supplied all four and nothing fired.
+    ("l29-f68-the-latest-omission-is-named-and-no-older-list-is-read",
+     {"CHARTER.md": CHARTER_F68},
+     {"amendment-omits-condition"}, [], None, set(),
+     ("re-affirms 14 of 18 — omits Budget ceiling, Licence, Repository, Public?",)),
+    # F-36: the latest entry opens its list with another opener. The entry is
+    # named, and the older entry's omission of DM-2 -- which the check used to
+    # report as the latest's -- is not read.
+    ("l29-f36-a-list-under-another-opener-names-the-entry",
+     {"CHARTER.md": CHARTER_F36},
+     set(), [], None, {"Version 3's Re-affirmed. list"},
+     ("lists 18 of the charter's conditions under '- " + _EVERY_OTHER + "'",)),
+    ("l29-f36-the-opener-as-a-paragraph-over-top-level-items",
+     {"CHARTER.md": CHARTER_F36.replace(
+         "- " + _EVERY_OTHER + "\n  - DM-1", _EVERY_OTHER + "\n\n- DM-1").replace(
+         "\n  - ", "\n- ", 17)},
+     set(), [], None, {"Version 3's Re-affirmed. list"},
+     ("under '" + _EVERY_OTHER + "'",)),
+    # An entry with no list at all re-affirms nothing, which is P-48's finding,
+    # not a part: there is nothing under another opener to have misread. Its
+    # one bullet is prose, with a dash in it, and names no condition.
+    ("l29-an-entry-with-no-list-re-affirms-nothing",
+     {"CHARTER.md": headed(CHARTER_DM, 3) + "\n## Amendments\n\n"
+      + entry(3, "**Why.** a reason, and no list.\n\n"
+                 "- **The log path follows a symlink**, at the file — and at the directory.")
+      + entry(2, reaffirm())},
+     {"amendment-omits-condition"}, [], None, set(), ("re-affirms 0 of 18",)),
+    # The section ends at the next section: a `###` there is not an entry.
+    ("fp-l29-a-section-after-the-amendments-holds-no-entry",
+     {"CHARTER.md": CHARTER_AMENDED + "\n## Appendix\n\n### Notes\n\nProse.\n"},
+     set()),
+    # pricelog's Version 13 carries two prose bullets before its block. They
+    # name no condition, so the block is read as usual.
+    ("fp-l29-prose-bullets-before-the-block",
+     {"CHARTER.md": CHARTER_AMENDED.replace(
+         "**Carried by D-1.**\n",
+         "**Carried by D-1.**\n\n- **A future-dated record blocks every coin.** Reproduced.\n"
+         "- **The log path follows a symlink**, at the file — and at the directory.\n")},
+     set()),
+    # N-4: a condition the entry adds. The vocabulary had no word for it.
+    ("fp-l29-n4-added-this-entry-is-read",
+     {"CHARTER.md": CHARTER_AMENDED.replace("  - DM-2 — holds", "  - DM-2 — added (this entry)")},
+     set()),
+    ("l29-n4-an-added-item-naming-no-condition",
+     {"CHARTER.md": CHARTER_AMENDED.replace(
+         "  - DM-2 — holds\n", "  - DM-2 — holds\n  - DM-99 — added (this entry)\n")},
+     {"amendment-names-unknown"}, [], None, set(), ("re-affirms 'DM-99'",)),
+    # A verdict that wraps is read whole, and the items after it are read
+    # (0.3.2 §3.2's joint: the parse stopped at the continuation line).
+    ("fp-l29-a-verdict-that-wraps-is-read-whole",
+     {"CHARTER.md": CHARTER_AMENDED.replace(
+         "  - DM-1 — holds", "  - DM-1 — struck (D-3, the project no longer\n    produces a CLI)")},
+     set()),
+    ("l29-a-wrapped-verdict-outside-the-vocabulary-is-quoted-whole",
+     {"CHARTER.md": CHARTER_AMENDED.replace("  - DM-1 — holds", "  - DM-1 — probably\n    fine")},
+     {"amendment-omits-condition"}, [], None, set(), ("re-affirmed as 'probably fine'",)),
+    # Version 18: the header was not moved with its entry (RECORD.md:1350).
+    ("l29-stale-version-header",
+     {"CHARTER.md": CHARTER_AMENDED.replace("**Version.** 2", "**Version.** 1")},
+     {"stale-version-header"}, [], None, set(),
+     ("reads `Version. 1`, and its newest amendment entry is Version 2",)),
+    ("l29-stale-version-header-ahead-of-its-entries",
+     {"CHARTER.md": CHARTER_AMENDED.replace("**Version.** 2", "**Version.** 3")},
+     {"stale-version-header"}),
+    ("l29-stale-version-header-with-no-entry",
+     {"CHARTER.md": headed(CHARTER, 2)},
+     {"stale-version-header"}, [], None, set(), ("has no amendment entry, so its version is 1",)),
+    ("fp-l29-version-1-with-no-entry",
+     {"CHARTER.md": headed(CHARTER, 1)},
+     set()),
+    ("fp-l29-version-1-under-an-empty-amendments-section",
+     {"CHARTER.md": headed(CHARTER, 1) + "\n## Amendments\n\n_None yet._\n"},
+     set()),
+    ("l29-a-header-that-does-not-parse",
+     {"CHARTER.md": CHARTER_AMENDED.replace("**Version.** 2", "**Version.** two")},
+     set(), [], None, {"the charter's Version. header"},
+     ("does not read `**Version.** <n>`",)),
+    ("l29-entries-and-no-header",
+     {"CHARTER.md": CHARTER_AMENDED.replace("\n**Version.** 2 · **Status.** SIGNED\n", "")},
+     set(), [], None, {"the charter's Version. header"}),
+    ("l29-an-unnumbered-entry-leaves-the-newest-unknown",
+     {"CHARTER.md": CHARTER_AMENDED.replace(
+         "## Amendments\n\n", "## Amendments\n\n### A later entry\n\n" + reaffirm() + "\n\n")},
+     set(), [], None, {"the charter's Version. header"}),
+
+    # --- estimate-step-mismatch (roadmap 0.3.2, L-2.10) --------------------
+    # pricelog's T-12 and T-16: four steps under `model=3x…` (RECORD.md:946).
+    ("l210-four-steps-under-a-three-step-model",
+     {"tasks/T-1.md": stepped(3, *steps(4))},
+     {"estimate-step-mismatch"}, [], None, set(),
+     ("prices 3 step(s) (`model=3x…`) and its `## Steps` lists 4",)),
+    ("fp-l210-equal-counts",
+     {"tasks/T-1.md": stepped(4, *steps(4))},
+     set()),
+    # A struck step was estimated, so it counts; a step's second attempt is
+    # one step.
+    ("l210-a-struck-step-counts",
+     {"tasks/T-1.md": stepped(3, *steps(3), steps(4, "[~]")[3] + " — struck (D-2)")},
+     {"estimate-step-mismatch"}),
+    ("fp-l210-a-struck-step-was-estimated",
+     {"tasks/T-1.md": stepped(4, *steps(3), steps(4, "[~]")[3] + " — struck (D-2)")},
+     set()),
+    ("fp-l210-a-second-attempt-is-one-step",
+     {"tasks/T-1.md": stepped(2, *steps(2), "- [x] **S-2 (attempt 2)** — step 2 again")},
+     set()),
+    # THE OWNER'S ANSWER: compared while PLANNED only. A step a supervisor
+    # adds once the task runs is what the model's rounds rate prices.
+    ("fp-l210-a-step-added-after-the-claim-is-not-compared",
+     {"tasks/T-1.md": stepped(3, *steps(4), state="RUNNING (since 2026-09-24, T1-a-1200)"),
+      "REQUIREMENTS.md": REQS_R1_RUNNING},
+     set()),
+    ("fp-l210-a-closed-task-is-not-compared",
+     {"tasks/T-1.md": stepped(3, *steps(5), state="DONE (2026-09-24)"),
+      "REQUIREMENTS.md": REQS_R1_DONE},
+     set()),
+    # No `## Steps` is compared with nothing: the supervisor writes the steps.
+    ("fp-l210-no-steps-section",
+     {"tasks/T-1.md": stepped(3).split("\n## Steps")[0] + "\n"},
+     set()),
+    ("l210-steps-and-an-estimate-with-no-model",
+     {"tasks/T-1.md": stepped(3, *steps(3)).replace(" model=3x440000x1.78+150000", "")},
+     set(), [], None, {"T-1's Estimate."}),
+    ("l210-an-item-under-steps-that-is-not-a-step-line",
+     {"tasks/T-1.md": stepped(2, *steps(2), "1. S-3 — a numbered step")},
+     set(), [], None, {"T-1's steps"}),
+
+    # --- a fresh project reads clean (roadmap 0.3.2, L-2.11) ---------------
+    # The template's unfilled cell is ONE placeholder holding commas. Split
+    # before it was tested, it read as four sentences.
+    ("fp-l211-the-template-s-unfilled-protected-paths-cell",
+     {"CHARTER.md": CHARTER.replace("| Protected paths | fixture |", _TEMPLATE_PROTECTED)},
+     set()),
+    ("fp-l211-a-cell-filled-in-part",
+     {"CHARTER.md": CHARTER.replace("| Protected paths | fixture |",
+                                    "| Protected paths | `dist/`, <more, when known> |")},
+     set()),
+    # Tested WHOLE: a placeholder beside a filled entry does not excuse it.
+    ("l211-a-prose-entry-beside-a-placeholder-still-fires",
+     {"CHARTER.md": CHARTER.replace("| Protected paths | fixture |",
+                                    "| Protected paths | `dist/` — the build output, <more> |")},
+     {"unparseable-protected-path"}),
     # --- open-finding-at-close (0.2.6) ------------------------------------
     ("open-finding-at-close",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
@@ -396,9 +595,12 @@ CASES = [
      {"CHARTER.md": CHARTER.replace("| Protected paths | fixture |",
                                     "| **Protected paths** | `dist/` |")},
      {"template-drift"}, [], None, {"unparseable-protected-path"}),
+    # The part names its entry (roadmap 0.3.2, L-2.9), and an item that does
+    # not parse no longer stops the parse: the sixteen rows after DM-2 are read.
     ("re-affirmed-item-without-a-separator",
      {"CHARTER.md": CHARTER_AMENDED.replace("  - DM-2 — holds", "  - DM-2 holds")},
-     {"amendment-omits-condition"}, [], None, {"the latest amendment's Re-affirmed. list"}),
+     {"amendment-omits-condition"}, [], None, {"Version 2's Re-affirmed. list"},
+     ("re-affirms 17 of 18 — omits DM-2",)),
     ("audit-heading-outside-the-namespace",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
       "REQUIREMENTS.md": REQS_R1_DONE,
