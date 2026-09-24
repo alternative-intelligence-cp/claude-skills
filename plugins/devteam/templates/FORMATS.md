@@ -29,8 +29,10 @@ what proves the three still agree.
   finding names `Kind.` in its own text, which is where a person meets the
   problem. Any future default needs the same two things: a stated reason, and a
   finding that points at the field.
-- **Everything is line-oriented.** No field's value spans lines except an
-  explicit sub-list, so a check never needs to parse markdown properly.
+- **Everything is line-oriented.** A field's value may continue onto the lines
+  under it, indented, and the checks read it whole: its first line and every
+  line that continues it, joined, so a value reads the same wrapped or not
+  (roadmap 0.3.2, L-2.3). A check never needs to parse markdown beyond that.
 
 ---
 
@@ -50,6 +52,46 @@ what proves the three still agree.
 **A citation is the bare identifier in prose or in a field value** — `R-3`,
 `D-1`, `T-2`. `check_refs.py` diffs declarations against citations in both
 directions (P-22).
+
+**A field read as identifiers holds identifiers, and nothing else** (roadmap
+0.3.2, L-2.3):
+
+| Field | Holds |
+|---|---|
+| requirement `Satisfies.` | goals, `G-n` |
+| task `Discharges.` | requirements, `R-n`: the ones this task makes true |
+| task `Re-establishes.` | requirements, `R-n`: the ones whose acceptance this task re-establishes **without** taking the discharge — a fix under a requirement another task discharged, which keeps its `discharged (T-n)` |
+| task `Depends on.` | tasks, `T-n`, that must be `DONE` first |
+| task `Informs.` | the requirements or goals a probe or spike de-risks |
+
+Each holds `none`, or bare identifiers of its kind separated by commas, and
+may continue onto indented lines. `check_trace` reads a piece that is anything
+else — a sentence, an identifier of another kind, `none` beside an identifier —
+as nothing: it names the field as not evaluated, quotes the piece, and reads
+no identifier out of it. So a task a sentence mentions is never a dependency,
+and a requirement it mentions is never discharged (F-95, F-132). **The reason
+goes on a bullet of its own**, after the field:
+
+```
+- **Depends on.** T-11, T-14
+- **Why T-11 and T-14.** both write `tests/test_failures.py`; a scope
+  collision, not a prerequisite.
+```
+
+`Re-establishes.` motivates a task as `Discharges.` does, so an implementation
+task with either is not `unmotivated-task`. It is not a link: a requirement's
+`Status.` names the tasks that discharge it, and a task that only
+re-establishes it is not one of them.
+
+**A path list is the field, then one path per indented list item** —
+`Scope.` on a task, `Requires-write.` on a requirement — backticked or not,
+with nothing else on the item: a reason goes on its own line after the list.
+`check_scope` reports an item that is not a bare path as
+`unparseable-scope-entry`, and `check_trace` names it as not evaluated.
+**Write the list form.** A value written beside the field is read three ways
+today: `guard.py` reads only the list items, `check_trace` splits the value at
+commas, and `check_scope` reads it as one entry and reports it when it is not
+one path. Both checks read it whole, across its continuation lines.
 
 ---
 
@@ -154,7 +196,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 
 | Where | Values |
 |---|---|
-| requirement `Status.` | `open` · `in-progress (T-n)` · `discharged (T-n)` · `struck (D-n)`. **The task list may name several** — `in-progress (T-2, T-5)` — because a requirement is frequently advanced by one task and completed by another, and forcing one id makes the record say something untrue |
+| requirement `Status.` | `open` · `in-progress (T-n)` · `discharged (T-n)` · `partly-discharged (T-n; D-n)` · `awaiting-judgement (T-n; Q-n)` · `struck (D-n)`. **The task list may name several** — `in-progress (T-2, T-5)` — because a requirement is frequently advanced by one task and completed by another, and forcing one id makes the record say something untrue. **`partly-discharged`** names the tasks that discharged part of it and the decision that records what remains; **`awaiting-judgement`** names the tasks that built and evidenced it and the question that asks the client whether it is discharged (roadmap 0.3.2, L-2.4). Either may be left over a closed task that it names, where `open` may not. A parenthetical holds identifiers only: what remains is written in the decision or the question |
 | task title | `PLANNED` · `RUNNING (since <date>, <label>)` · `READY-TO-AUDIT` · `BLOCKED (<why>)` · `NEEDS-DECISION (<what>)` · `ACCEPTED (<date>, D-n)` · `DONE (<date>)` |
 | task `Kind.` | `implementation` (default when absent) · `probe` · `spike` · `chore` |
 | step checkbox | `[ ]` pending · `[x]` done · `[~]` struck, with a reason on the line |
@@ -235,14 +277,18 @@ what each result means, is `scripts/result.py`'s (roadmap 0.3.1, L-1.1).
 
 A part is not looked at when its source **offered a row the grammar did not
 read** — a heading, list item, table row or field line written in a shape
-this file does not define, each named by file and line — or when **a field a
-check reads continues past its first line**, since the checks read only that
-line. Zero rows parsed from a source that offered some is the same thing. A
-source that offers nothing is genuinely empty, and clean, with its zero shown
-in the line (roadmap 0.3.1, L-1.3). So a row written slightly wrong is never
-silently skipped: fix the row, or, for a wrapped field, keep the value on the
-field's first line and move the explanation to a bullet of its own, which is
-how pricelog's T-19 repaired its `Discharges.` field (F-132).
+this file does not define, each named by file and line — or when **an
+identifier field holds a piece that is not an identifier**, which is named
+with the piece (§"Identifier declarations"). Zero rows parsed from a source
+that offered some is the same thing. A source that offers nothing is
+genuinely empty, and clean, with its zero shown in the line (roadmap 0.3.1,
+L-1.3). So a row written slightly wrong is never silently skipped: fix the
+row, or, for an identifier field, keep the identifiers in the field and move
+the explanation to a bullet of its own, which is how pricelog's T-19 repaired
+its `Discharges.` field (F-132). `check_trace`, `check_refs` and
+`check_scope` read every field whole, across its continuation lines (roadmap
+0.3.2, L-2.3). `check_report` still reads a REPORT block's `status:` from its
+first line, and names one that continues.
 
 **The gate reads the checks, and an agent commits only through it** (P-49).
 `scripts/gate.py commit -F <message file> -- <paths>` builds the commit

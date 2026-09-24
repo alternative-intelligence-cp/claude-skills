@@ -193,6 +193,27 @@ def main():
     got = result.continuation(["- **Status.** open", "", "Prose."], 0)
     check("fp-continuation-stops-at-unindented-prose-after-a-blank", got == [], got)
 
+    # --- roadmap 0.3.2, L-2.3: a field read whole -------------------------
+    # The first line's value, then every continuation line, each stripped and
+    # joined by one space -- so a value reads the same wrapped or not.
+    got = result.joined(doc, 0, "R-1, and R-2 once")
+    check("joined-reads-the-value-across-every-continuation-line",
+          got == "R-1, and R-2 once T-2's README exists lazily continued "
+                 "a second paragraph of the item", got)
+    got = result.joined(["- **Status.** in-progress (T-1,", "    T-2)"], 0, "in-progress (T-1,")
+    check("joined-a-rewrapped-value-reads-as-the-one-line-value",
+          got == "in-progress (T-1, T-2)", got)
+    # A value that starts on the line after its field is still its value.
+    got = result.joined(["- **Depends on.**", "  T-2"], 0, "")
+    check("joined-a-value-that-starts-on-the-next-line", got == "T-2", got)
+    # `until` ends the value at the first line that is an entry of its own: a
+    # path list's first item, under a value written beside the field.
+    got = result.joined(["- **Scope.** `src/`,", "  `lib/`", "  - `tests/`", "  more"], 0,
+                        "`src/`,", until=re.compile(r"^\s+[-*+]\s+\S"))
+    check("joined-stops-at-the-until-line", got == "`src/`, `lib/`", got)
+    got = result.joined(["- **Status.** open", "- **Next.** x"], 0, "open")
+    check("fp-joined-a-one-line-value-is-that-line", got == "open", got)
+
     got = result.anchors([("BOARD.md", n) for n in (64, 65, 66, 70)] + [("a.md", 3)])
     check("anchors-compress-only-a-run-every-line-of-which-is-a-row",
           got == "BOARD.md:64-66, 70; a.md:3", got)

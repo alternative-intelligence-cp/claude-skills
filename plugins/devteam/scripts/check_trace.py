@@ -88,7 +88,57 @@ TASK = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 # `[A-Za-z ]`, so `missing-field` fired on every requirement that HAD it --
 # a check reporting the absence of the thing in front of it.
 FIELD = re.compile(r"^-\s+\*\*([A-Za-z][A-Za-z -]*)\.\*\*\s*(.*)$")
-IDS = re.compile(r"\b([GRT]-\d+)\b")
+
+# A FIELD READ AS IDENTIFIERS HOLDS IDENTIFIERS ONLY (roadmap 0.3.2, L-2.3):
+# `none`, or bare identifiers separated by commas, continuing onto indented
+# lines if it must. Each field holds one kind, or two for `Informs.`.
+#
+# Two readings of one field disagreed, and each was wrong somewhere. A regex
+# over the field read every identifier a sentence mentioned, so T-17's own
+# name in the prose of its `Depends on.` became an edge to itself, and an
+# unrelated task named there would have held T-17 back with no finding at all
+# (F-95, pricelog RECORD.md:1137). Cutting at commas and comparing each piece
+# whole read `R-2 — **completed here` as a requirement that does not exist, so
+# T-19 never listed R-2 and every state from its claim reported a one-sided
+# link (F-132, RECORD.md:1675). So a piece is read whole or not at all: a piece
+# that is not `none` or a bare identifier of the field's kind is never read as
+# one, and the field is named as not evaluated, naming the piece. The reason
+# goes on a bullet of its own, as T-8's file carries it. `Satisfies.` is read
+# the same way because it is read as identifiers too, and reading it whole by
+# regex would carry F-95 onto its continuation lines.
+#
+# `Re-establishes.` is L-2.4's: the requirements whose acceptance a task
+# re-establishes without taking the discharge. It is what T-17 and T-18 wrote
+# as prose inside `Discharges.`, which no reading could get right.
+ID_FIELDS = {"Satisfies": ("G",), "Discharges": ("R",), "Re-establishes": ("R",),
+             "Informs": ("R", "G"), "Depends on": ("T",)}
+ID_WORDS = {("G",): "goal", ("R",): "requirement", ("R", "G"): "requirement or goal",
+            ("T",): "task"}
+BARE_ID = re.compile(r"^([A-Z]{1,2})-\d+$")
+
+
+def id_list(value, kinds):
+    """([the bare identifiers], [the pieces that are not one]) of an
+    identifier field's whole value -- the one reading every class uses (P-34).
+
+    An empty value names nothing and is not a gap: a field left blank is read
+    as blank, and whatever needs it says so. `none` is the whole value or it
+    is a piece like any other.
+    """
+    value = value.strip()
+    if not value or value == "none":
+        return [], []
+    ids, bad = [], []
+    for piece in (p.strip() for p in value.split(",")):
+        if not piece:
+            continue
+        m = BARE_ID.match(piece)
+        if m and m.group(1) in kinds:
+            if piece not in ids:
+                ids.append(piece)
+        else:
+            bad.append(piece)
+    return ids, bad
 
 # THE LOOSE SHAPES (roadmap 0.3.1, L-1.3): what a source OFFERS, whatever the
 # grammar above accepts of it. Each is deliberately wider than its grammar --
@@ -149,9 +199,13 @@ TEMPLATE_GAPS = [
 # Fields a check below reads by NAME but that no template lists, so that a
 # line naming one in a form the grammar does not accept is still offered.
 REQ_EXTRA = ("Shape reviewed", "Requires-write amended")
-TASK_EXTRA = ("Kind", "Informs", "Because")
+TASK_EXTRA = ("Kind", "Informs", "Because", "Re-establishes")
 
 STRUCK = re.compile(r"^struck\b", re.I)
+# The requirement statuses a closed task may leave, each naming it (FORMATS
+# §"Status vocabularies"; roadmap 0.3.2, L-2.4). `check_refs` judges the whole
+# grammar -- the `; D-n` and `; Q-n` a partial and an awaited discharge carry.
+CLOSED_STATUSES = ("discharged", "partly-discharged", "awaiting-judgement")
 
 # The classes that read the WORKING STATE rather than a commit's tree or its
 # history, which `--at-commit` excludes (result.AT_COMMIT; roadmap 0.3.1, L-1.5).
@@ -194,13 +248,16 @@ LIST_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
 # same shape as `unparseable-scope-entry` since 0.2.
 LIST_ITEMISH = re.compile(r"^\s+[-*+]\s+\S")
 NEXT_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]|^#")
+# One entry of a path list written beside its field rather than under it: a
+# path, backticked or not, and nothing else.
+BARE_PATH = re.compile(r"^`?[^`\s]+`?$")
 
 
 def path_lists(lines, unparsed=None):
     """{field name: [entries]} for every `Scope.`/`Requires-write.` list in a block.
 
     `unparsed`, when given, collects (index into `lines`, field name) for each
-    list item under a path list that does not parse as a path.
+    entry of a path list that does not parse as a path.
     """
     out, collecting = {}, None
     for i, line in enumerate(lines):
@@ -208,9 +265,18 @@ def path_lists(lines, unparsed=None):
         if m:
             collecting = m.group(1)
             out.setdefault(collecting, [])
-            inline = m.group(2).strip()
+            # A value written beside the field is read whole (roadmap 0.3.2,
+            # L-2.3): a line continuing it that was not a list item used to be
+            # dropped in silence. Each comma-separated piece is a path, or it
+            # is named as a list item that is not one is, never kept as an
+            # entry that matches nothing.
+            inline = result.joined(lines, i, m.group(2), until=LIST_ITEMISH)
             if inline and not PLACEHOLDER.search(inline):
-                out[collecting] += [x.strip().strip("`") for x in inline.split(",") if x.strip()]
+                for piece in (p.strip() for p in inline.split(",")):
+                    if BARE_PATH.match(piece):
+                        out[collecting].append(piece.strip("`"))
+                    elif piece and unparsed is not None:
+                        unparsed.append((i, collecting))
             continue
         if collecting:
             item = LIST_ITEM.match(line)
@@ -254,33 +320,33 @@ def read(root, rel):
 
 
 class Fields(dict):
-    """A block's fields, each held as its FIRST physical line -- and what that
-    leaves unread (roadmap 0.3.1, L-1.3).
+    """A block's fields, each held WHOLE -- its first line and every line that
+    continues it (roadmap 0.3.2, L-2.3) -- and what a class could not read.
 
-    `parse_blocks` keeps a field's first line only. That is a partial read
-    exactly when the field continues past it and something reads the value:
-    F-132 was a `Discharges.` field whose first line ended mid-sentence, cut at
-    commas into pieces none of which was the requirement it named. So a value
-    read out of this mapping is RECORDED, and a field both read and wrapped is
-    named as not evaluated. Presence -- `in` -- is not a read, because a field's
-    existence is on its first line.
+    0.3.1 kept a field's first line only, and named a field that continued past
+    it as not evaluated wherever some class read it (L-1.3). F-132 was that
+    shape: a `Discharges.` field whose first line ended mid-sentence. Every
+    field is now read whole, so a wrapped field is simply read.
 
-    Recording reads rather than listing the fields each class uses keeps the
-    two from drifting: a class added later that reads a wrapped field is
-    covered without anybody remembering to add it here.
+    What can still go unread is a piece of an identifier field that is not an
+    identifier. `ids` is the one reading of those fields, and it records each
+    such piece for the field it read, so a field no class reads is never
+    named -- the same rule 0.3.1 kept for a wrapped field nothing read.
     """
 
     def __init__(self):
         super().__init__()
-        self.line, self.wraps, self.misparsed, self.read = {}, set(), {}, set()
+        self.line, self.misparsed, self.pieces, self._ids = {}, {}, {}, {}
 
-    def get(self, key, default=None):
-        self.read.add(key)
-        return super().get(key, default)
-
-    def __getitem__(self, key):
-        self.read.add(key)
-        return super().__getitem__(key)
+    def ids(self, name):
+        """The bare identifiers the field `name` holds (`id_list`), with each
+        piece that is not one recorded for `field_gaps`."""
+        if name not in self._ids:
+            got, bad = id_list(self.get(name, ""), ID_FIELDS[name])
+            self._ids[name] = got
+            if bad:
+                self.pieces[name] = bad
+        return self._ids[name]
 
 
 def _named_field(name):
@@ -289,7 +355,8 @@ def _named_field(name):
 
 
 def parse_blocks(lines, header, fields_for):
-    """Yield (identifier, line-number, extra, Fields) per heading.
+    """Yield (identifier, line-number, extra, Fields) per heading, each field
+    read whole across its continuation lines (`result.joined`).
 
     `fields_for` are the names the caller reads. A line naming one of them that
     FIELD does not accept as that name is recorded in `Fields.misparsed`: a
@@ -308,10 +375,8 @@ def parse_blocks(lines, header, fields_for):
             f = FIELD.match(line)
             name = f.group(1).strip() if f else None
             if f:
-                cur[3][name] = f.group(2).strip()
+                cur[3][name] = result.joined(lines, n - 1, f.group(2))
                 cur[3].line[name] = n
-                if result.continuation(lines, n - 1):
-                    cur[3].wraps.add(name)
             for want, pat in loose:
                 if want != name and pat.match(line):
                     cur[3].misparsed.setdefault(want, n)
@@ -345,17 +410,32 @@ def list_gaps(ident, bad, rel, start):
     for i, field in bad:
         out.setdefault(field, []).append((rel, start + 1 + i))
     return [(f"{ident}'s {field}.",
-             f"{len(rows)} list item(s) under the field do not parse as a bare "
-             f"`path`, so no class compares against what they name "
-             f"({result.anchors(rows)})")
+             (f"1 entry of the field, listed under it or written beside it, does"
+              if len(rows) == 1 else
+              f"{len(rows)} entries of the field, listed under it or written beside it, do")
+             + f" not parse as a bare `path`, so no class compares against what they "
+             f"name ({result.anchors(rows)})")
             for field, rows in sorted(out.items())]
 
 
+def pieces_reason(where, name, bad):
+    """Why an identifier field is not evaluated: the pieces it holds that are
+    not identifiers, each named (roadmap 0.3.2, L-2.3)."""
+    shown = [repr(p[:48] + "…" if len(p) > 48 else p) for p in bad[:3]]
+    more = f" and {len(bad) - 3} more" if len(bad) > 3 else ""
+    word = ID_WORDS[ID_FIELDS[name]]
+    return (f"{where} holds {len(bad)} piece(s) that are not `none` or a bare {word} "
+            f"identifier — {', '.join(shown)}{more} — so no class reads them, and no "
+            "identifier inside one is read. Give the field identifiers only, and "
+            "the reason a bullet of its own")
+
+
 def field_gaps(ident, where, fields):
-    """[(part, reason)] for a block's fields that were read and not whole."""
+    """[(part, reason)] for a block's fields that a class read and could not
+    read whole: an identifier field holding a piece that is not one."""
     rel = where.rsplit(":", 1)[0]
-    out = [(f"{ident}'s {name}.", result.wrapped(f"{rel}:{fields.line[name]}", "check_trace"))
-           for name in sorted(fields.wraps & fields.read)]
+    out = [(f"{ident}'s {name}.", pieces_reason(f"{rel}:{fields.line[name]}", name, bad))
+           for name, bad in sorted(fields.pieces.items())]
     # A misparsed line is a LOSS only when the field never parsed in this
     # block. The block runs to the end of the file, so an execution record
     # quoting `- **Scope:** check_scope … prints clean` (pricelog's T-16) is a
@@ -412,10 +492,11 @@ def first_declared(devteam):
         return None
     # WHAT THE HISTORY DID NOT SHOW (L-1.3). A shallow clone hands this walk
     # a history that starts partway, so a requirement's first declaration and
-    # its rewrites before the cut are not in it; a revision `git show` cannot
-    # produce is skipped; and churn compares each revision's FIRST line of a
-    # field, so a rewrite past it is not counted.
-    gaps, unread, wrapped_in = [], [], {}
+    # its rewrites before the cut are not in it; and a revision `git show`
+    # cannot produce is skipped. Churn compares each revision's fields WHOLE
+    # (roadmap 0.3.2, L-2.3), so a rewrite past a field's first line counts,
+    # and rewrapping the same words does not.
+    gaps, unread = [], []
     shallow = subprocess.run(["git", "-C", devteam, "rev-parse", "--is-shallow-repository"],
                              capture_output=True, text=True)
     if shallow.stdout.strip() == "true":
@@ -460,18 +541,10 @@ def first_declared(devteam):
             else:
                 churn.setdefault(ident, 0)
             prev[ident] = now
-            for name in fields.wraps & fields.read:
-                wrapped_in.setdefault(ident, {}).setdefault(name, 0)
-                wrapped_in[ident][name] += 1
     if unread:
         gaps.append(("REQUIREMENTS.md's history",
                      f"{len(unread)} revision(s) could not be read ({', '.join(unread)}), "
                      "so unrecorded-amendment and re-litigated-requirement skipped them"))
-    for ident in sorted(wrapped_in, key=lambda r: int(r.split("-")[1])):
-        names = ", ".join(f"{name}. in {k}" for name, k in sorted(wrapped_in[ident].items()))
-        gaps.append((f"re-litigated-requirement for {ident}",
-                     f"{ident}'s {names} committed revision(s) of REQUIREMENTS.md "
-                     "continue past the first line, and the count compares first lines only"))
     return seen, churn, gaps
 
 
@@ -942,11 +1015,10 @@ def check(devteam):
     # --- goal -> requirement ------------------------------------------------
     satisfied = set()
     for ident, (where, fields) in reqs.items():
-        for g in IDS.findall(fields.get("Satisfies", "")):
-            if g.startswith("G-"):
-                satisfied.add(g)
-                if g not in goals:
-                    add("unknown-reference", where, f"{ident} satisfies {g}, which no charter goal declares")
+        for g in fields.ids("Satisfies"):
+            satisfied.add(g)
+            if g not in goals:
+                add("unknown-reference", where, f"{ident} satisfies {g}, which no charter goal declares")
     for g, where in sorted(goals.items()):
         if g not in satisfied:
             add("orphan-scope", where, f"{g} is promised in the charter and no requirement covers it")
@@ -954,7 +1026,17 @@ def check(devteam):
     # --- requirement -> task ------------------------------------------------
     discharged = set()
     for ident, (where, fields, _) in tasks.items():
-        names = [r for r in IDS.findall(fields.get("Discharges", "")) if r.startswith("R-")]
+        names = fields.ids("Discharges")
+        # RE-ESTABLISHING IS A MOTIVATION, NOT A DISCHARGE (roadmap 0.3.2,
+        # L-2.4). T-17 and T-18 each fixed code under a requirement another task
+        # had discharged, and the model allowed one discharging task per
+        # requirement (pricelog RECORD.md:495), so they wrote it as prose inside
+        # `Discharges.`. The requirement keeps its `discharged (T-n)`; this field
+        # is why the task exists, and nothing else reads it as a link.
+        renewed = fields.ids("Re-establishes")
+        for r in renewed:
+            if r not in reqs:
+                add("unknown-reference", where, f"{ident} re-establishes {r}, which no requirement declares")
         # A probe discharges nothing BY DEFINITION -- it asks whether something
         # is possible, and its answer changes the design. The plan skill demands
         # one as task one; `unmotivated-task` made it unexpressible, so a plan
@@ -967,14 +1049,15 @@ def check(devteam):
                 f"{ident} has Kind {kind!r}; expected implementation, probe, spike or chore")
             kind = "implementation"
         if kind == "implementation":
-            if not names:
+            if not names and not renewed:
                 add("unmotivated-task", where,
                     f"{ident} discharges no requirement — scope creep, or a "
-                    "requirement nobody wrote down. If it is a probe, a spike "
-                    "or a chore, say so with **Kind.** and give it an "
-                    "**Informs.** or a **Because.**")
+                    "requirement nobody wrote down. If it fixes a requirement "
+                    "another task discharged, name it in **Re-establishes.**; if "
+                    "it is a probe, a spike or a chore, say so with **Kind.** and "
+                    "give it an **Informs.** or a **Because.**")
         elif kind in ("probe", "spike"):
-            informs = [r for r in IDS.findall(fields.get("Informs", "")) if r[0] in "RG"]
+            informs = fields.ids("Informs")
             if not informs:
                 add("unjustified-task", where,
                     f"{ident} is a {kind} and names no **Informs.** — a probe that "
@@ -1076,11 +1159,19 @@ def check(devteam):
     # one task and completed by another is normal and the format says so, so a
     # closed task may leave its requirement `in-progress` -- but only naming
     # some OTHER task that has not itself finished.
+    #
+    # AND A CLOSED TASK MAY LEAVE ITS REQUIREMENT HONESTLY UNFINISHED (roadmap
+    # 0.3.2, L-2.4, the owner's answer of 2026-09-24). pricelog's managers left
+    # three requirements `open` over closed tasks rather than write something
+    # untrue -- named residuals a decision recorded, and a judgement only the
+    # client could make (RECORD.md:712-713, :820) -- and this check refused all
+    # three, because the vocabulary had no word for either. It has two now,
+    # each naming the task, so a status that names none is still refused.
     for tid, (twhere, tfields, tstatus) in sorted(tasks.items()):
         phase = tstatus.split()[0] if tstatus.split() else ""
         if phase not in ("RUNNING", "DONE", "ACCEPTED"):
             continue
-        for r in [x.strip() for x in tfields.get("Discharges", "").split(",") if x.strip()]:
+        for r in tfields.ids("Discharges"):
             if r not in reqs or STRUCK.match(reqs[r][1].get("Status", "")):
                 continue
             rstatus = reqs[r][1].get("Status", "").strip()
@@ -1092,10 +1183,11 @@ def check(devteam):
                 unfinished = [o for o in named if o != tid
                               and not tasks.get(o, ("", {}, ""))[2].startswith(
                                   ("DONE", "ACCEPTED"))]
-                ok = ((rstatus.startswith("discharged") and tid in named)
+                ok = ((rstatus.startswith(CLOSED_STATUSES) and tid in named)
                       or (rstatus.startswith("in-progress") and unfinished))
-                want = (f"`discharged ({tid})`, or `in-progress` naming another "
-                        "task that has not finished")
+                want = (f"`discharged ({tid})`, `partly-discharged ({tid}; D-n)` or "
+                        f"`awaiting-judgement ({tid}; Q-n)`, or `in-progress` naming "
+                        "another task that has not finished")
             # CLOSED_LINK below reads this message back for the gate's one
             # allowance, so the two are kept side by side.
             if not ok:
@@ -1222,8 +1314,7 @@ def check(devteam):
         # the requirement's decision citations. A project whose requirements
         # cite no decisions gets no coverage here and no warning that it does
         # not.
-        owners = [tid for tid, (_, tf, _) in tasks.items()
-                  if ident in [x.strip() for x in tf.get("Discharges", "").split(",")]]
+        owners = [tid for tid, (_, tf, _) in tasks.items() if ident in tf.ids("Discharges")]
         if owners:
             for d in sorted(set(DECISION_REF.findall(
                     fields.get("Statement", "") + " " + fields.get("Acceptance", "")))):
@@ -1237,14 +1328,12 @@ def check(devteam):
         for tid in TASK_REF.findall(fields.get("Status", "")):
             if tid not in tasks:
                 continue
-            if ident not in [x.strip() for x in tasks[tid][1].get("Discharges", "").split(",")]:
+            if ident not in tasks[tid][1].ids("Discharges"):
                 add("one-sided-link", where,
                     f"{ident} is {fields.get('Status', '').strip()}, but {tid} "
                     f"does not list {ident} in its `Discharges.`")
 
         want = must_write.get(ident, [])
-        owners = [tid for tid, (_, tf, _) in tasks.items()
-                  if ident in [x.strip() for x in tf.get("Discharges", "").split(",")]]
         if want and owners and not any(
                 all(contains(scopes.get(tid, []), path) for path in want)
                 for tid in owners):
@@ -1258,7 +1347,9 @@ def check(devteam):
     # --- the task graph -----------------------------------------------------
     graph = {}
     for ident, (where, fields, _) in tasks.items():
-        deps = [d for d in IDS.findall(fields.get("Depends on", "")) if d.startswith("T-")]
+        # An edge is a bare task identifier and nothing else (roadmap 0.3.2,
+        # L-2.3): a task a sentence in this field mentions is not a dependency.
+        deps = fields.ids("Depends on")
         graph[ident] = deps
         for d in deps:
             if d not in tasks:
@@ -1343,8 +1434,10 @@ def check(devteam):
                             f"task closed over a finding it commissioned")
                     current, n_at, disposed = f"{h.group(1)}-{h.group(2)}", n, False
                     continue
+                # Read whole, as check_refs reads the same field (roadmap
+                # 0.3.2, L-2.3): a line break inside it changes nothing.
                 d = AUDIT_DISPOSITION.match(line)
-                if d and current and not OPEN_DISP.match(d.group(1)):
+                if d and current and not OPEN_DISP.match(result.joined(audit, n - 1, d.group(1))):
                     disposed = True
             if current and not disposed:
                 add("open-finding-at-close", f"{rel_a}:{n_at}",
@@ -1352,9 +1445,10 @@ def check(devteam):
                     f"the audit before the close, so this task closed over a "
                     f"finding it commissioned")
 
-    # Last, because every class above has now read whatever it reads: a field
-    # is not evaluated when it was read AND continues past its first line, and
-    # the reads are only known once they have happened.
+    # Last, because every class above has now read whatever it reads: an
+    # identifier field is not evaluated when a class read it AND it holds a
+    # piece that is not an identifier (roadmap 0.3.2, L-2.3), and the reads
+    # are only known once they have happened.
     number = lambda kv: int(kv[0].split("-")[1])
     for ident, (where, fields) in sorted(reqs.items(), key=number):
         gaps += field_gaps(ident, where, fields)
@@ -1385,7 +1479,9 @@ UNCOVERED = re.compile(r"^(R-\d+) is not discharged by any task$")
 AUDIT_FILE = re.compile(r"^T-(\d+)-[a-z]+-\d{4}-\d{2}-\d{2}\.md$")
 AUDIT_HEADING = re.compile(r"^#{2,3}\s+(COR|SEC|HYG|REV|CNV)-(\d+)\s*[\u2014\u2013-]")
 AUDIT_DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
-OPEN_DISP = re.compile(r"^\**open\**\.?\s*$", re.I)
+# `open` is the value's first word, as check_refs reads the same field: read
+# whole, `open` with a note after it is still open (roadmap 0.3.2, L-2.3).
+OPEN_DISP = re.compile(r"^\**open\b(?!-)", re.I)
 
 
 def resolve(target):

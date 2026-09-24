@@ -33,6 +33,19 @@ carries the status and is the first thing recovery reads (P-14).>
 > probe *is*. A `chore` owes a **Because.** A task with neither a requirement
 > nor a reason is one nobody agreed to.
 
+> **`Discharges.`, `Depends on.`, `Informs.` and `Re-establishes.` hold
+> identifiers and nothing else** — `none`, or bare identifiers separated by
+> commas. The check reads a sentence in one of them as nothing and names it, so
+> a task the sentence mentions is never a dependency and a requirement it
+> mentions is never discharged. **Put the reason on a bullet of its own**,
+> after the field, labelled by what it explains:
+> `- **Why T-2 first.** it writes the schema this task reads`.
+>
+> **`Re-establishes.`** is for a fix under a requirement another task
+> discharged: it names that requirement, whose status keeps its
+> `discharged (T-n)`, and it is this task's motivation in place of a
+> discharge. Write `- **Discharges.** none` beside it.
+
 > **Scope is a promise about what this task writes** (P-10, P-12). The manager
 > refuses to claim a task whose scope intersects a live claim, and the guard
 > refuses a write outside it. A scope that turns out too small is an escalation,

@@ -129,12 +129,21 @@ ARTIFACTS = re.compile(
 # wrong file is a false positive -- the failure mode that gets a check disabled
 # (P-35).
 VOCAB = (
+    # `partly-discharged` and `awaiting-judgement` are the states a closed task
+    # could not say (roadmap 0.3.2, L-2.4, the owner's answer of 2026-09-24):
+    # pricelog left three requirements `open` over closed tasks rather than
+    # write something untrue -- named residuals, and a judgement only the
+    # client could make. Each names its tasks, and then the one decision or
+    # question that holds what remains, because a parenthetical holds
+    # identifiers only.
     ("requirement-status",
      re.compile(r"(^|/)REQUIREMENTS\.md$"),
      re.compile(r"^-\s+\*\*Status\.\*\*\s+(.+?)\s*$"),
      re.compile(r"^(open"
                 r"|in-progress \(T-\d+(?:,\s*T-\d+)*\)"
                 r"|discharged \(T-\d+(?:,\s*T-\d+)*\)"
+                r"|partly-discharged \(T-\d+(?:,\s*T-\d+)*; D-\d+\)"
+                r"|awaiting-judgement \(T-\d+(?:,\s*T-\d+)*; Q-\d+\)"
                 r"|struck \(D-\d+\))$")),
     ("question-class",
      re.compile(r"(^|/)QUESTIONS\.md$"),
@@ -273,7 +282,12 @@ class CouldNotRun(Exception):
 WORKING_STATE = ("untracked-file",)
 
 DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
-OPEN_DISPOSITION = re.compile(r"^\**open\**\.?\s*$", re.I)
+# OPEN IS THE FIRST WORD, NOT THE WHOLE VALUE (roadmap 0.3.2, L-2.3). The value
+# is read whole now, and an exact match would have read `open` with a note on
+# the next line as dispositioned -- the note made it not-`open`. A value that
+# says it is open is open, whatever follows it. `check_trace` keeps the same
+# rule for the same field.
+OPEN_DISPOSITION = re.compile(r"^\**open\b(?!-)", re.I)
 
 # --- what each file OFFERS (roadmap 0.3.1, L-1.3) --------------------------
 # The grammar above says what parses. These say what was WRITTEN in each
@@ -397,12 +411,15 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
 
             if is_artifact and current_audit:
                 md = DISPOSITION.match(line)
+                # Read whole, across its continuation lines (roadmap 0.3.2,
+                # L-2.3), as check_trace reads the same field.
                 if md and audit_findings.get(current_audit, (None, None))[1] is None:
                     audit_findings[current_audit] = (
-                        audit_findings[current_audit][0], md.group(1))
-                # A disposition this check reads, written so it cannot be read
-                # whole: named and not parsed, or continuing past its line.
-                if DISPOSITION_ISH.match(line) and (not md or result.continuation(lines, n - 1)):
+                        audit_findings[current_audit][0],
+                        result.joined(lines, n - 1, md.group(1)))
+                # A disposition this check reads, written so it cannot be read:
+                # the field named, and not parsed as one.
+                if DISPOSITION_ISH.match(line) and not md:
                     offered["dispositions"].setdefault(rel, []).append(n)
 
             if not is_artifact:
@@ -421,10 +438,7 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
                     (n, bool(DECLARATIONS[4].match(line))))
             for name, scope, field, _valid in VOCAB:
                 if scope.search(rel) and VOCAB_ISH[name].match(line):
-                    state = ("unparsed" if not field.match(line)
-                             else "wrapped" if (name.endswith(("status", "class"))
-                                                and result.continuation(lines, n - 1))
-                             else None)
+                    state = "unparsed" if not field.match(line) else None
                     offered["vocab"].setdefault((rel, name), []).append((n, state))
 
             # Status vocabularies are checked BEFORE declarations are handled,
@@ -432,13 +446,21 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
             # carries the status. Checking after the declaration branch's
             # `continue` meant task and checkpoint statuses were never checked
             # at all, which the control caught.
+            #
+            # A `Status.` or `Class.` field is judged WHOLE, across its
+            # continuation lines (roadmap 0.3.2, L-2.3). A title is a heading,
+            # and a heading does not continue.
             for name, scope, field, valid in VOCAB:
                 if not scope.search(rel):
                     continue
                 m = field.match(line)
-                if m and not TEACHING.search(m.group(1)) and not valid.match(m.group(1)):
+                if not m:
+                    continue
+                value = (result.joined(lines, n - 1, m.group(1))
+                         if name.endswith(("status", "class")) else m.group(1))
+                if not TEACHING.search(value) and not valid.match(value):
                     findings.append(("bad-status", rel, n,
-                                     f"{name}: {m.group(1)!r} is not in the vocabulary"))
+                                     f"{name}: {value!r} is not in the vocabulary"))
 
             # Recorded WITHOUT `continue`, unlike every other declaration,
             # because a step row's remaining cells carry real citations -- the
@@ -636,19 +658,14 @@ def gaps_from(offered, declared):
                 "undispositioned-finding cannot see them")))
     for (rel, name), rows in sorted(offered["vocab"].items()):
         bad = [(rel, n) for n, state in rows if state == "unparsed"]
-        long_ = [(rel, n) for n, state in rows if state == "wrapped"]
-        why = []
         if bad:
-            why.append(result.unparsed(bad, len(rows), "fields", f"the {name} field's grammar"))
-        if long_:
-            why.append(f"{len(long_)} continue past their first line, and check_refs "
-                       f"reads only the first ({result.anchors(long_)})")
-        if why:
-            gaps.append((f"{rel}'s {name}", "; ".join(why) + ", so bad-status did not judge them"))
+            gaps.append((f"{rel}'s {name}", result.unparsed(
+                bad, len(rows), "fields", f"the {name} field's grammar")
+                + ", so bad-status did not judge them"))
     for rel, rows in sorted(offered["dispositions"].items()):
         gaps.append((f"{rel}'s dispositions", f"{len(rows)} `Disposition.` field(s) do not "
-                     "parse as one line, so undispositioned-finding read a finding's "
-                     f"disposition as absent or from its first line only "
+                     "parse as `- **Disposition.** <value>`, so undispositioned-finding "
+                     f"read a finding's disposition as absent "
                      f"({result.anchors([(rel, n) for n in rows])})"))
     return gaps
 

@@ -203,12 +203,34 @@ CASES = [
     ("partial-read-a-step-commit-without-its-colon",
      BASE, "T-1", [("src/loader/a.py", "x=1\n")], {"misattributed-write"}, "T-1.S-2 the work",
      (), (), {"undeclared-write for T-1"}),
-    # A WRAPPED FIELD: an inline `Scope.` value is one entry, and a line
-    # continuing it was never read.
-    ("wrapped-field-an-inline-scope-that-continues",
+    # A CONTINUED FIELD IS READ WHOLE (roadmap 0.3.2, L-2.3). A value written
+    # beside `Scope.` is one entry, read across the lines that continue it, and
+    # one entry is one path. 0.3.1 read the first line and named the rest as
+    # not evaluated; read whole, this is two paths in one entry, so it declares
+    # nothing -- and T-1 is RUNNING with no scope at all.
+    ("continued-an-inline-scope-is-read-whole-and-is-not-one-path",
      {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", []).replace(
          "- **Scope.**\n", "- **Scope.** `src/loader/`,\n  `tests/loader/`\n")},
-     None, [], set(), "T-1: the work", (), (), {"tasks/T-1.md's Scope."}),
+     None, [], {"unparseable-scope-entry", "empty-scope"}),
+    # One path with a note on the next line: its first line alone reads as a
+    # path, and the value it is part of does not.
+    ("continued-an-inline-scope-with-a-note-on-its-next-line-is-not-one-path",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", []).replace(
+         "- **Scope.**\n", "- **Scope.** `src/loader/`\n  (and its tests)\n")},
+     None, [], {"unparseable-scope-entry", "empty-scope"}),
+    # ...and a sentence beside the field, on one line, is not a path either. It
+    # used to be kept as an entry that matched nothing, and declared nothing
+    # while every check said clean.
+    ("unparseable-scope-entry-a-sentence-beside-the-field",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", ["tests/loader/"]).replace(
+         "- **Scope.**\n", "- **Scope.** the loader and its tests\n")},
+     None, [], {"unparseable-scope-entry"}),
+    # ONE PATH BESIDE THE FIELD IS ONE ENTRY, and it is read: the overlap with
+    # T-2 is found through it.
+    ("overlapping-scope-through-a-path-written-beside-the-field",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", []).replace(
+         "- **Scope.**\n", "- **Scope.** `src/render/`\n")},
+     None, [], {"overlapping-scope"}),
     # ...and what must stay CLEAN.
     #
     # A GENUINELY EMPTY SOURCE: nothing planned yet, only the directory's

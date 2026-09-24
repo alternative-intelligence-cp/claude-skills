@@ -390,6 +390,33 @@ S-1 is the only step.
       replace("REQUIREMENTS.md", "- **Status.** open",
               "- **Status.** nearly (T-2, T-5)")],
      {"bad-status"}),
+    # L-2.4 (roadmap 0.3.2, the owner's answer of 2026-09-24): the two states a
+    # closed task could not say, which pricelog wrote as `open` rather than say
+    # something untrue. Each names its tasks, then the one decision recording
+    # what remains or the one question the judgement waits on.
+    ("fp-l24-partly-discharged-names-its-decision",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** partly-discharged (T-1; D-1)")],
+     set()),
+    ("fp-l24-awaiting-judgement-names-its-question",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** awaiting-judgement (T-1; Q-1)")],
+     set()),
+    ("fp-l24-several-tasks-before-the-decision",
+     [("tracked", "tasks/T-2.md", "# T-2 — the second — PLANNED\n\n- **Discharges.** R-1\n"),
+      replace("REQUIREMENTS.md", "- **Status.** open",
+              "- **Status.** partly-discharged (T-1, T-2; D-1)")],
+     set()),
+    # ...and the parenthetical holds identifiers only: what remains is written
+    # in the decision or the question, never beside the status.
+    ("bad-status-l24-partly-discharged-without-its-decision",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** partly-discharged (T-1)")],
+     {"bad-status"}),
+    ("bad-status-l24-awaiting-judgement-naming-a-decision-not-a-question",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** awaiting-judgement (T-1; D-1)")],
+     {"bad-status"}),
+    ("bad-status-l24-what-remains-written-beside-the-status",
+     [replace("REQUIREMENTS.md", "- **Status.** open",
+              "- **Status.** partly-discharged (T-1; D-1) — three residuals")],
+     {"bad-status"}),
     # F-55: findings are the largest numbered set a project accumulates and had
     # no integrity check at all — a signed charter cited a finding that was
     # never declared anywhere, and the tree reported clean.
@@ -511,14 +538,42 @@ S-1 is the only step.
     ("partial-read-a-status-named-with-a-colon",
      [replace("QUESTIONS.md", "- **Status.** open", "- **Status**: open")],
      set(), {"QUESTIONS.md's question-status"}),
-    # A WRAPPED FIELD: the vocabulary is judged on the first line only.
-    ("wrapped-field-a-requirement-status-that-continues",
+    # A CONTINUED FIELD IS READ WHOLE (roadmap 0.3.2, L-2.3). 0.3.1 judged the
+    # vocabulary on a field's first line and named the rest as not evaluated.
+    # The continuation is judged with it now, so a note written onto the next
+    # line is part of the value -- and outside the vocabulary.
+    ("continued-a-requirement-status-is-judged-whole",
      [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** open\n  (until D-1 is reviewed)")],
-     set(), {"REQUIREMENTS.md's requirement-status"}),
-    ("wrapped-field-a-disposition-that-continues",
+     {"bad-status"}),
+    # ...and a status wrapped inside its parenthetical is one value, in the
+    # vocabulary.
+    ("fp-continued-a-status-wrapped-inside-its-parenthetical-is-read-whole",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** partly-discharged (T-1;\n  D-1)")],
+     set()),
+    ("fp-continued-a-question-status-is-read-whole",
+     [replace("QUESTIONS.md", "- **Status.** open", "- **Status.** answered\n  D-1")],
+     set()),
+    # A DISPOSITION IS READ WHOLE, and `open` is its first word, so a note
+    # after `open` on the next line leaves the finding open. Read whole with an
+    # exact match, the note would have made it read as dispositioned.
+    ("continued-an-open-disposition-with-a-note-is-still-open",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_OPEN.replace("- **Disposition.** open", "- **Disposition.** open\n  until the review"))],
+     {"undispositioned-finding"}),
+    ("fp-continued-a-routed-disposition-is-read-whole",
      [("tracked", "audits/T-1-security-2026-09-04.md",
        AUDIT_ROUTED.replace("routed T-1", "routed T-1\n  after the review"))],
-     set(), {"audits/T-1-security-2026-09-04.md's dispositions"}),
+     set()),
+    # `open` is a word, not a prefix: `opened` is not it.
+    ("fp-a-disposition-beginning-with-opened-is-not-open",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_ROUTED.replace("routed T-1", "opened as Q-1"))],
+     set()),
+    # A disposition NAMED and not parsed is still not evaluated.
+    ("partial-read-a-disposition-named-with-a-colon",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_ROUTED.replace("- **Disposition.** routed T-1", "- **Disposition**: routed T-1"))],
+     {"undispositioned-finding"}, {"audits/T-1-security-2026-09-04.md's dispositions"}),
     # ...and what must stay CLEAN.
     #
     # A GENUINELY EMPTY SOURCE: an audit with no finding, only its method.

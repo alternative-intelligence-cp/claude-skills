@@ -64,16 +64,16 @@ goals ↔ requirements ↔ tasks ↔ acceptance criteria.
 | `unparseable-protected-path` | `templates/CHARTER.md`'s `Protected paths` cell — *"one path per entry, comma-separated, and nothing else in this cell"* | each entry the **guard** splits out of the charter's row ↔ that grammar. The guard's own regexes are imported, not restated (P-34) | `enforces` |
 | `orphan-scope` | P-1 — the charter is what the project is | charter goals ↔ the `Satisfies.` fields of every requirement | `enforces` |
 | `uncovered-requirement` | P-4, P-5 | requirements ↔ the `Discharges.` fields of every task | `enforces` |
-| `unmotivated-task` | P-4 | a task's `Discharges.` ↔ the declared requirements | `enforces` |
+| `unmotivated-task` | P-4 | an implementation task's `Discharges.` and `Re-establishes.`, each read as bare identifiers (`FORMATS.md` §"Identifier declarations"; roadmap 0.3.2, L-2.3, L-2.4) ↔ the declared requirements | `enforces` |
 | `unverified-requirement` | P-3 — every requirement is numbered, normative and **testable** | a requirement's `Acceptance.` ↔ the set of runnable criteria | `enforces` |
 | `missing-field` | `FORMATS.md` §"Identifier declarations" — the field list per artifact | the fields a template declares ↔ the fields the artifact carries | `enforces` |
-| `unknown-reference` | P-22 — a decision cited must be declared | identifiers cited in `Satisfies./Discharges./Depends-on.` ↔ identifiers declared | `enforces` |
-| `dependency-cycle` | P-45 — a task graph is acyclic | a task's `Depends-on.` closure ↔ itself | `enforces` (P-45, written here) |
+| `unknown-reference` | P-22 — a decision cited must be declared | the bare identifiers in `Satisfies.`, `Discharges.`, `Re-establishes.`, `Informs.` and `Depends on.` ↔ identifiers declared. A sentence in one of those fields names nothing: it is a part not evaluated, quoting the piece (roadmap 0.3.2, L-2.3) | `enforces` |
+| `dependency-cycle` | P-45 — a task graph is acyclic | a task's `Depends on.` closure, its edges the field's bare task identifiers only, so a task a sentence mentions is no edge (F-95; roadmap 0.3.2, L-2.3) ↔ itself | `enforces` (P-45, written here) |
 | `gate-omits-decision` | P-18 — reported green is not green; P-5 | decisions a requirement's `Statement.`/`Acceptance.` rests on ↔ the `Gate.` of every discharging task | `enforces` |
 | `re-litigated-requirement` | P-46 — rewritten three times means shape review | a requirement's revision count ↔ the threshold 3 | `enforces` (P-46, written here) |
 | `board-drift` | P-11 — the board is the lock; P-34 — facts have one home | the `State` of each row of `BOARD.md`'s Tasks table — the table whose header names `Task` first and has a `State` column — ↔ each task file's own title status. `CLAIMED` allows the title a supervisor writes at a close or a stop while the task has a row in the in-flight table (roadmap 0.3.2, L-2.2) | `enforces` |
 | `bad-board-state` | `FORMATS.md` §"Status vocabularies", board task state | a Tasks-table `State` cell, bold and backticks removed ↔ the closed set `—` · `CLAIMED <label>` · `BLOCKED on T-n` or `Q-n`, several comma-separated · `DONE` · `ACCEPTED (<date>, D-n)`, matched whole (roadmap 0.3.2, L-2.1) | `enforces` |
-| `one-sided-link` | P-4 | a requirement's `Status.` task list ↔ that task's `Discharges.` | `enforces` |
+| `one-sided-link` | P-4 | a requirement's `Status.` task list ↔ that task's `Discharges.`, read as bare identifiers. A RUNNING task's requirement reads `in-progress` naming it; a closed task's reads `discharged`, `partly-discharged` or `awaiting-judgement` naming it, or `in-progress` naming another task that has not finished (roadmap 0.3.2, L-2.4). A task that only re-establishes a requirement is not one its status may name | `enforces` |
 | `template-drift` | `FORMATS.md` §"An artifact conforms to the template it came from, at the current version" | the charter's constraint rows ↔ the **current** template's rows | `enforces` |
 | `amendment-omits-condition` | P-48 — an amendment re-affirms every done-means and constraint row | the charter's current `DM-n` list and constraint row labels ↔ the latest amendment's `Re-affirmed.` enumeration | `enforces` |
 | `amendment-names-unknown` | P-48 | the latest amendment's `Re-affirmed.` names ↔ the charter's current conditions | `enforces` |
@@ -83,8 +83,8 @@ goals ↔ requirements ↔ tasks ↔ acceptance criteria.
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
 | `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_trace` finding or part ↔ what this run reported, less any class a declaration excluded | `enforces` |
 | `bad-kind` | `FORMATS.md` §"Status vocabularies", task `Kind.` | the declared `Kind.` ↔ the closed set `implementation · probe · spike · chore` | `enforces` |
-| `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values ↔ the audited task's title status | `enforces` |
-| `unjustified-task` | P-45 — a probe names what it de-risks | a probe/spike's `Informs.` ↔ the declared requirements and goals | `enforces` (P-45, written here) |
+| `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values, read whole, open when the first word is `open` ↔ the audited task's title status | `enforces` |
+| `unjustified-task` | P-45 — a probe names what it de-risks | a probe/spike's `Informs.`, read as bare identifiers ↔ the declared requirements and goals | `enforces` (P-45, written here) |
 
 ## `check_refs.py` — 11 classes
 
@@ -98,11 +98,11 @@ leaks.
 | `defined-uncited` | P-22 — *and a decision declared must be cited* | decisions declared ↔ decisions cited | `enforces` |
 | `duplicate-id` | `FORMATS.md` §"Identifier declarations" — one declaration per identifier | declaration sites ↔ each other | `enforces` |
 | `broken-link` | `FORMATS.md` §"What each check reads" | relative link targets ↔ files on disk | `enforces` |
-| `bad-status` | `FORMATS.md` §"Status vocabularies" | a written status value ↔ its closed set | `enforces` |
+| `bad-status` | `FORMATS.md` §"Status vocabularies" | a written status value, a `Status.` or `Class.` field read whole across its continuation lines ↔ its closed set | `enforces` |
 | `leak` | P-47 — a tracked artifact contains only what a reader can see, and no credential | tracked file content ↔ the absolute-path and credential patterns | `enforces` |
 | `control-character` | P-47 | file bytes ↔ the printable set, outside tab and newline | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
-| `undispositioned-finding` | CONSOLIDATION 7; `FORMATS.md` §"The namespace" — an exemption is a debt, and something must watch it | an audit finding's `Disposition.` ↔ the set of dispositions that are not `open` | `enforces` |
+| `undispositioned-finding` | CONSOLIDATION 7; `FORMATS.md` §"The namespace" — an exemption is a debt, and something must watch it | an audit finding's `Disposition.`, read whole ↔ the set of dispositions that are not `open`. `open` is the value's first word, so a note after it leaves the finding open | `enforces` |
 | `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_refs` finding or part ↔ what this run reported | `enforces` |
 | `unparseable-acceptance` | P-51; `FORMATS.md` §"Accepted findings" — an `Accepts.` line outside the grammar accepts nothing, and is reported | each line of `DECISIONS.md` naming `Accepts.`, and each item under one ↔ the acceptance grammar, including the decision's `Reviewed.` line | `enforces` |
 
@@ -149,7 +149,7 @@ and ↔ what was written.
 | `undeclared-write` | P-10 — a worker writes only inside its declared scope | paths a task's commits touched ↔ its `Scope.` | `enforces` |
 | `empty-scope` | P-12 | a claimed task's `Scope.` ↔ non-empty | `enforces` |
 | `scope-escapes-tree` | P-10, P-43 | a scope entry ↔ the project root | `enforces` |
-| `unparseable-scope-entry` | `FORMATS.md` §"Identifier declarations" — a `Scope.` item is a bare path | a list item under `Scope.` ↔ the bare-path grammar | `enforces` |
+| `unparseable-scope-entry` | `FORMATS.md` §"Identifier declarations" — a `Scope.` item is a bare path | a list item under `Scope.`, or the value written beside it read whole as one entry (roadmap 0.3.2, L-2.3) ↔ the bare-path grammar | `enforces` |
 | `foreign-write` | P-12 | uncommitted paths ↔ the union of every live scope | `enforces` |
 | `misattributed-write` | P-10, P-12 | a commit's touched paths ↔ the live scope of a task that did **not** author it | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |

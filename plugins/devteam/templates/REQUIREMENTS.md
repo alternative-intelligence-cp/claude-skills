@@ -9,11 +9,23 @@ between these three lists is mechanical and is where holes are actually found
 > reports it; it does not edit here.
 
 **`Status.` is one of:** `open` · `in-progress (T-n)` · `discharged (T-n)` ·
+`partly-discharged (T-n; D-n)` · `awaiting-judgement (T-n; Q-n)` ·
 `struck (D-n)`. **Name every task involved** — `in-progress (T-n, T-m)` — where
 one task advances a requirement and another completes it. A single id there
-would be a compromise recorded as a fact. A requirement whose task is closed is `discharged`, not `open`
-— nothing reconciles the two automatically, and a record that says `open` for
-work that is finished makes every later reading of this file wrong.
+would be a compromise recorded as a fact. A requirement whose task is closed is
+`discharged`, not `open` — nothing reconciles the two automatically, and a
+record that says `open` for work that is finished makes every later reading of
+this file wrong.
+
+**When the closed task did not finish it, say which way.** `partly-discharged
+(T-n; D-n)` names the tasks that discharged part of it and the decision that
+records what remains. `awaiting-judgement (T-n; Q-n)` names the tasks that
+built and evidenced it and the question that asks the client whether that is
+enough. The parenthetical holds identifiers only, so what remains is written in
+the decision or the question, never beside the status. A task that fixes code
+under a requirement another task discharged takes no discharge: it names the
+requirement in its `Re-establishes.`, and the status keeps its
+`discharged (T-n)`.
 
 **Acceptance is a command or an observation, never an adjective.** "Fast" is not
 a requirement. "`bench/latency.py` reports p99 under 200 ms at 100 concurrent

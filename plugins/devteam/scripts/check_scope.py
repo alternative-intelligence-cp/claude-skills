@@ -51,6 +51,9 @@ SCOPE_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
 # never saw. This grammar failed PERMISSIVELY, which is why it went unnoticed
 # where a strike-through and a forward citation failed loudly and did not.
 SCOPE_ITEMISH = re.compile(r"^\s+-\s+\S")
+# A value written beside `Scope.` is one entry, and one path: the list item's
+# grammar, without the list item.
+BARE_PATH = re.compile(r"^`?([^`\s]+)`?$")
 ANY_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]")
 PLACEHOLDER = re.compile(r"[<>]")
 
@@ -83,8 +86,8 @@ def load_tasks(devteam, gaps=None):
     `gaps`, when given, collects (part, reason) for what a file offered and
     this did not read: a task whose title does not parse -- it was dropped
     from every comparison in silence, and a RUNNING one with it, so an
-    overlap with it could not be seen -- and an inline `Scope.` value that
-    continues past its line.
+    overlap with it could not be seen. The unparsed entries are (file, line,
+    text, whether it was the value written beside the field).
     """
     listing = result.listed(devteam, "tasks/*.md")
     if listing is None:
@@ -106,16 +109,20 @@ def load_tasks(devteam, gaps=None):
                 continue
             if SCOPE_FIELD.match(line):
                 collecting = True
-                inline = SCOPE_FIELD.match(line).group(1).strip()
+                # A value written beside the field is ONE entry, read whole
+                # across the lines that continue it, up to the first list item
+                # (roadmap 0.3.2, L-2.3); 0.3.1 read its first line and named
+                # the rest as not evaluated. And it is one PATH, as a list item
+                # must be: a sentence there used to be kept as an entry that
+                # matched nothing, so it declared nothing and no check said so.
+                inline = result.joined(lines, n - 1, SCOPE_FIELD.match(line).group(1),
+                                       until=SCOPE_ITEMISH)
                 if inline and not PLACEHOLDER.search(inline):
-                    scope.append(inline.strip("`"))
-                    # An inline value is one entry; a line continuing it that
-                    # is not a list item was never read.
-                    more = [j for j in result.continuation(lines, n - 1)
-                            if not SCOPE_ITEMISH.match(lines[j])]
-                    if more and gaps is not None:
-                        gaps.append((f"{rel}'s Scope.", result.wrapped(
-                            f"{rel}:{n}", "check_scope")))
+                    path = BARE_PATH.match(inline)
+                    if path:
+                        scope.append(path.group(1))
+                    else:
+                        unparsed.append((rel, n, inline, True))
                 continue
             if collecting:
                 item = SCOPE_ITEM.match(line)
@@ -123,7 +130,7 @@ def load_tasks(devteam, gaps=None):
                     scope.append(item.group(1))
                     continue
                 if SCOPE_ITEMISH.match(line):
-                    unparsed.append((rel, n, line.strip()))
+                    unparsed.append((rel, n, line.strip(), False))
                     continue
                 if line.strip() and (ANY_FIELD.match(line) or line.startswith("#")):
                     collecting = False
@@ -197,7 +204,14 @@ def check(project, task_id=None):
     for rel in sorted(untracked):
         add("untracked-file", rel, result.UNTRACKED)
 
-    for rel, n, text in unparsed:
+    for rel, n, text, inline in unparsed:
+        if inline:
+            add("unparseable-scope-entry", f"{rel}:{n}",
+                f"{text!r} is the value written beside `Scope.`, and it does not "
+                "parse as one path, so it declares nothing. A grant the checker "
+                "cannot read is not a grant. Put each path on a list item of its "
+                "own under the field, and the reason on its own line")
+            continue
         add("unparseable-scope-entry", f"{rel}:{n}",
             f"{text!r} is a list item under `Scope.` that does not parse as a "
             "path, so it declares nothing. A grant the checker cannot read is "

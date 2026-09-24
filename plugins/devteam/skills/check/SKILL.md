@@ -31,7 +31,7 @@ contract's home is `scripts/result.py`, and the plugin's
 | `0` | clean | Everything the check owns was evaluated, and nothing was found. **This is the only pass** |
 | `1` | findings | Fix what each line names. The line also names any part the check did not evaluate |
 | `2` | could not run | The fault is in the invocation — its arguments, no repository, no `devteam/` — and not in the project. Fix the command |
-| `3` | not evaluated | No finding, and at least one part the check did not look at, each named with its reason: a row its grammar could not read, a field that continues past the line the check reads, or zero rows from a source that offered some. **Never clean** (P-50). The remedy is in the project: write the row in the shape FORMATS defines, keep a field's value on its first line, or accept the part by a decision until the check can read it |
+| `3` | not evaluated | No finding, and at least one part the check did not look at, each named with its reason: a row its grammar could not read, a piece of an identifier field that is not an identifier, or zero rows from a source that offered some. **Never clean** (P-50). The remedy is in the project: write the row in the shape FORMATS defines, keep an identifier field to identifiers and put the reason on a bullet of its own, or accept the part by a decision until the check can read it |
 
 A PASS that rests on exit `3` is a claim about a part nobody read.
 
@@ -125,22 +125,23 @@ number (P-51). The grammar is FORMATS §"Accepted findings", and the
 - **`unparseable-acceptance`** means an `Accepts.` line is outside the
   grammar, so it accepts nothing. Fix the line.
 
-## Until 0.3.2: two refusals that are not defects
+## Until 0.3.2: one refusal that is not a defect
 
 The corpus replay found shapes the checks could not yet read correctly
-(roadmap 0.3.1, §3.5). Each makes the gate refuse a correct commit, and 0.3.2
-fixes the check. Until then, accept each by a decision. 0.3.2's fix then makes
-the acceptance stale, and `stale-acceptance` says to supersede it.
+(roadmap 0.3.1, §3.5). One still makes the gate refuse a correct commit, and
+0.3.2 fixes the check. Until then, accept it by a decision. 0.3.2's fix then
+makes the acceptance stale, and `stale-acceptance` says to supersede it.
 
 - **`check_scope` `misattributed-write` on a restart.** A manager wrote the
   task's file while the task was stopped, and the claim window of the restart
   counts that write as the task's (F-135).
-- **`check_trace` `one-sided-link` on a requirement honestly left `open`**
-  over a DONE task. The check has no term for a partial or awaited discharge.
 
-The third, the board's rows not evaluated on a board written as the template
-or with links (F-70), is fixed: `check_trace` reads those rows (roadmap 0.3.2,
-§3.1).
+Two are fixed. `check_trace` reads the board's rows on a board written as the
+template or with links (F-70; roadmap 0.3.2, §3.1). And a requirement honestly
+left unfinished over a closed task has words now: `partly-discharged (T-n;
+D-n)` or `awaiting-judgement (T-n; Q-n)`, which `one-sided-link` accepts when
+they name the task (roadmap 0.3.2, §3.2; FORMATS §"Status vocabularies").
+Plain `open` over a closed task is still refused, because it is still untrue.
 
 ## Reading a finding
 
@@ -149,7 +150,9 @@ Every class, the rule it enforces and the two lists it compares are in
 rows there cannot say:
 
 - **`unmotivated-task`** is either scope creep or a requirement nobody wrote
-  down, and the second is far more common.
+  down, and the second is far more common. A third cause is a fix under a
+  requirement another task discharged: it takes no discharge, and names the
+  requirement in `Re-establishes.` instead.
 - **`defined-uncited`** is usually a requirement stating a rule and forgetting
   to attribute it. It is the highest-value finding `check_refs` makes.
 - **`duplicate-id`**: the later declaration takes a new number. Never renumber

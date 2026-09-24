@@ -18,12 +18,18 @@ One file, `devteam/tasks/T-n.md`, from
 
 | Field | And what makes it wrong |
 |---|---|
-| **Discharges** | the `R-n` it makes true. **A task discharging none is scope creep, or a requirement nobody wrote down** — and the check will say so (P-4) |
+| **Discharges** | the `R-n` it makes true. **A task discharging none is scope creep, or a requirement nobody wrote down** — and the check will say so (P-4). A fix under a requirement another task discharged takes no discharge: it writes `none` here and names the requirement in **Re-establishes.** |
 | **Scope** | the paths it may write. Too wide and it collides with its neighbours; too narrow and it escalates mid-flight. Both are your error, not the worker's |
 | **Depends on** | tasks that must be `DONE` first. A named task, never "after the backend" |
 | **Gate** | what must be **true** afterwards — a condition, not a feeling |
 | **Verify** | the exact command that proves the gate, decided **now**, before anyone is invested in passing it — and **scoped to this task's own files**, because at any width above one a whole-suite command measures other tasks' half-finished work and fails for reasons that have nothing to do with this one |
 | **Estimate** | tokens and minutes. Wrong is fine; absent is not, because an estimate never compared to a measurement stays wrong forever (P-41) |
+
+**`Discharges`, `Depends on`, `Informs` and `Re-establishes` hold identifiers
+and nothing else** — `none`, or bare identifiers separated by commas. A reason
+written inside one is read as nothing and named as not evaluated, and a task or
+requirement it mentions is never read out of it (F-95, F-132). Put the reason on
+a bullet of its own after the field, as `templates/tasks/TASK.md` shows.
 
 **A gate phrased over the whole project is a gate over everybody else's
 in-flight work.** `pytest -q` expecting an unchanged count is a fine gate at
@@ -96,7 +102,11 @@ fact, and they must agree.** The status vocabulary names tasks — `in-progress
 (T-n)`, `discharged (T-n)` — so the two fields are already talking about the
 same relationship, and only bookkeeping can make them disagree. Checked by
 `one-sided-link`, in both directions, with PLANNED tasks exempt because a task
-that has not started correctly leaves its requirement `open`.
+that has not started correctly leaves its requirement `open`. A closed task
+that did not finish its requirement says so rather than leaving it `open`:
+`partly-discharged (T-n; D-n)` when a decision records what remains, and
+`awaiting-judgement (T-n; Q-n)` when the client must judge it (FORMATS
+§"Status vocabularies").
 
 **A criterion's LEVEL must match some task's scope, and this is the defect that
 has recurred most.** Three times in one project, an acceptance criterion

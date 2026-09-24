@@ -184,6 +184,32 @@ REQS_R1_RUNNING = REQS.replace("- **Status.** open", "- **Status.** in-progress 
 _UNREAD_FLIGHT = ("| — | — | — | — | — | — | — | — | nothing running |",
                   "| the first task | x | T1-a-1200 | `a1` | — | — | — | — | — |")
 
+# --- identifier fields and the requirement states (roadmap 0.3.2) ---------
+T1_DONE = T1.replace("— PLANNED", "— DONE (2026-09-24)")
+T2_DONE = T2.replace("— PLANNED", "— DONE (2026-09-24)")
+
+
+def statuses(r1, r2="open"):
+    """REQS with R-1's and R-2's `Status.` set."""
+    return (REQS.replace("- **Status.** open", f"- **Status.** {r1}", 1)
+            .replace("- **Status.** open", f"- **Status.** {r2}", 1))
+
+
+# pricelog's T-17 and T-18: a fix under a requirement another task discharged,
+# which takes no discharge of its own (RECORD.md:495).
+T3_RENEWS = """# T-3 — fix what T-1 shipped — DONE (2026-09-24)
+
+- **Discharges.** none
+- **Re-establishes.** R-1
+- **Why R-1 stays with T-1.** this task fixes code under R-1 and takes no discharge.
+- **Depends on.** T-1
+- **Scope.**
+  - `src/`
+- **Gate.** the test command exits zero again.
+- **Verify.** `make test`
+- **Estimate.** tokens=100 minutes=5
+"""
+
 CASES = [
     # --- unparseable-protected-path ---------------------------------------
     # The row that fooled 0.2.8, verbatim. It reads correctly to a human, and
@@ -269,6 +295,17 @@ CASES = [
       "BOARD.md": BOARD.format(s1="DONE", s2="—")},
      {"open-finding-at-close"}),
 
+    # A DISPOSITION IS READ WHOLE, and `open` is its first word (roadmap 0.3.2,
+    # L-2.3), as check_refs reads the same field: a note after `open` on the
+    # next line leaves the finding open.
+    ("open-finding-at-close-an-open-disposition-with-a-note-on-its-next-line",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/T-1-correctness-2026-09-04.md":
+          AUDIT_OPEN.replace("- **Disposition.** open", "- **Disposition.** open\n  until T-2 lands"),
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     {"open-finding-at-close"}),
+
     # --- FALSE-POSITIVE TWINS ---------------------------------------------
     # A finding that WAS routed is the ordinary case and must stay silent.
     ("fp-routed-finding-at-close-is-clean",
@@ -344,15 +381,9 @@ CASES = [
      {"CHARTER.md": CHARTER.replace("- **G-2** — the thing is documented",
                                     "- **G-2** — the thing is documented\n- **G-3**: it is fast")},
      set(), [], None, {"the charter's goals"}),
-    # A WRAPPED FIELD: F-132's shape. The check keeps a field's first line,
-    # and this one ends mid-list.
-    ("wrapped-field-a-discharges-line-that-continues",
-     {"tasks/T-1.md": T1.replace("- **Discharges.** R-1",
-                                 "- **Discharges.** R-1, and R-2 once T-2's\n  README exists")},
-     set(), [], None, {"T-1's Discharges."}),
-    ("wrapped-field-a-requirement-status-that-continues",
-     {"REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** open\n  (until D-3)", 1)},
-     set(), [], None, {"R-1's Status."}),
+    # WRAPPED FIELDS ARE READ WHOLE NOW (roadmap 0.3.2, L-2.3), so the cases
+    # that asserted 0.3.1's first-line reading are the identifier-field cases
+    # below; a field that continues is simply read.
     # A field NAMED and not parsed as that field. The finding is the old
     # behaviour and stays; the gap names the line that caused it.
     ("field-named-with-a-colon-is-a-row-not-parsed",
@@ -381,11 +412,25 @@ CASES = [
     ("missing-requirements-is-not-zero-requirements",
      {"REQUIREMENTS.md": None}, {"unknown-reference", "orphan-scope"}, [], None,
      {"REQUIREMENTS.md"}),
-    # HISTORY. churn counts first lines, so a rewrite past one is uncounted.
-    ("wrapped-statement-in-a-committed-revision",
-     {}, set(), [], [REQS.replace("- **Statement.** the thing works when run.",
-                                  "- **Statement.** the thing works\n  when run.", 1)],
-     {"re-litigated-requirement for R-1"}),
+    # HISTORY, READ WHOLE (roadmap 0.3.2, L-2.3). 0.3.1's churn compared first
+    # lines, so a rewrite past one was uncounted and the part said so. Each
+    # revision's fields are read whole now: three rewrites that change only the
+    # continuation line count as three...
+    ("continued-rewrites-past-the-first-line-are-counted",
+     {"REQUIREMENTS.md": REQS.replace("- **Statement.** the thing works when run.",
+                                      "- **Statement.** the thing works\n  under load, v4.", 1)},
+     {"re-litigated-requirement"}, [],
+     [REQS.replace("- **Statement.** the thing works when run.",
+                   "- **Statement.** the thing works\n  under load, v%d." % v, 1) for v in (1, 2, 3)]),
+    # ...and the same words wrapped differently are not a rewrite at all.
+    ("fp-continued-a-rewrapped-statement-is-not-a-rewrite",
+     {}, set(), [],
+     [REQS.replace("- **Statement.** the thing works when run.",
+                   "- **Statement.** the thing works\n  when run.", 1),
+      REQS.replace("- **Statement.** the thing works when run.",
+                   "- **Statement.** the thing\n  works when run.", 1),
+      REQS.replace("- **Statement.** the thing works when run.",
+                   "- **Statement.** the thing works when\n  run.", 1)]),
     # ...and what must stay CLEAN.
     #
     # A GENUINELY EMPTY SOURCE: nothing planned yet, which is every project
@@ -402,8 +447,8 @@ CASES = [
      {"tasks/T-1.md": T1.replace("  - `src/`", "  - `src/`\n  - `lib/`\n  - `tests/`"),
       "REQUIREMENTS.md": REQS.replace("  - `src/`", "  - `src/`\n  - `lib/`", 1)},
      set()),
-    # A field that wraps and that NO class reads is not a partial read of
-    # anything this check evaluates.
+    # A field that wraps is read whole, and one no class reads never was a
+    # partial read of anything this check evaluates.
     ("fp-a-wrapped-field-nothing-reads",
      {"tasks/T-1.md": T1.replace("- **Estimate.** tokens=1000 minutes=10",
                                  "- **Estimate.** tokens=1000 minutes=10,\n  from T-0's figure")},
@@ -822,6 +867,202 @@ CASES = [
                                       "- **Status.** discharged (T-2)", 1)},
      {"one-sided-link"}),
 
+    # --- identifier fields: identifiers only, read whole (roadmap 0.3.2, L-2.3)
+    # A seventh element names text the output must carry, where the case is
+    # about WHAT a part or a finding says rather than that it exists.
+    #
+    # F-132, T-19'S OWN FIRST LINE (pricelog RECORD.md:1675). Cut at commas,
+    # `R-2 — **completed here` was a requirement that does not exist; read by
+    # regex, the prose would name R-2 by accident. Neither now: the piece is
+    # named, T-1 does not list R-2, and R-2's status naming T-1 is the finding
+    # the record measured in every state from the claim.
+    ("f132-a-discharges-line-of-prose-names-the-piece-and-reads-nothing-from-it",
+     {"tasks/T-1.md": T1_RUNNING.replace(
+         "- **Discharges.** R-1",
+         "- **Discharges.** R-1, R-2 — **completed here, advanced by T-2, and both are\n"
+         "  named in their status**"),
+      "REQUIREMENTS.md": statuses("in-progress (T-1)", "in-progress (T-2, T-1)")},
+     {"one-sided-link"}, [], None, {"T-1's Discharges."},
+     ["'R-2 — **completed here'",
+      "R-2 is in-progress (T-2, T-1), but T-1 does not list R-2 in its `Discharges.`"]),
+    # ...and the record's repair: the prose on a bullet of its own.
+    ("fp-f132-the-prose-on-its-own-bullet-leaves-both-links-two-sided",
+     {"tasks/T-1.md": T1_RUNNING.replace(
+         "- **Discharges.** R-1",
+         "- **Discharges.** R-1, R-2\n"
+         "- **Why R-2 is here as well as T-2.** Completed here, advanced by T-2, and both\n"
+         "  are named in their status."),
+      "REQUIREMENTS.md": statuses("in-progress (T-1)", "in-progress (T-2, T-1)")},
+     set()),
+    # F-95, D-31'S REPAIR (RECORD.md:1137): a sentence naming the task itself in
+    # its own `Depends on.` was an edge to itself, a `dependency-cycle T-2 → T-2`.
+    # It is no edge now, and the piece is named.
+    ("f95-a-sentence-naming-the-task-itself-adds-no-edge-and-is-named",
+     {"tasks/T-2.md": T2.replace("- **Depends on.** T-1",
+                                 "- **Depends on.** T-1, and T-2's brief is written against it")},
+     set(), [], None, {"T-2's Depends on."}, ["and T-2's brief is written against it"]),
+    # A PROSE MENTION OF ANOTHER TASK: the record read this case from the parser
+    # and never ran it. The edge it would add is silent unless it closes a
+    # cycle, so here it would: T-2 already depends on T-1.
+    ("f95-a-prose-mention-of-another-task-adds-no-edge",
+     {"tasks/T-1.md": T1.replace("- **Depends on.** none",
+                                 "- **Depends on.** none — T-2 reads what this writes")},
+     set(), [], None, {"T-1's Depends on."}),
+    # ...and of a task nobody declared: no `unknown-reference`, because no
+    # dependency was read.
+    ("f95-a-prose-mention-of-an-undeclared-task-reads-no-dependency",
+     {"tasks/T-1.md": T1.replace("- **Depends on.** none",
+                                 "- **Depends on.** none — T-9 was folded into this")},
+     set(), [], None, {"T-1's Depends on."}),
+    # A REAL CYCLE between two bare lists still fires, one of them continued.
+    ("dependency-cycle-a-bare-list-continued-onto-its-next-line",
+     {"tasks/T-1.md": T1.replace("- **Depends on.** none", "- **Depends on.**\n  T-2")},
+     {"dependency-cycle"}),
+    # CONTINUATION: a list of bare identifiers over two lines is read whole.
+    # T-2 is gone, so R-2 is covered only if the second line was read.
+    ("fp-continued-a-discharges-of-bare-identifiers-is-read-whole",
+     {"tasks/T-1.md": T1.replace("- **Discharges.** R-1", "- **Discharges.** R-1,\n  R-2")
+                        .replace("  - `src/`", "  - `src/`\n  - `README.md`"),
+      "tasks/T-2.md": None},
+     set()),
+    # A requirement's `Status.` continued: `in-progress` alone names no task.
+    ("fp-continued-a-requirement-status-is-read-whole",
+     {"tasks/T-1.md": T1_RUNNING, "REQUIREMENTS.md": statuses("in-progress\n  (T-1)")},
+     set()),
+    # A PIECE OF ANOTHER KIND is not the field's: a task in `Discharges.` used
+    # to be dropped in silence.
+    ("a-task-named-in-discharges-is-a-piece-not-a-requirement",
+     {"tasks/T-2.md": T2.replace("- **Discharges.** R-2", "- **Discharges.** R-2, T-1")},
+     set(), [], None, {"T-2's Discharges."}),
+    # `none` is the whole field or it is a piece like any other.
+    ("a-none-beside-an-identifier-is-a-piece",
+     {"tasks/T-2.md": T2.replace("- **Depends on.** T-1", "- **Depends on.** none, T-1")},
+     set(), [], None, {"T-2's Depends on."}),
+    # `Satisfies.` is read the same way: prose naming G-1 does not satisfy it,
+    # so G-2 is uncovered once its own id is inside a sentence.
+    ("a-satisfies-holding-prose-names-the-piece",
+     {"REQUIREMENTS.md": REQS.replace("- **Satisfies.** G-2", "- **Satisfies.** G-2 — and G-1 in part")},
+     {"orphan-scope"}, [], None, {"R-2's Satisfies."}),
+    ("a-probes-informs-holding-prose-names-the-piece",
+     {"tasks/T-3.md": """# T-3 — can the store be atomic? — PLANNED
+
+- **Kind.** probe
+- **Informs.** R-1 — whether an append can be atomic
+- **Discharges.** none
+- **Depends on.** none
+- **Scope.**
+  - `probe/`
+- **Gate.** the question is answered either way.
+- **Verify.** `test -s probe/FINDING.md`
+- **Estimate.** tokens=100 minutes=5
+"""},
+     {"unjustified-task"}, [], None, {"T-3's Informs."}),
+    # A PATH LIST WRITTEN BESIDE ITS FIELD is read whole too: its second line
+    # used to be dropped in silence, and R-2's `README.md` read as unreachable.
+    ("fp-continued-an-inline-scope-is-read-whole",
+     {"tasks/T-1.md": T1.replace("- **Discharges.** R-1", "- **Discharges.** R-1, R-2")
+                        .replace("- **Scope.**\n  - `src/`", "- **Scope.** `src/`,\n  `README.md`"),
+      "tasks/T-2.md": None},
+     set()),
+    # ...and a piece of it that is not a path is named, as a list item is.
+    ("an-inline-scope-piece-that-is-not-a-path-is-named",
+     {"tasks/T-1.md": T1.replace("- **Scope.**\n  - `src/`", "- **Scope.** src/ and its tests")},
+     {"unreachable-acceptance"}, [], None, {"T-1's Scope."}),
+    # ...and what stays CLEAN: an identifier field left empty is read as empty,
+    # which is not a piece it failed to read.
+    ("fp-an-empty-depends-on-is-empty-not-a-gap",
+     {"tasks/T-2.md": T2.replace("- **Depends on.** T-1", "- **Depends on.**")},
+     set()),
+
+    # --- the requirement states a closed task could not say (L-2.4) --------
+    # The owner's answer of 2026-09-24. pricelog left three requirements
+    # `open` over closed tasks rather than write something untrue, and the
+    # check refused all three (0.3.1 §3.5). Each is here in the new vocabulary,
+    # and each still refused as plain `open`.
+    #
+    # 63674de: R-4 discharged but for three residuals a decision records.
+    ("fp-l24-63674de-partly-discharged-over-the-closed-task",
+     {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": statuses("partly-discharged (T-1; D-1)")},
+     set()),
+    ("l24-63674de-written-as-open-is-still-refused",
+     {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": statuses("open")},
+     {"one-sided-link"}),
+    # ef8ee45: R-10 built and evidenced, and the judgement is the client's.
+    ("fp-l24-ef8ee45-awaiting-judgement-over-the-closed-task",
+     {"tasks/T-1.md": T1_DONE.replace("- **Discharges.** R-1", "- **Discharges.** R-1, R-2")
+                             .replace("  - `src/`", "  - `src/`\n  - `README.md`"),
+      "tasks/T-2.md": None,
+      "REQUIREMENTS.md": statuses("discharged (T-1)", "awaiting-judgement (T-1; Q-1)")},
+     set()),
+    ("l24-ef8ee45-written-as-open-is-still-refused",
+     {"tasks/T-1.md": T1_DONE.replace("- **Discharges.** R-1", "- **Discharges.** R-1, R-2")
+                             .replace("  - `src/`", "  - `src/`\n  - `README.md`"),
+      "tasks/T-2.md": None,
+      "REQUIREMENTS.md": statuses("discharged (T-1)", "open")},
+     {"one-sided-link"}),
+    # 3bcf1f2: a second task's fix closed one violation and made another.
+    ("fp-l24-3bcf1f2-partly-discharged-naming-both-closed-tasks",
+     {"tasks/T-1.md": T1_DONE,
+      "tasks/T-2.md": T2_DONE.replace("- **Discharges.** R-2", "- **Discharges.** R-1, R-2")
+                             .replace("  - `README.md`", "  - `README.md`\n  - `src/`"),
+      "REQUIREMENTS.md": statuses("partly-discharged (T-1, T-2; D-2)", "discharged (T-2)")},
+     set()),
+    ("l24-3bcf1f2-written-as-open-is-still-refused",
+     {"tasks/T-1.md": T1_DONE,
+      "tasks/T-2.md": T2_DONE.replace("- **Discharges.** R-2", "- **Discharges.** R-1, R-2")
+                             .replace("  - `README.md`", "  - `README.md`\n  - `src/`"),
+      "REQUIREMENTS.md": statuses("open", "discharged (T-2)")},
+     {"one-sided-link"}),
+    # A new status naming a task that does not list the requirement is the
+    # requirement-side message, unchanged. T-2 is PLANNED, so nothing else can
+    # fire.
+    ("l24-a-new-status-naming-a-task-that-does-not-list-it-is-refused",
+     {"tasks/T-1.md": T1_DONE,
+      "REQUIREMENTS.md": statuses("discharged (T-1)", "partly-discharged (T-1; D-1)")},
+     {"one-sided-link"}, [], None, set(),
+     ["R-2 is partly-discharged (T-1; D-1), but T-1 does not list R-2 in its `Discharges.`"]),
+    # ...and from the task's side, the status must name the closed task: a
+    # partial discharge by somebody else says nothing about T-1. T-2 lists R-1,
+    # so the requirement's side is two-sided and only T-1's link can fire.
+    ("l24-a-closed-tasks-new-status-must-name-it",
+     {"tasks/T-1.md": T1_DONE,
+      "tasks/T-2.md": T2.replace("- **Discharges.** R-2", "- **Discharges.** R-1, R-2")
+                        .replace("  - `README.md`", "  - `README.md`\n  - `src/`"),
+      "REQUIREMENTS.md": statuses("partly-discharged (T-2; D-1)")},
+     {"one-sided-link"}, [], None, set(),
+     ["T-1 is DONE and discharges R-1, but R-1's status is 'partly-discharged (T-2; D-1)'"]),
+    # Both are a CLOSED task's words: a running one still wants `in-progress`.
+    ("l24-a-running-task-under-a-closed-tasks-status-is-still-refused",
+     {"tasks/T-1.md": T1_RUNNING, "REQUIREMENTS.md": statuses("partly-discharged (T-1; D-1)")},
+     {"one-sided-link"}),
+    # RE-ESTABLISHES: T-17's shape. The requirement keeps its `discharged
+    # (T-1)`, and the field is T-3's motivation.
+    ("fp-l24-re-establishes-motivates-a-task-that-takes-no-discharge",
+     {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": statuses("discharged (T-1)"),
+      "tasks/T-3.md": T3_RENEWS},
+     set()),
+    ("unmotivated-task-without-its-re-establishes",
+     {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": statuses("discharged (T-1)"),
+      "tasks/T-3.md": T3_RENEWS.replace("- **Re-establishes.** R-1\n", "")},
+     {"unmotivated-task"}, [], None, set(), ["name it in **Re-establishes.**"]),
+    ("unknown-reference-re-establishes-a-requirement-nobody-declared",
+     {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": statuses("discharged (T-1)"),
+      "tasks/T-3.md": T3_RENEWS.replace("- **Re-establishes.** R-1", "- **Re-establishes.** R-9")},
+     {"unknown-reference"}),
+    # T-17's own form, the reason inside the field: named, and the task is
+    # then unmotivated by what was read.
+    ("re-establishes-holding-prose-names-the-piece",
+     {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": statuses("discharged (T-1)"),
+      "tasks/T-3.md": T3_RENEWS.replace("- **Re-establishes.** R-1",
+                                        "- **Re-establishes.** R-1 — a fourth time")},
+     {"unmotivated-task"}, [], None, {"T-3's Re-establishes."}),
+    # A re-establishing task is not a discharging one: a status naming it is a
+    # link its `Discharges.` does not return.
+    ("one-sided-link-a-status-naming-a-task-that-only-re-establishes-it",
+     {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": statuses("discharged (T-1, T-3)"),
+      "tasks/T-3.md": T3_RENEWS},
+     {"one-sided-link"}),
+
     # --- template-drift: the project against the PLUGIN --------------------
     # Every other check here diffs the project against itself, so an artifact
     # was instantiated once and diverged forever. A real charter was signed six
@@ -1144,6 +1385,9 @@ def main():
         # compared as a set like the findings: a part named that the case did
         # not plant fails it as surely as a missing one.
         want_gaps = case[5] if len(case) > 5 else set()
+        # Text the output must carry, where the case is about what a part or
+        # a finding SAYS (roadmap 0.3.2, L-2.3's "the part names the piece").
+        must = case[6] if len(case) > 6 else ()
         root = tempfile.mkdtemp(prefix="devteam-trace-")
         try:
             dt = build(root, overrides, prior)
@@ -1160,8 +1404,9 @@ def main():
             named = ("--pre-plan" not in extra or re.search(
                 r"^  excluded: uncovered-requirement — by --pre-plan \(\d+ held back\)$",
                 proc.stdout, re.M) is not None)
+            unsaid = [s for s in must if s not in proc.stdout]
             if (got == expected and got_gaps == want_gaps
-                    and proc.returncode == want_exit and named):
+                    and proc.returncode == want_exit and named and not unsaid):
                 passed += 1
             else:
                 failed += 1
@@ -1170,6 +1415,8 @@ def main():
                       f"not evaluated {sorted(want_gaps) or 'none'} exit {want_exit}")
                 print(f"        got      {sorted(got) or 'clean'} "
                       f"not evaluated {sorted(got_gaps) or 'none'} exit {proc.returncode}")
+                for s in unsaid:
+                    print(f"        missing  {s!r}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n"):
                     print(f"        | {line}")
         finally:

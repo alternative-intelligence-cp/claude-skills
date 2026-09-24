@@ -276,7 +276,12 @@ def could_not_run(check, message, as_json):
 # The loose shapes are each check's, because each reads a different grammar.
 # What is shared is below: what counts as a continuation, and how an unparsed
 # row is named, so the three cases read the same in every check (P-34).
-# Reading continuation lines is 0.3.2's work; this only makes each gap visible.
+#
+# READ WHOLE SINCE 0.3.2 (L-2.3). `check_trace`, `check_refs` and `check_scope`
+# read a field across its continuation lines, through `joined`, so a wrapped
+# field is no longer a part not evaluated there. `check_report` still reads a
+# REPORT block's `status:` from its first line and names one that continues,
+# through `wrapped`, until its grammar is rebuilt (roadmap 0.3.2, §3.5).
 
 _BLOCK_START = re.compile(r"^(?:[-*+]\s|\d+[.)]\s|#|\||>|```|~~~)")
 
@@ -304,6 +309,26 @@ def continuation(lines, i):
             break
         j += 1
     return out
+
+
+def joined(lines, i, first, until=None):
+    """The whole value of the field at `lines[i]`: `first`, the value on its
+    own line, then every line that continues it, each stripped and joined by
+    one space (roadmap 0.3.2, L-2.3).
+
+    A line break inside a field is layout, not meaning, so a value reads the
+    same wrapped or not -- F-132 was a `Discharges.` field whose first line
+    ended mid-sentence, and a check that kept that line read half a list.
+    `until`, when given, is a pattern for the first continuation line that is
+    no longer the value -- a path list's first indented item, which is an
+    entry of its own.
+    """
+    parts = [first.strip()]
+    for j in continuation(lines, i):
+        if until is not None and until.match(lines[j]):
+            break
+        parts.append(lines[j].strip())
+    return " ".join(p for p in parts if p)
 
 
 def anchors(rows):
