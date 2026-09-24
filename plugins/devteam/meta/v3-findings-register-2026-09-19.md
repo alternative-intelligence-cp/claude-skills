@@ -206,10 +206,12 @@ whose guards reach its agents.
    close, 2026-09-19: no.** The owner did not use the tool between the cycles, so
    iterate's verdict stands as written — its interview had no real-use input to
    work from, and the skill has no path for that case (theme 8).
-2. **PAIRS row 18** ([`../docs/PAIRS.md`](../docs/PAIRS.md)): the run produced
+2. ~~**PAIRS row 18** ([`../docs/PAIRS.md`](../docs/PAIRS.md)): the run produced
    its evidence — one supersession and five in-place edits of requirements
    across the only real second cycle — and nobody recorded it as the row's
-   answer. It needs a decision rather than another measurement.
+   answer. It needs a decision rather than another measurement.~~ **Answered
+   2026-09-23: supersede only, and make superseding cheap** — cycle 0.3's L-4
+   ([`roadmap/0.3/README.md`](roadmap/0.3/README.md) §6), built by 0.3.9.
 
 ## What worked
 

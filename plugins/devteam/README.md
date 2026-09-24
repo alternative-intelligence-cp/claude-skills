@@ -165,6 +165,8 @@ root-tree allowlist, is done.
 
 **Next is v3**, planned from that register and from the backlog in
 [`meta/v3-liaison-and-roles-2026-09-12.md`](meta/v3-liaison-and-roles-2026-09-12.md).
+Its plan is [`meta/roadmap/0.3/`](meta/roadmap/0.3/README.md), in planning
+since 2026-09-23.
 The Known problems table above was written before the run was read: several of
 its rows name 0.2.9 as the run that would measure them, and it has, so
 revising those rows from the register is v3's first bookkeeping.

@@ -251,7 +251,7 @@ without it costing a finding. It is the same debt, not a new class of one.
 
 ---
 
-#### 18 · `conflicts` → **open, and it is the client's** · M13
+#### 18 · `conflicts` → **open until roadmap 0.3.9 — decided by the client 2026-09-23** · M13
 
 **A requirement is superseded and not edited, and a check counts how many times
 one was edited.**
@@ -293,6 +293,20 @@ neither answer depends on anyone remembering to look.
 **Named as the row it is**, because the alternative is a check whose two possible
 meanings are both plausible and neither written down, which is how a finding gets
 tuned away by the first person it inconveniences (L-6.1).
+
+**Decided by the client, 2026-09-23: supersede only, and make superseding
+cheap.** 0.2.9 produced the count this row was waiting for: across the only real
+second cycle, one supersession and five in-place edits of signed requirements. By
+this row's own test, edits happening means P-46 measures what its text says. The
+client kept the other rule instead — a requirement's number never changes
+meaning, because closed records cite it — and chose to remove the reason it was
+set aside rather than to permit the setting aside: roadmap 0.3.9 makes
+superseding one command, makes an in-place edit of a signed requirement a check
+failure, and supersedes P-46 so that its shape review counts supersessions.
+Declined: an in-place edit carrying a dated change note. **The row stays `open`
+until 0.3.9 lands**, because the two rules still meet in the plugin as it
+stands. The decision is cycle 0.3's L-4
+([`../meta/roadmap/0.3/README.md`](../meta/roadmap/0.3/README.md) §6).
 
 ---
 
@@ -410,6 +424,17 @@ the experiment has been run, not infer readiness from the roadmap.
 **Do not treat this row as a defect to fix.** A row reading *"the plugin does
 not police itself"* invites the next reader to close the gap, and closing it
 early is precisely what was ruled out.
+
+**Judged by the owner, 2026-09-23: not yet.** 0.2.9 ran both its cycles and was
+stopped by the owner on 2026-09-19 rather than closed. Read whole, it left the
+mechanisms it existed to prove partly unproven — iterate's use-half never ran,
+and several checks were measured reporting clean without having looked — so it
+is not the passed experiment this row's trigger names. Asked with options, the
+owner chose *"Not yet: fix, then run again"* over *"Good enough for the
+spine"*. The trigger carries forward unchanged in kind: **roadmap 0.3
+complete, and its third run, 0.3.14, judged sufficient afterwards.** The
+judgement is cycle 0.3's L-1
+([`../meta/roadmap/0.3/README.md`](../meta/roadmap/0.3/README.md) §6).
 
 ---
 
