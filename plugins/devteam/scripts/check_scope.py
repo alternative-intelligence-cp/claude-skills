@@ -60,6 +60,15 @@ def git(root, *args):
     return p.returncode, p.stdout
 
 
+# The classes that read the WORKING STATE rather than a commit's tree or its
+# history, which `--at-commit` excludes (result.AT_COMMIT; roadmap 0.3.1, L-1.5).
+WORKING_STATE = ("untracked-file", "foreign-write")
+# The classes only a run naming a task evaluates. Every other class is judged
+# by every run, so a run for one task repeats the project's; `covers` in
+# `main`, and the gate, which runs this check once per task, both read this.
+PER_TASK = ("undeclared-write",)
+
+
 # What a task file OFFERS (roadmap 0.3.1, L-1.3). A title-shaped line that
 # TITLE rejects -- a step's heading in an execution record is prose, not one.
 TITLE_ISH = re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])")
@@ -457,8 +466,9 @@ def check(project, task_id=None):
 
 def main(argv):
     as_json, argv = result.flag(list(argv), "--json")
+    at_commit, argv = result.flag(argv, "--at-commit")
     if len(argv) < 2:
-        return result.could_not_run("check_scope", "usage: check_scope.py <project> [T-n] [--json]", as_json)
+        return result.could_not_run("check_scope", "usage: check_scope.py <project> [T-n] [--json] [--at-commit]", as_json)
     task_id = argv[2] if len(argv) > 2 else None
     if task_id and not re.fullmatch(r"T-\d+(\.S-\d+)?", task_id):
         return result.could_not_run("check_scope", f"{task_id!r} is not a task or step id", as_json)
@@ -473,13 +483,15 @@ def main(argv):
         res.finding(kind, where, detail)
     for part, reason in gaps:
         res.gap(part, reason)
+    if at_commit:
+        res.exclude_classes(WORKING_STATE, result.AT_COMMIT)
 
     # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6). `undeclared-write` is
     # evaluated only for the task a run names, so only that run can judge an
     # acceptance of it; in any other run, every such acceptance would read as
     # stale. The rest are evaluated in every run.
     def covers(a):
-        if a.cls == "undeclared-write":
+        if a.cls in PER_TASK:
             return bool(task_id) and a.message.startswith(f"{task_id} committed ")
         if a.part is not None and a.part.startswith("undeclared-write for "):
             return a.part == f"undeclared-write for {task_id}"

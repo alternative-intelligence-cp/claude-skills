@@ -226,7 +226,10 @@ review and the gate (roadmap 0.3.1, L-1.4; F-131). Ignored files,
 it is given. Every project check also reads `DECISIONS.md`'s `Accepts.`
 fields, for what a decision accepted (§"Accepted findings").
 Every check exits `0` clean · `1` findings · `2` could not run · `3` not
-evaluated, and takes `--json`. `3` means the check ran and names a part it did
+evaluated, and takes `--json` and `--at-commit`. `--at-commit` says the tree is
+a clean checkout of one commit, which is how the commit gate reads it
+(`scripts/gate.py`, P-49). It excludes the classes that read the working
+state, each named in the line. `3` means the check ran and names a part it did
 not look at, with the reason — which is never clean (cycle 0.3's L-6). The
 contract, and what each result means, is `scripts/result.py`'s (roadmap
 0.3.1, L-1.1).

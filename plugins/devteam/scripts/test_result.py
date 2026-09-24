@@ -316,6 +316,31 @@ def main():
           r.exit_code == 1 and r.gaps == [("DECISIONS.md's acceptances", "DECISIONS.md is not UTF-8", False)],
           r.gaps)
 
+    # A CHECKOUT OF ONE COMMIT (roadmap 0.3.1, L-1.5). `exclude_classes` takes
+    # a working-state class out of the findings and the parts, names it, and
+    # leaves the exit to the rest; and an acceptance of it is then not judged,
+    # because nothing that could have found it was evaluated. The gate's own
+    # fixture cannot show the removal: a clean checkout never has anything of
+    # these classes to remove.
+    ws = ("untracked-file", "tasks/T-9.md", "is not tracked")
+    r = trace(findings=[FT, ws], gaps=[("untracked-file", "a working-state part"), GT])
+    r.exclude_classes(("untracked-file",), result.AT_COMMIT)
+    check("exclude-classes-removes-the-class-and-names-it",
+          [f["class"] for f in r.findings] == ["missing-field"] and [g[0] for g in r.gaps] == [GT[0]]
+          and r.excluded == [("untracked-file", result.AT_COMMIT)]
+          and "  excluded: untracked-file — by --at-commit" in "\n".join(r.lines())
+          and r.exit_code == 1 and agree(r), "\n".join(r.lines()))
+    r = trace(findings=[ws])
+    r.exclude_classes(("untracked-file",), result.AT_COMMIT)
+    check("fp-excluding-the-only-finding-leaves-clean",
+          r.exit_code == 0 and agree(r), "\n".join(r.lines()))
+    r = trace()
+    r.exclude_classes(("untracked-file",), result.AT_COMMIT)
+    stale = r.accept(result.parse_acceptances(decisions(
+        "`check_trace` `untracked-file` `tasks/T-9.md` — is not tracked")))
+    check("fp-an-acceptance-of-an-excluded-working-state-class-is-not-stale",
+          not stale and r.exit_code == 0, stale)
+
     # As git would show it (L-1.4): untracked is read, ignored is not.
     root = tempfile.mkdtemp(prefix="devteam-result-")
     try:

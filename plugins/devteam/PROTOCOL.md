@@ -669,6 +669,39 @@ cannot decode is the checker unable to answer, which is exit 2, not a finding.
 0.2.6 withdrew `unreadable` and `not-utf8` from `check_refs`'s findings for
 that reason and moved them to the exit-2 path.
 
+**P-49 — A commit to `devteam/` is checked before it is made, on the commit
+itself.** `scripts/gate.py commit` makes it. It builds the commit without
+moving any ref, runs the project checks on that commit and on HEAD, and
+commits only if the commit adds no finding and no part not evaluated, net of
+what decisions accept. It then moves the branch to that exact commit, and only
+if HEAD has not moved. A refusal exits 1 with HEAD and the index untouched.
+
+*Why the gate makes the commit, rather than a check run before it.* The run
+measured a correct check whose result had no power to stop anything: twice a
+check and the commit it gated shared one command, and the commit ran anyway
+(pricelog RECORD.md:1001–1002; F-24, F-117). A check run before the commit
+also cannot see what only the commit creates. A class that counts committed
+revisions passed the very commit that turned it red (F-114). And the tree
+committed was not always the tree checked (CONSOLIDATION §8b). Checking the
+commit that will be made, and then making that one, closes all three.
+
+*Why it compares with HEAD instead of asking for a green tree.* Requiring
+every check to be green across the project deadlocked twice in the run: a
+concurrent task's red file blocked an unrelated commit (F-12). So a finding
+already at HEAD does not refuse. A commit that adds one anywhere is refused,
+even in a file it did not touch, and every run prints what stands.
+
+*What it does not judge.* Untracked files, uncommitted changes and the
+harness's meters are in no commit. The gate prints them from the live
+checkout. Of them, only an untracked file under `devteam/` that the commit
+does not name refuses it (F-131).
+
+*Its one allowance* is F-19's window. A supervisor has set its task's title to
+DONE while the requirement still reads `in-progress`, because the manager may
+not move the requirement before the independent verifier returns (P-18). The
+allowance is keyed to that task being in the board's in-flight table, and it
+covers nothing else.
+
 
 ## 8. Permissions, models and budget
 

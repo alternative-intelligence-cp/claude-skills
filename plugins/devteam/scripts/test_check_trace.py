@@ -1180,6 +1180,29 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- a checkout of one commit (roadmap 0.3.1, L-1.5) -------------------
+    # `--at-commit` excludes the classes that read the working state, by the
+    # caller's declaration, and names each. So an untracked file -- which a clean
+    # checkout of a commit never holds -- is a finding without the flag, and
+    # with it is excluded, named, and leaves the rest to decide the exit.
+    root = tempfile.mkdtemp(prefix="devteam-trace-")
+    try:
+        build(root, {"audits/scratch.md": ("untracked", "notes, not an audit\n")})
+        live = subprocess.run([sys.executable, CHECK, root], capture_output=True, text=True)
+        at = subprocess.run([sys.executable, CHECK, root, "--at-commit"], capture_output=True, text=True)
+        ok = (live.returncode == 1 and re.search(r"^  untracked-file\s", live.stdout, re.M)
+              and at.returncode == 0 and not re.search(r"^  untracked-file\s", at.stdout, re.M)
+              and re.search(r"^  excluded: untracked-file — by --at-commit", at.stdout, re.M))
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+            print("FAIL  at-commit-excludes-the-working-state-and-names-it")
+            for line in (live.stdout + at.stdout + at.stderr).strip().split("\n")[:8]:
+                print(f"        | {line}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
     # COUNTED FROM WHAT RAN, not from len(CASES). The gate cases above are not
     # in that list, and a hand-maintained total that disagrees with the number
     # of cases executed is the exact defect docs/CHECKS.md exists to stop.

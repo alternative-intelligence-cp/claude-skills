@@ -148,7 +148,7 @@ class _SkipScaffold(Exception):
 
 CHECKS_MD = os.path.join(PLUGIN, "docs", "CHECKS.md")
 EMITTERS = ("check_trace.py", "check_refs.py", "check_report.py",
-            "check_scope.py", "check_plugin.py")
+            "check_scope.py", "check_plugin.py", "gate.py")
 
 
 class UncountableEmit(Exception):

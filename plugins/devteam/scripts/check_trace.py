@@ -153,6 +153,13 @@ TASK_EXTRA = ("Kind", "Informs", "Because")
 
 STRUCK = re.compile(r"^struck\b", re.I)
 
+# The classes that read the WORKING STATE rather than a commit's tree or its
+# history, which `--at-commit` excludes (result.AT_COMMIT; roadmap 0.3.1, L-1.5).
+# A class added here later that reads anything a clean checkout of one commit
+# does not hold belongs in this list, or the gate evaluates it where it can see
+# nothing.
+WORKING_STATE = ("untracked-file",)
+
 # --- the amendment re-affirmation (P-48) ---------------------------------
 DM_DECL = re.compile(r"^-\s+\*\*(DM-\d+)\*\*\s*" + DASH)
 SECTION = re.compile(r"^##\s+(.+?)\s*$")
@@ -510,6 +517,47 @@ def board_states(devteam):
         if m:
             out[m.group(1)] = m.group(2).strip().strip("`")
     return out
+
+
+IN_FLIGHT_ROW = re.compile(r"^\|\s*(?:\[|\*\*|\*|`)*\s*(T-\d+)\b")
+TABLE_RULE = re.compile(r"^\|\s*:?-{3,}")
+
+
+def in_flight(devteam):
+    """({T-n: its line in BOARD.md}, [lines of rows naming no task]) for the
+    board's `## In flight` table.
+
+    THE GATE'S ONE ALLOWANCE KEYS ON THIS TABLE (roadmap 0.3.1, L-1.5). The
+    claim protocol releases a claim only on a verifier's PASS, so a task still
+    in this table has not been verified, and that is the whole of F-19's
+    window (pricelog RECORD.md:369). A row whose first cell names no task --
+    other than the template's `—` placeholder and the header -- is returned
+    as unparsed, so the allowance cannot read a task into it and fails closed.
+    """
+    lines = read(devteam, "BOARD.md")
+    start, body = section_lines(lines, "in flight")
+    out, unparsed = {}, []
+    if start is None:
+        return out, unparsed
+    for k, line in enumerate(body):
+        if not line.startswith("|") or TABLE_RULE.match(line):
+            continue
+        first = line.split("|")[1].strip().strip("*`_ ")
+        m = IN_FLIGHT_ROW.match(line)
+        if m:
+            out.setdefault(m.group(1), start + 1 + k)
+        elif first.lower() not in ("task", "—", "-", ""):
+            unparsed.append(start + 1 + k)
+    return out, unparsed
+
+
+def requirement_statuses(devteam):
+    """{R-n: its `Status.` value}, read from REQUIREMENTS.md as `check` reads
+    it -- for the gate's one allowance, which asks which task a requirement
+    names as in progress (roadmap 0.3.1, L-1.5)."""
+    return {ident: fields.get("Status", "").strip()
+            for ident, _n, _x, fields in parse_blocks(read(devteam, "REQUIREMENTS.md"),
+                                                     REQ, REQ_FIELDS)}
 
 def check(devteam):
     findings = []
@@ -941,6 +989,8 @@ def check(devteam):
                       or (rstatus.startswith("in-progress") and unfinished))
                 want = (f"`discharged ({tid})`, or `in-progress` naming another "
                         "task that has not finished")
+            # CLOSED_LINK below reads this message back for the gate's one
+            # allowance, so the two are kept side by side.
             if not ok:
                 add("one-sided-link", twhere,
                     f"{tid} is {phase} and discharges {r}, but {r}'s status is "
@@ -949,6 +999,8 @@ def check(devteam):
     for ident, (where, fields) in sorted(reqs.items()):
         if STRUCK.match(fields.get("Status", "")):
             continue
+        # UNCOVERED below reads this message back for the gate's --pre-plan,
+        # so the two are kept side by side.
         if ident not in discharged:
             add("uncovered-requirement", where, f"{ident} is not discharged by any task")
         acc = fields.get("Acceptance", "")
@@ -1205,6 +1257,24 @@ def check(devteam):
     return findings, gaps, len(goals), len(reqs), len(tasks)
 
 
+# F-19'S WINDOW, AS THIS CHECK REPORTS IT (roadmap 0.3.1, L-1.5): a task whose
+# title its supervisor has set to DONE, while the requirement it discharges
+# still reads `in-progress`, because the manager may not move a requirement
+# before the independent verifier returns (P-18). That is the task-side message
+# above, for a DONE task, and only that. The requirement-side message -- a
+# requirement naming a task that does not list it -- is a plan that disagrees
+# with itself, never a window, and the run's gate refused one correctly
+# (pricelog RECORD.md:430). The gate reads the task and the requirement back
+# from this pattern and fails closed on anything it does not match.
+CLOSED_LINK = re.compile(r"^(T-\d+) is DONE and discharges (R-\d+), but \2's status is ")
+
+# THE GATE'S --pre-plan (roadmap 0.3.1, L-1.5, as the owner settled it on
+# 2026-09-24): a requirement committed before its task is planned -- at
+# onboarding, and at every later cycle's charter gate -- is uncovered by
+# construction, so the gate holds back this finding for a requirement the
+# commit adds, and for no other. The gate reads the requirement back from this.
+UNCOVERED = re.compile(r"^(R-\d+) is not discharged by any task$")
+
 AUDIT_FILE = re.compile(r"^T-(\d+)-[a-z]+-\d{4}-\d{2}-\d{2}\.md$")
 AUDIT_HEADING = re.compile(r"^#{2,3}\s+(COR|SEC|HYG|REV|CNV)-(\d+)\s*[\u2014\u2013-]")
 AUDIT_DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
@@ -1267,6 +1337,7 @@ def main(argv):
     # findings it held back, and the exit code is the rest's.
     as_json, args = result.flag(argv[1:], "--json")
     pre_plan, args = result.flag(args, "--pre-plan")
+    at_commit, args = result.flag(args, "--at-commit")
     results = []
     for t in (args or ["."]):
         devteam = resolve(t)
@@ -1289,6 +1360,8 @@ def main(argv):
             res.finding(kind, where, detail)
         for part, reason in gaps:
             res.gap(part, reason)
+        if at_commit:
+            res.exclude_classes(WORKING_STATE, result.AT_COMMIT)
         # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6) is reported as
         # accepted, and an acceptance nothing matches is a finding here, so
         # the count returns to zero when the finding is fixed.

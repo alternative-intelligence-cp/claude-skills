@@ -13,7 +13,7 @@ list them: it used to, and ten classes were emitted, controlled, and
 absent from the lists here. `unruled-finding` in check_plugin.py keeps
 docs/CHECKS.md and the code equal in both directions.
 
-Usage:  check_report.py <project-or-devteam> <T-n>
+Usage:  check_report.py <project-or-devteam> <T-n> [--json] [--blocking-only] [--at-commit]
 Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract is
 result.py's (roadmap 0.3.1, L-1.1).  Control: test_check_report.py.
 """
@@ -581,10 +581,17 @@ def check(project, want_id):
 # comparable across models. That one blocks.
 ADVISORY = {"budget-mismatch"}
 
+# The classes that read the WORKING STATE rather than a commit's tree or its
+# history, which `--at-commit` excludes (result.AT_COMMIT; roadmap 0.3.1,
+# L-1.5): `git status`, and the harness's meter, which lives under the ignored
+# `devteam/.run/` and in a sandbox outside the repository, so no commit holds it.
+WORKING_STATE = ("dirty-tree", "budget-mismatch", "model-mismatch")
+
 
 def main(argv):
     as_json, argv = result.flag(list(argv), "--json")
     blocking_only, argv = result.flag(argv, "--blocking-only")
+    at_commit, argv = result.flag(argv, "--at-commit")
     if len(argv) < 3:
         return result.could_not_run(
             "check_report", __doc__.strip().split("Usage:")[-1].strip(), as_json)
@@ -604,6 +611,8 @@ def main(argv):
         res.gap(part, reason, advisory)
     for part, declaration in excluded:
         res.exclude(part, declaration)
+    if at_commit:
+        res.exclude_classes(WORKING_STATE, result.AT_COMMIT)
     # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6), for this task's own
     # report. An acceptance names the task's file, so a run for another task
     # neither applies it nor calls it stale; and a step's block is not the

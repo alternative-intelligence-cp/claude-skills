@@ -102,6 +102,16 @@ class Result:
         """A part left out because a declaration says so, named with it."""
         self.excluded.append((part, declaration))
 
+    def exclude_classes(self, classes, declaration):
+        """Leave out every finding of these classes, and every part a class of
+        them names, as excluded by `declaration`, each class named (L-1.2).
+        Called before `accept`, so an acceptance of an excluded class is not
+        judged either."""
+        for cls in classes:
+            self.exclude(cls, declaration)
+        self.findings = [f for f in self.findings if f["class"] not in classes]
+        self.gaps = [g for g in self.gaps if g[0] not in classes]
+
     def count(self, n, label):
         self.counts.append((n, label))
 
@@ -357,6 +367,26 @@ def listed(root, *patterns):
 UNTRACKED = ("is not tracked by git, so it is in no commit: every check reads it, "
              "and a clone, a review or the gate at HEAD does not. Commit it, or "
              "move it out of devteam/ if it is scratch")
+
+
+# --- a checkout of one commit (roadmap 0.3.1, L-1.5) ------------------------
+#
+# The gate evaluates HEAD and the commit it is about to make, each in a clean
+# checkout of that commit. Such a checkout holds no working state: nothing is
+# untracked, nothing is modified, and nothing ignored -- `devteam/.run/` and the
+# harness meters it points to among them -- is there. A class that reads the
+# working state would read nothing there and report clean, which is L-6's
+# failure; or name its source missing, which would make every commit that
+# first lands a report look as if it added a part not evaluated.
+#
+# So `--at-commit` EXCLUDES each check's working-state classes, by the caller's
+# declaration, and names each one (L-1.2). Each check lists them in its own
+# `WORKING_STATE`, beside the code that reads that state, which is the one place
+# a new class can be kept honest. The gate imports each check's list, and reads
+# those classes from the live checkout instead.
+
+AT_COMMIT = ("--at-commit: a checkout of one commit holds no working state, so the "
+             "gate reads this class from the live checkout")
 
 
 # --- accepted findings (roadmap 0.3.1, L-1.6) --------------------------------

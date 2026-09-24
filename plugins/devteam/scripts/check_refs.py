@@ -268,6 +268,10 @@ class CouldNotRun(Exception):
     """
 
 
+# The classes that read the WORKING STATE rather than a commit's tree, which
+# `--at-commit` excludes (result.AT_COMMIT; roadmap 0.3.1, L-1.5).
+WORKING_STATE = ("untracked-file",)
+
 DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
 OPEN_DISPOSITION = re.compile(r"^\**open\**\.?\s*$", re.I)
 
@@ -649,7 +653,7 @@ def gaps_from(offered, declared):
     return gaps
 
 
-def check(target: str, as_json=False):
+def check(target: str, as_json=False, at_commit=False):
     """A Result for one target, or an int exit code when it could not run."""
     target = os.path.realpath(target)
     if os.path.basename(target) != "devteam" and os.path.isdir(os.path.join(target, "devteam")):
@@ -671,12 +675,16 @@ def check(target: str, as_json=False):
         # -- so the whole run is not evaluated, naming the file, rather than a
         # partial run whose findings are the gap's artifacts.
         res.gap("every class", str(exc))
+        if at_commit:
+            res.exclude_classes(WORKING_STATE, result.AT_COMMIT)
         res.count(len(files), "files")
         return res
     for kind, path, line, detail in findings:
         res.finding(kind, f"{path}:{line}", detail)
     for part, reason in gaps:
         res.gap(part, reason)
+    if at_commit:
+        res.exclude_classes(WORKING_STATE, result.AT_COMMIT)
     # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6). This check owns
     # DECISIONS.md's grammar, so it alone reports an acceptance it cannot
     # read -- once, rather than once per check -- and that acceptance
@@ -694,9 +702,10 @@ def check(target: str, as_json=False):
 
 def main(argv):
     as_json, targets = result.flag(argv[1:], "--json")
+    at_commit, targets = result.flag(targets, "--at-commit")
     results = []
     for t in (targets or ["."]):
-        got = check(t, as_json)
+        got = check(t, as_json, at_commit)
         if isinstance(got, int):
             return got
         results.append(got)

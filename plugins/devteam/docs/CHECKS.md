@@ -180,6 +180,41 @@ lists (P-4).
 | `stray-root-entry` | `README.md` §"What is in this repository" — *"everything at the repository root is listed here"* | what git would publish at the root ↔ the README's root table | `enforces` |
 | `stale-root-row` | `README.md` §"What is in this repository" — the same sentence, read the other way | the README's root table ↔ what git would publish at the root | `enforces` |
 
+## `gate.py` — 5 refusal classes
+
+`gate.py commit` makes a commit only once the project checks have been run on
+it (P-49; roadmap 0.3.1, L-1.5). It runs them with `--at-commit` in a clean
+checkout of HEAD and then of the candidate: the three plan checks, `check_scope`
+once per task, and `check_report` per task that has reported or says it is
+closed. It compares the two by the identity an acceptance matches by
+(`result.identity`), and it reads the working state from the live checkout. It
+exits `0` committed, `1` refused, or `2` could not run. *Could not run* is
+never a class: it covers the invocation, a check that exits 2 or prints
+output the gate cannot read, and a project with nothing at HEAD to compare
+with. Nothing is committed on 1 or 2.
+
+`--pre-plan` holds back `uncovered-requirement` for a requirement the commit
+adds, and for none HEAD already has: before a requirement's task is planned —
+at onboarding, and at every later cycle's charter gate — it is uncovered by
+construction, while one that loses its task is a finding (settled by the owner,
+2026-09-24). Once committed, it stands and is printed until a task discharges
+it.
+
+`--at-commit` is the declaration each project check reads for this. It excludes
+the classes that read the working state, which no commit holds, each listed in
+its check's `WORKING_STATE`: `untracked-file` in the three plan checks,
+`foreign-write` in `check_scope`, and `dirty-tree`, `budget-mismatch` and
+`model-mismatch` in `check_report`. The gate reads those classes from the live
+checkout instead.
+
+| Class | Rule | The two sides | Verdict |
+|---|---|---|---|
+| `adds-finding` | P-49 — a commit is checked before it is made, and a finding already at HEAD does not refuse it | each unaccepted finding's identity, counted, at the candidate ↔ the same at HEAD, less F-19's window: a DONE task's `one-sided-link` whose requirement names a task in the in-flight table | `enforces` |
+| `adds-not-evaluated` | P-49; cycle 0.3's L-6 — clean means looked | each part not evaluated at the candidate, by name ↔ the parts at HEAD | `enforces` |
+| `untracked-unnamed` | P-49; `FORMATS.md` §"What each check reads" (F-131) | each untracked file under `devteam/` the live checkout's checks read ↔ the paths the commit names | `enforces` |
+| `hook-refused` | P-49 — the commit is made as `git commit` makes it | the project's `pre-commit`, `prepare-commit-msg` and `commit-msg` hooks, run on the candidate ↔ exit 0 | `enforces` |
+| `head-moved` | P-49 — the commit made is the commit checked | the branch HEAD named, and its commit, when the gate began ↔ the same at the compare-and-swap | `enforces` |
+
 ## `sandbox.py promote` — 14 classes
 
 Declared as a closed set in `FORMATS.md` §"Status vocabularies". Emitted by

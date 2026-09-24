@@ -391,6 +391,29 @@ def main():
         shutil.rmtree(root, ignore_errors=True)
     CASES.append(("a-task-id-naming-no-task-is-could-not-run",))
 
+    # --- a checkout of one commit (roadmap 0.3.1, L-1.5) -------------------
+    # `--at-commit` excludes the classes that read the working state, by the
+    # caller's declaration, and names each. So a file written outside every live scope -- which a clean
+    # checkout of a commit never holds -- is a finding without the flag, and
+    # with it is excluded, named, and leaves the rest to decide the exit.
+    root = tempfile.mkdtemp(prefix="devteam-scope-")
+    try:
+        build(root, BASE, [], dirty=[("other/thing.py", "x = 1\n")])
+        live = subprocess.run([sys.executable, CHECK, root], capture_output=True, text=True)
+        at = subprocess.run([sys.executable, CHECK, root, "--at-commit"], capture_output=True, text=True)
+        ok = (live.returncode == 1 and re.search(r"^  foreign-write\s", live.stdout, re.M)
+              and at.returncode == 0 and not re.search(r"^  foreign-write\s", at.stdout, re.M)
+              and re.search(r"^  excluded: foreign-write — by --at-commit", at.stdout, re.M))
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+            print("FAIL  at-commit-excludes-the-working-state-and-names-it")
+            for line in (live.stdout + at.stdout + at.stderr).strip().split("\n")[:8]:
+                print(f"        | {line}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    CASES.append(("at-commit-excludes-the-working-state-and-names-it",))
     fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
     print(f"\ncheck_scope control: {passed} passed, {failed} failed, "
           f"{len(CASES)} cases ({fp} of them false-positive controls, "
