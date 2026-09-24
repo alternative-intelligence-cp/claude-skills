@@ -230,7 +230,12 @@ Building it needs LLVM **20.1.2** exactly (`llc` and `ld.lld`; its
 `nitpick.toml` pins the version), and on this machine that is a trap for a
 sandbox: `/usr/bin/llc` does not exist, `/usr/bin/ld.lld` is LLD 18, and the
 LLVM 20 names are symlinks in `~/.local/bin`, which a sandbox's private `HOME`
-hides. The compiler itself reads no environment variable, writes only its
+hides. **Corrected by 0.3.0's probe D (2026-09-23, `MEASURED`):** it does not
+hide them. The sandbox binds `~/.local/bin` read-only because `claude` is named
+from there, so `llc` resolved to 20.1.2 inside by accident. `ld.lld` resolved
+to LLD 18 because `/usr/bin` comes first. And `npkc` resolved to
+`/usr/local/bin/npkc`, the old prototype's compiler. The pinned toolchain
+reaches a worker only through the environment pin ([0.3.0](0.3.0.md) §3.4). The compiler itself reads no environment variable, writes only its
 output file, and links statically. A program reads its arguments through
 `main`'s fixed signature and its standard input through the builtin
 `read_stdin`, and it imports only by relative or absolute path — the compiler
