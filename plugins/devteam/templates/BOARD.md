@@ -91,7 +91,10 @@ the client confirming or reversing each row is.>
 
 1. The manager writes `CLAIMED <label>` against the task, adds an in-flight row
    naming the task, the label `T<n>-<slug>-<HHMM>`, the time, the model and the
-   **declared scope**, and commits: `board: claim T-n`.
+   **declared scope**, and commits: `board: claim T-n`. **The label is the
+   claim.** The supervisor writes the same label into the task's title,
+   `RUNNING (since <date>, <label>)`, and `check_scope` judges the commits into
+   the task's scope from this commit on.
 2. A claim is refused if its scope intersects any live claim (P-12). Scope
    overlap is checked before dispatch, never discovered afterwards.
 3. One supervisor works that task. When it reports, a **fresh verifier** runs

@@ -129,19 +129,31 @@ number (P-51). The grammar is FORMATS §"Accepted findings", and the
 
 The corpus replay found shapes the checks could not yet read correctly
 (roadmap 0.3.1, §3.5). One still makes the gate refuse a correct commit, and
-0.3.2 fixes the check. Until then, accept it by a decision. 0.3.2's fix then
-makes the acceptance stale, and `stale-acceptance` says to supersede it.
+0.3.2 fixes the check:
 
-- **`check_scope` `misattributed-write` on a restart.** A manager wrote the
-  task's file while the task was stopped, and the claim window of the restart
-  counts that write as the task's (F-135).
+- **`check_report` `status-mismatch` on a restart.** A task restarted under a
+  new claim label still has its previous close as its latest task-level
+  report, and that report's DONE is compared with the new RUNNING title
+  (F-136; roadmap 0.3.2, L-2.7).
 
-Two are fixed. `check_trace` reads the board's rows on a board written as the
-template or with links (F-70; roadmap 0.3.2, §3.1). And a requirement honestly
+**No decision can accept it.** The finding is added by the new supervisor's
+own commit, the one that sets its title. The manager's acceptance committed
+before that is stale, so the gate refuses it. Committed with the title, it
+is either the manager writing the claimed task's file, which is
+`misattributed-write`, or the supervisor writing `DECISIONS.md`, which is
+`undeclared-write`. Until 0.3.2 reads it, the restarted title waits.
+
+Three are fixed. `check_trace` reads the board's rows on a board written as
+the template or with links (F-70; roadmap 0.3.2, §3.1). A requirement honestly
 left unfinished over a closed task has words now: `partly-discharged (T-n;
 D-n)` or `awaiting-judgement (T-n; Q-n)`, which `one-sided-link` accepts when
 they name the task (roadmap 0.3.2, §3.2; FORMATS §"Status vocabularies").
 Plain `open` over a closed task is still refused, because it is still untrue.
+And a restart is judged by its current claim: the manager's edits to a stopped
+task's file, made before the claim it restarts under, are no longer the
+restarted task's `misattributed-write` (F-135; roadmap 0.3.2, §3.4). A restart
+that keeps its label keeps its claim's window, because the label is the
+claim.
 
 ## Reading a finding
 
@@ -166,7 +178,11 @@ rows there cannot say:
 - **`misattributed-write`** is a commit that belongs to no task and touches a
   live task's scope, which is what `git add -A` does to a worker's in-flight
   file. Commits are attributed by subject prefix, so the manager's own
-  `board: claim T-1` is not charged to T-1.
+  `board: claim T-1` is not charged to T-1. The window is the task's current
+  claim: the commits after the first one whose board's in-flight table carries
+  the label its title names, `RUNNING (since <date>, <label>)`, exactly. A
+  title written any other way names no claim, and the window is a part not
+  evaluated until the title is fixed.
 - **What `check_trace` cannot see.** It proves every goal has *a* requirement.
   It can never prove those requirements *cover* the goal. A goal can be fully
   traced and half built, and only reading the goal against the working thing

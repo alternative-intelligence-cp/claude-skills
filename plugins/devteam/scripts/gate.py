@@ -237,9 +237,12 @@ def locate(opts):
 
 @contextlib.contextmanager
 def held(common, wait):
-    """One gate at a time in a repository. Two at once would each see the
-    other's candidate in `git log --all`, which three history classes read,
-    and one's evaluation of HEAD would no longer be HEAD's."""
+    """One gate at a time in a repository, because each run's sweep removes
+    every gate checkout it finds, which is safe only while no other gate is
+    running. The history classes read the history of the checkout's own HEAD
+    (roadmap 0.3.2, L-2.6), so no other gate's candidate is in what they read;
+    until 0.3.2 three of them read `git log --all`, which is every worktree's
+    HEAD, and the lock was also what kept a second gate's candidate out of it."""
     path = os.path.join(common, "devteam-gate.lock")
     try:
         fh = open(path, "a+")
@@ -263,9 +266,9 @@ def held(common, wait):
 
 def sweep(top):
     """Remove checkouts an earlier gate run left behind -- a killed run cannot
-    clean up after itself, and its candidate would otherwise sit in every
-    later run's `git log --all`. Safe only while the lock is held, which is
-    the only time it is called: no other gate can be using one.
+    clean up after itself, and its worktree would otherwise stay registered in
+    the repository for good. Safe only while the lock is held, which is the
+    only time it is called: no other gate can be using one.
 
     ONLY THE GATE'S OWN SHAPE IS TOUCHED: a detached worktree named `checkout`
     directly inside a `devteam-gate-*` temporary directory, and never the
@@ -729,11 +732,10 @@ def main(argv):
             ).stdout.split("\0") if p})
             doc.update(head=old, ref=ref, candidate=commit, tree=tree, subject=subject,
                        paths=paths)
-            # ONE CHECKOUT, AT ONE COMMIT AT A TIME. `git log --all` reads every
-            # worktree's HEAD, and three history classes read `--all`, so while
-            # HEAD is evaluated nothing may hold the candidate: the gate's own
-            # checkout is at HEAD, the lock keeps any other gate's away, and a
-            # killed run's was swept above.
+            # ONE CHECKOUT, AT HEAD AND THEN AT THE CANDIDATE. Every history
+            # class reads the history of the checkout's own HEAD (roadmap 0.3.2,
+            # L-2.6), so HEAD is judged in HEAD's history and the candidate in
+            # the history it creates, before it exists (F-114).
             live, _ = evaluate(top, "live")
             wt = os.path.join(tmp, CHECKOUT)
             git(top, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--detach", "--quiet",

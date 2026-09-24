@@ -185,6 +185,23 @@ LINK_ROWS = ("| [T-1](tasks/T-1.md) | make it work | R-1 | none | `src/` | CLAIM
 CLAIMED_LINKED = [("setup: the fixture", SETUP),
                   ("board: claim T-1", {**CLAIM, "devteam/BOARD.md": board(IN_FLIGHT_T1, rows=LINK_ROWS)})]
 T2_PLANNED = task(2, "tidy the docs", "PLANNED", T2_FIELDS)
+# A RESTART (roadmap 0.3.2, L-2.5; pricelog T-19, F-135). The supervisor stops
+# while its claim is held; the manager writes the task's file while it is
+# stopped, as `run` §4.3 asks before a re-dispatch; the manager re-claims it
+# under a new label; the new supervisor sets the title.
+ANSWERED = "\n- The client answered; the restart takes the second step.\n"
+AMENDED_T1 = task(1, "make it work", "NEEDS-DECISION (which way the docs go)", T1_FIELDS,
+                  report("NEEDS-DECISION", "  - HEAD T-1: stop") + ANSWERED)
+RESTARTED_T1 = task(1, "make it work", "RUNNING (since 2026-09-05, T1-again-1934)", T1_FIELDS,
+                    report("NEEDS-DECISION", "  - HEAD T-1: stop") + ANSWERED)
+RESTARTING = CLAIMED + [
+    ("T-1: stop", {"devteam/tasks/T-1.md": STOPPED_T1}),
+    ("answers: the client's answer, and T-1 restarts", {"devteam/tasks/T-1.md": AMENDED_T1}),
+    ("board: claim T-1 (T1-again-1934)", {"devteam/BOARD.md": board(
+        IN_FLIGHT_T1.replace("T1-work-1200", "T1-again-1934"),
+        rows=("| `T-1` | make it work | R-1 | none | `src/` | CLAIMED T1-again-1934 |",
+              "| `T-2` | tidy the docs | none | none | `docs/` | — |"))}),
+]
 STUB = "raise NotImplementedError\n"
 STUBBED = CLAIMED + [("T-1.S-1: the stub first", {"src/app.py": STUB})]
 FOREIGN = ("other/x.py is modified and lies outside every live scope (T-1). No agent of this "
@@ -450,12 +467,16 @@ CASES = [
      lambda root, proc, doc, before: "" if [r["detail"][:60] for r in doc["refused"]] == [
          "check_trace one-sided-link: R-2 is in-progress (T-1), but T-"]
      else f"wanted the requirement-side link alone, got {[r['detail'][:70] for r in doc['refused']]}"),
+    # T-2 is set RUNNING with no claim on the board, so its title names a label
+    # no board carries, and check_scope names its window as not evaluated too
+    # (roadmap 0.3.2, L-2.5).
     ("f19-a-running-tasks-link-is-refused-though-its-requirement-names-a-task-in-flight", CLAIMED,
      edit({"devteam/tasks/T-2.md": task(2, "tidy the docs", RUNNING.replace("T1-work", "T2-docs"),
                                          [f if f[0] != "Discharges" else ("Discharges", "R-1")
                                           for f in T2_FIELDS if f[0] not in ("Kind", "Because")])}),
-     MSG + ["--", "devteam/tasks/T-2.md"], 1, {"adds-finding"},
-     refused_by(adds_finding="T-2 is RUNNING and discharges R-1")),
+     MSG + ["--", "devteam/tasks/T-2.md"], 1, {"adds-finding", "adds-not-evaluated"},
+     both(refused_by(adds_finding="T-2 is RUNNING and discharges R-1"),
+          refused_by(adds_not_evaluated="misattributed-write for T-2"))),
 
     # --- the board's rows, read at the gate (roadmap 0.3.2, L-2.1, L-2.2) ---
     # Once board-drift reads the rows, a supervisor's own close or stop meets
@@ -488,6 +509,23 @@ CASES = [
                                            "| `T-2` | tidy the docs | none | none | `docs/` | — |"))}),
      ["-m", "devteam: the plan", "--", "devteam/tasks", "devteam/BOARD.md"],
      0, set(), committed(["devteam/tasks/T-1.md", "devteam/tasks/T-2.md", "devteam/BOARD.md"])),
+
+    # --- a restart, judged by its current claim (roadmap 0.3.2, L-2.5) -------
+    # F-135: the manager's edit to the stopped task's file precedes the claim
+    # under the new label, so the new supervisor's title lands. Before 0.3.2
+    # the window opened at the first claim, and this commit was refused for
+    # the manager's edit: fourteen such refusals in 0.3.1's corpus replay.
+    ("fp-f135-a-restarts-title-lands-over-the-stops-edits", RESTARTING,
+     edit({"devteam/tasks/T-1.md": RESTARTED_T1}),
+     ["-m", "T-1: title RUNNING (since 2026-09-05, T1-again-1934)", "--", "devteam/tasks/T-1.md"],
+     0, set(), committed(["devteam/tasks/T-1.md"])),
+    # ...and the same edit made after the re-claim is inside the current claim.
+    ("f135-an-edit-after-the-re-claim-is-still-refused",
+     RESTARTING + [("answers: a note after the claim", {"devteam/tasks/T-1.md": AMENDED_T1
+                                                       + "- A note after the claim.\n"})],
+     edit({"devteam/tasks/T-1.md": RESTARTED_T1 + "- A note after the claim.\n"}),
+     ["-m", "T-1: title RUNNING (since 2026-09-05, T1-again-1934)", "--", "devteam/tasks/T-1.md"],
+     1, {"adds-finding"}, refused_by(adds_finding="misattributed-write")),
 
     # --- F-24 and F-117: a red result, with nothing left to chain ------------
     ("f24-a-red-result-exits-1-with-head-the-index-and-the-tree-untouched", CLAIMED,
@@ -708,8 +746,8 @@ def main():
             failed += 1
             print(f"FAIL  closed-a-held-lock-means-nothing-is-committed\n        exit {proc.returncode}")
 
-        # A CHECKOUT A KILLED RUN LEFT BEHIND is removed, so its commit is not
-        # in the next run's `git log --all`.
+        # A CHECKOUT A KILLED RUN LEFT BEHIND is removed, so it does not stay
+        # registered in the repository for good.
         names.append("fp-a-stale-checkout-from-a-killed-run-is-swept")
         root = os.path.join(tmp, "cases", "sweep")
         shutil.copytree(bases["CLAIMED"], root, symlinks=True)
@@ -739,6 +777,31 @@ def main():
             failed += 1
             print(f"FAIL  fp-a-repository-under-a-gate-named-directory-is-never-swept\n"
                   f"        exit {proc.returncode}; repository present: {os.path.isdir(root)}")
+
+        # A REFUSED CANDIDATE IS AN OBJECT, NOT A COMMIT OF THE PROJECT (roadmap
+        # 0.3.2, L-2.6). A report citing it by hash is refused: the hash must be
+        # in HEAD's history, not merely resolve. Before 0.3.2 it resolved.
+        name = "l26-a-report-citing-a-refused-candidate-by-hash-is-refused"
+        names.append(name)
+        root = os.path.join(tmp, "cases", "refused-candidate")
+        shutil.copytree(bases["CLAIMED"], root, symlinks=True)
+        write(root, {"devteam/QUESTIONS.md": QUESTIONS.replace("REVERSIBLE", "MAYBE")})
+        first, doc = gate(root, *MSG, "--", "devteam/QUESTIONS.md")
+        refused = (doc or {}).get("candidate", "")
+        write(root, {"devteam/QUESTIONS.md": QUESTIONS,
+                     "devteam/tasks/T-1.md": task(1, "make it work", RUNNING, T1_FIELDS, report(
+                         "BLOCKED", f"  - {refused[:12]} T-1: the attempt the gate refused"))})
+        proc, doc = gate(root, "-m", "T-1: land the report", "--", "devteam/tasks/T-1.md")
+        hit = [r for r in (doc or {}).get("refused", []) if r["class"] == "adds-finding"
+               and "unknown-commit" in r["detail"] and "not one in HEAD's history" in r["detail"]]
+        if first.returncode == 1 and refused and proc.returncode == 1 and hit:
+            passed += 1
+        else:
+            failed += 1
+            print(f"FAIL  {name}\n        first exit {first.returncode}, candidate {refused[:7]!r}, "
+                  f"second exit {proc.returncode}")
+            for r in (doc or {}).get("refused", [])[:4]:
+                print(f"        | {r['class']} {r['detail'][:150]}")
 
         # NO PROJECT AT HEAD, OR NO HEAD: exit 2, pointing at `setup`.
         for name, prepare in (

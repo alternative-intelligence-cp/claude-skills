@@ -19,10 +19,55 @@ def task(ident, status, scope, title="a task"):
     return body
 
 
+CLAIMED_TITLE = re.compile(r"^# (T-\d+) — .*? — RUNNING \(since [^,()]+, ([^\s,()]+)\)$", re.M)
+FLIGHT_HEAD = ("| Task | Title | Agent label | Agent id | Sandbox | Since | Model | Scope | Note |\n"
+               "|---|---|---|---|---|---|---|---|---|\n")
+
+
+def flight(*claims, note="running"):
+    """A board whose in-flight table carries each (task, label): the claim, as
+    the claim protocol writes it and as check_scope anchors a window at it
+    (roadmap 0.3.2, L-2.5)."""
+    rows = "".join(f"| {t} | a task | {label} | `a1b2c3` | — | 2026-09-03 12:00 | opus-5-5 | — | "
+                   f"{note} |\n" for t, label in claims)
+    return ("# The board\n\n## In flight\n\n" + FLIGHT_HEAD
+            + (rows or "| — | — | — | — | — | — | — | — | nothing running |\n"))
+
+
 BASE = {
     "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", ["src/loader/", "tests/loader/"]),
     "T-2": task("T-2", "RUNNING (since 2026-09-03, T2-b-1210)", ["src/render/", "tests/render/"]),
 }
+
+# PRICELOG T-19'S RESTART (F-135). The supervisor stops; the manager commits
+# into the task's file three times while it is stopped, as `run` §4.3 asks
+# before a re-dispatch (95bcb33, 4f56a7a and 8ba93ad); the manager re-claims
+# under a new label (7a87cf8); the new supervisor sets the title.
+T1 = lambda status, notes="": task("T-1", status, ["src/loader/", "tests/loader/"]) + notes
+HELD = "NEEDS-DECISION (2026-09-18, the residue exceeds what D-53 allowed)"
+STOPPED = [
+    ("T-1: title NEEDS-DECISION", [("devteam/tasks/T-1.md", T1(HELD))]),
+    ("questions: Q-40 and Q-41 -- T-1's verifier FAILs",
+     [("devteam/tasks/T-1.md", T1(HELD, "\n- Q-40 and Q-41 raised.\n"))]),
+    ("plan: T-1's fourth step", [("devteam/tasks/T-1.md", T1(HELD, "\n- Q-40 and Q-41 raised.\n"
+                                                                    "- S-4 planned.\n"))]),
+    ("plan: T-1 Gate point 3 read on the disclosure branch",
+     [("devteam/tasks/T-1.md", T1(HELD, "\n- Q-40 and Q-41 raised.\n- S-4 planned.\n"
+                                        "- Gate point 3 read.\n"))]),
+]
+RECLAIMED = ("board: claim T-1 (T1-disclose-1934) -- its restart under run §9a",
+             [("devteam/BOARD.md", flight(("T-1", "T1-disclose-1934"), ("T-2", "T2-b-1210")))])
+RESTARTED = ("T-1: title RUNNING (since 2026-09-18, T1-disclose-1934)",
+             [("devteam/tasks/T-1.md", T1("RUNNING (since 2026-09-18, T1-disclose-1934)",
+                                          "\n- Q-40 and Q-41 raised.\n- S-4 planned.\n"
+                                          "- Gate point 3 read.\n"))])
+# Two tasks planned, and claimed in one commit whose subject no claim pattern
+# reads for both: pricelog's `board: claim T-3 and T-2` (4dfc033) and `plan
+# T-17 and claim T-15` (5207c90).
+PLANNED = {"T-2": task("T-2", "PLANNED", ["src/render/"]),
+           "T-3": task("T-3", "PLANNED", ["src/store/"])}
+TITLED = lambda t, label, scope: (f"{t}: title RUNNING", [(f"devteam/tasks/{t}.md", task(
+    t, f"RUNNING (since 2026-09-10, {label})", [scope]))])
 
 CASES = [
     ("clean", BASE, None, [], set()),
@@ -119,18 +164,114 @@ CASES = [
      BASE, None, [("devteam/tasks/T-1.md", BASE["T-1"] + "\nswept\n")],
      {"misattributed-write"}, "research: an unrelated backfill"),
 
-    # F-48: a write made while a task was BLOCKED was not live, so nothing
-    # flagged it — and a later re-claim moved the anchor past it, so nothing
-    # ever could. Never live-and-in-window at any single moment: a finding
-    # that could not exist rather than one that was erased.
-    ("misattribution-between-a-block-and-a-reclaim-is-still-found",
+    # A commit SUBJECTED as a re-claim is not one. The claim is the label on
+    # the board, so a `board: re-claim T-1` commit carrying no new label
+    # moves nothing, and a write before it is still in the window.
+    ("misattribution-before-a-re-claim-subject-with-no-new-label-is-still-found",
      BASE, None, [("src/loader/a.py", "x=1\n")], {"misattributed-write"},
      "research: an unrelated backfill",
      [("board: re-claim T-1", [("devteam/BOARD.md", "| T-1 | CLAIMED again |\n")])]),
-    ("misattribution-found-when-the-anchor-says-re-claim",
+    ("misattribution-found-after-a-re-claim-subject-with-no-new-label",
      BASE, None, [("devteam/BOARD.md", "| T-1 | CLAIMED |\n")], {"misattributed-write"},
      "board: re-claim T-1",
      [("chore: unrelated", [("src/loader/b.py", "y=2\n")])]),
+
+    # --- the current claim (roadmap 0.3.2, L-2.5) ------------------------------
+    # F-135, pricelog T-19's restart: the manager's three commits into the
+    # stopped task's file precede the claim under its new label, and none is
+    # judged. The owner's answer of 2026-09-24: current claim only. Before
+    # 0.3.2 the window opened at the first claim, and all three were reported.
+    ("f135-a-restarts-stop-edits-are-not-judged",
+     BASE, None, [], set(), None, STOPPED + [RECLAIMED, RESTARTED]),
+    # ...and what the class is for, inside the current claim: a commit naming
+    # no task, into the scope, after the re-claim and before its worker's.
+    ("f135-a-write-after-the-re-claim-is-still-judged",
+     BASE, None, [], {"misattributed-write"}, None,
+     STOPPED + [RECLAIMED, ("research: a backfill", [("src/loader/a.py", "x=1\n")]), RESTARTED]),
+    # F-48's shape, which this reverses by the owner's answer: a write into the
+    # scope made while the task was stopped, then a claim under a new label.
+    # It was reported at every later commit; it is now judged by nothing here,
+    # and CHECKS.md says so. The gate names every path it commits and the hook
+    # refuses every commit made around it, so the sweep that made this write
+    # is refused where it is made.
+    ("l25-a-write-while-stopped-falls-before-the-current-claim",
+     BASE, None, [], set(), None,
+     STOPPED[:1] + [("research: a backfill", [("src/loader/a.py", "x=1\n")]),
+                    RECLAIMED, RESTARTED]),
+    # THE ANCHORS PRICELOG WROTE. Its claims were subjected `board: claim T-3
+    # and T-2` and `plan T-17 and claim T-15`, and each anchors at its commit:
+    # a write into T-2's scope between the claim and the title is judged. The
+    # old window missed both subjects and opened at the title instead.
+    ("anchor-board-claim-t3-and-t2-anchors-at-its-commit",
+     PLANNED, None, [], {"misattributed-write"}, None,
+     [("board: claim T-3 and T-2", [("devteam/BOARD.md", flight(("T-3", "T3-store-1301"),
+                                                                ("T-2", "T2-render-1301")))]),
+      ("research: a backfill", [("src/render/x.py", "x=1\n")]),
+      TITLED("T-2", "T2-render-1301", "src/render/"), TITLED("T-3", "T3-store-1301", "src/store/")]),
+    ("anchor-plan-t3-and-claim-t2-anchors-at-its-commit",
+     PLANNED, None, [], {"misattributed-write"}, None,
+     [("plan T-3 and claim T-2", [("devteam/BOARD.md", flight(("T-2", "T2-render-0643")))]),
+      ("research: a backfill", [("src/render/x.py", "x=1\n")]),
+      TITLED("T-2", "T2-render-0643", "src/render/")]),
+    ("fp-anchor-a-write-before-the-claim-is-not-judged",
+     PLANNED, None, [], set(), None,
+     [("research: a backfill", [("src/render/x.py", "x=1\n")]),
+      ("board: claim T-3 and T-2", [("devteam/BOARD.md", flight(("T-3", "T3-store-1301"),
+                                                                ("T-2", "T2-render-1301")))]),
+      TITLED("T-2", "T2-render-1301", "src/render/"), TITLED("T-3", "T3-store-1301", "src/store/")]),
+    # The claim commit is the window's edge, and a manager's claim that writes
+    # the title too (pricelog 9749e60) is not judged by its own window.
+    ("fp-the-claim-commit-itself-is-not-judged",
+     PLANNED, None, [], set(), None,
+     [("board: claim T-2", [("devteam/BOARD.md", flight(("T-2", "T2-render-1301"))),
+                            ("devteam/tasks/T-2.md", task(
+                                "T-2", "RUNNING (since 2026-09-10, T2-render-1301)", ["src/render/"]))])]),
+    # The FIRST commit carrying the label, not the newest: the manager edits
+    # the board for other tasks while a claim is held, and a write before that
+    # edit is still inside the claim.
+    ("misattribution-before-a-later-board-commit-is-still-found",
+     BASE, None, [("src/loader/a.py", "x=1\n")], {"misattributed-write"},
+     "research: an unrelated backfill",
+     [("board: a note on T-2", [("devteam/BOARD.md", flight(("T-1", "T1-a-1200"), ("T-2", "T2-b-1210"),
+                                                           note="a note"))])]),
+    # A task's own commit and another task's are skipped, as before.
+    ("fp-another-tasks-commit-into-a-live-scope-is-its-own-not-a-misattribution",
+     BASE, None, [("src/loader/a.py", "x=1\n")], set(), "T-2: a stray write"),
+
+    # NO ANCHOR: the window is a part not evaluated, as it was when no claim
+    # commit could be found. A title with no label -- pricelog T-9's, written
+    # by the manager -- names no claim.
+    ("no-anchor-a-running-title-with-no-label",
+     {**BASE, "T-1": T1("RUNNING (re-dispatched 2026-09-11, after verify FAIL)")},
+     None, [], set(), "T-1: the work", (), (), {"misattributed-write for T-1"}),
+    # A label the board never carried: pricelog T-5's title said T5-restart-0853
+    # and its board T5-harness-restart-0730.
+    ("no-anchor-a-label-no-board-commit-carries",
+     {**BASE, "T-1": T1("PLANNED")}, None, [], set(), None,
+     [("board: T-1 restarted", [("devteam/BOARD.md", flight(("T-1", "T1-harness-restart-0730"),
+                                                            ("T-2", "T2-b-1210")))]),
+      ("T-1: restarted", [("devteam/tasks/T-1.md", T1("RUNNING (since 2026-09-10 08:53, T1-restart-0853)"))])],
+     (), {"misattributed-write for T-1"}),
+    # The label on the task's own row, in the label column, and nowhere else.
+    ("no-anchor-the-label-on-another-tasks-row",
+     {**BASE, "T-1": T1("PLANNED")}, None, [], set(), None,
+     [("board: claim", [("devteam/BOARD.md", flight(("T-2", "T1-a-1200")))]),
+      ("T-1: title RUNNING", [("devteam/tasks/T-1.md", T1("RUNNING (since 2026-09-03, T1-a-1200)"))])],
+     (), {"misattributed-write for T-1"}),
+    ("no-anchor-the-label-outside-the-label-column",
+     {**BASE, "T-1": T1("PLANNED")}, None, [], set(), None,
+     [("board: claim", [("devteam/BOARD.md", flight(("T-1", "T1-other-0000"), ("T-2", "T2-b-1210"),
+                                                     note="was T1-a-1200"))]),
+      ("T-1: title RUNNING", [("devteam/tasks/T-1.md", T1("RUNNING (since 2026-09-03, T1-a-1200)"))])],
+     (), {"misattributed-write for T-1"}),
+    # A title is read as FORMATS writes it, `RUNNING (since <date>, <label>)`,
+    # and nothing after it: pricelog T-14's `…, T14-onehost-1518, D-31 grant)`
+    # names no claim, though the board carries the label.
+    ("no-anchor-a-title-with-a-reason-after-its-label",
+     BASE, None, [], set(), None,
+     [("T-1: reopened under D-31", [("devteam/tasks/T-1.md", T1(
+         "RUNNING (since 2026-09-03, T1-a-1200, D-31 grant)"))])],
+     (), {"misattributed-write for T-1"}),
 
     # --- FALSE-POSITIVE CONTROLS ------------------------------------------
     ("fp-another-tasks-file-is-the-managers-not-a-misattribution",
@@ -271,12 +412,33 @@ CASES = [
 ]
 
 
+def build_more(root, msg, files):
+    """One more commit on the checked-out line: `files` written, then everything."""
+    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    for rel, body in files:
+        p = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(body)
+    subprocess.run(["git", "-C", root, "add", "-A"], capture_output=True, env=env)
+    subprocess.run(["git", "-C", root, "commit", "-q", "--allow-empty", "-m", msg],
+                   capture_output=True, env=env)
+
+
 def build(root, tasks, writes, subject="T-1: the work", later=(), dirty=()):
     dt = os.path.join(root, "devteam", "tasks")
     os.makedirs(dt, exist_ok=True)
     for ident, body in tasks.items():
         with open(os.path.join(dt, f"{ident}.md"), "w", encoding="utf-8") as fh:
             fh.write(body)
+    # THE CLAIM IS IN THE FIXTURE'S FIRST COMMIT: an in-flight row for every
+    # task whose title names a claim label, so each window opens there, as
+    # the claim commit opens it. A case that builds its own board writes it in
+    # a later commit.
+    with open(os.path.join(root, "devteam", "BOARD.md"), "w", encoding="utf-8") as fh:
+        fh.write(flight(*(m.groups() for body in tasks.values()
+                          for m in CLAIMED_TITLE.finditer(body))))
     env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
     run = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, env=env)
@@ -292,13 +454,7 @@ def build(root, tasks, writes, subject="T-1: the work", later=(), dirty=()):
         run("add", "-A")
         run("commit", "-qm", subject)
     for msg, more in later:
-        for rel, body in more:
-            p = os.path.join(root, rel)
-            os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as fh:
-                fh.write(body)
-        run("add", "-A")
-        run("commit", "-q", "--allow-empty", "-m", msg)
+        build_more(root, msg, more)
     # Written AFTER every commit and never staged. `foreign-write` is the one
     # finding about the working tree rather than history, so it is the one
     # thing this harness could not express -- every fixture committed
@@ -436,6 +592,63 @@ def main():
     finally:
         shutil.rmtree(root, ignore_errors=True)
     CASES.append(("at-commit-excludes-the-working-state-and-names-it",))
+
+    # --- HEAD's history, not `--all` (roadmap 0.3.2, L-2.6) ----------------
+    # A commit on another branch, or under `refs/devteam/sandbox/` where a
+    # promotion stopped on a conflict leaves an unpromoted worker's commits,
+    # is not the task's write until it is in HEAD's history. And a claim made
+    # only on another branch anchors nothing on this one.
+    def aside(root, subject, files, ref=None):
+        """Commit on a side line, point `ref` (or a branch) at it, and return."""
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        run = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, env=env)
+        run("checkout", "-q", "--detach")
+        for rel, body in files:
+            p = os.path.join(root, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(body)
+        run("add", "-A")
+        run("commit", "-qm", subject)
+        run("update-ref", ref or "refs/heads/side", "HEAD")
+        run("checkout", "-q", "main")
+    for name, ref, task_id, files, tasks, later, want_rc, want in (
+            ("l26-a-branch-commit-under-the-tasks-prefix-is-not-its-write", None, "T-1",
+             [("src/render/b.py", "y=2\n")], BASE, (), 0, None),
+            ("l26-a-sandbox-ref-commit-under-the-tasks-prefix-is-not-its-write",
+             "refs/devteam/sandbox/T-1-S-2-123456", "T-1", [("src/render/b.py", "y=2\n")], BASE, (),
+             0, None),
+            # The claim made on another branch only: this line's title names it
+            # and no board in HEAD's history carries it.
+            ("l26-a-claim-on-another-branch-anchors-nothing-here", None, None,
+             [("devteam/BOARD.md", flight(("T-1", "T1-side-0900"), ("T-2", "T2-b-1210")))],
+             {**BASE, "T-1": T1("PLANNED")},
+             [("T-1: title RUNNING", [("devteam/tasks/T-1.md",
+                                       T1("RUNNING (since 2026-09-03, T1-side-0900)"))])],
+             3, "misattributed-write for T-1")):
+        root = tempfile.mkdtemp(prefix="devteam-scope-")
+        try:
+            build(root, tasks, [])
+            aside(root, "T-1: a stray write" if task_id else "board: claim T-1 (T1-side-0900)",
+                  files, ref)
+            for msg, more in later:
+                build_more(root, msg, more)
+            argv = [sys.executable, CHECK, root] + ([task_id] if task_id else [])
+            proc = subprocess.run(argv, capture_output=True, text=True)
+            ok = (proc.returncode == want_rc and "undeclared-write" not in proc.stdout
+                  and (want is None or f"not evaluated: {want} — no commit in HEAD's history"
+                       in proc.stdout))
+            if ok:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}\n        exit {proc.returncode}, wanted {want_rc}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n")[:6]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+        CASES.append((name,))
     fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
     print(f"\ncheck_scope control: {passed} passed, {failed} failed, "
           f"{len(CASES)} cases ({fp} of them false-positive controls, "

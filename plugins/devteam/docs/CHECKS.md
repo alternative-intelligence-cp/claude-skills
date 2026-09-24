@@ -121,8 +121,8 @@ REPORT block ↔ the committed tree.
 | `missing-field` | `FORMATS.md` §"The REPORT block" | the block's keys ↔ the required key set | `enforces` |
 | `bad-report-status` | `FORMATS.md` §"Status vocabularies", REPORT `status:` | the reported status ↔ the closed set of five | `enforces` |
 | `status-mismatch` | P-34 — facts have one home | the block's `status:` ↔ the task title's status | `enforces` |
-| `unknown-commit` | P-5 — discharged by evidence, never assertion | hashes under `commits:` ↔ the repository's objects | `enforces` |
-| `head-subject` | P-16 | HEAD's subject ↔ the task this report closes | `enforces` |
+| `unknown-commit` | P-5 — discharged by evidence, never assertion | each commit under `commits:` ↔ HEAD's history: a hash names an ancestor of HEAD, not merely an object, and a subject is one a commit in HEAD's history has. At the gate HEAD is the commit being judged, so another branch's commits, a promotion's leftovers under `refs/devteam/sandbox/` and a refused gate candidate resolve nothing (roadmap 0.3.2, L-2.6) | `enforces` |
+| `head-subject` | P-16 | the subjects in HEAD's history ↔ one beginning with the task this report closes (roadmap 0.3.2, L-2.6) | `enforces` |
 | `dirty-tree` | P-44 — promotion is gated; P-5 | `git status --porcelain` ↔ empty, on a closing status | `enforces` |
 | `unfinished-scope` | P-5 | TODO/FIXME/XXX/`NotImplementedError` inside `Scope.` ↔ empty, on a closing status | `enforces` |
 | `no-evidence` | P-5 — a requirement is discharged by evidence, never by assertion | a closing status ↔ the presence of `checks:` lines | `enforces` |
@@ -148,12 +148,12 @@ and ↔ what was written.
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
 | `overlapping-scope` | P-12 — one writer per scope, and scopes never overlap | the `Scope.` of each live task ↔ every other live task's | `enforces` |
-| `undeclared-write` | P-10 — a worker writes only inside its declared scope | paths a task's commits touched ↔ its `Scope.` | `enforces` |
+| `undeclared-write` | P-10 — a worker writes only inside its declared scope | paths touched by the commits in HEAD's history whose subject begins `T-n:` or `T-n.S-m:` ↔ the task's `Scope.` (roadmap 0.3.2, L-2.6) | `enforces` |
 | `empty-scope` | P-12 | a claimed task's `Scope.` ↔ non-empty | `enforces` |
 | `scope-escapes-tree` | P-10, P-43 | a scope entry ↔ the project root | `enforces` |
 | `unparseable-scope-entry` | `FORMATS.md` §"Identifier declarations" — a `Scope.` item is a bare path | a list item under `Scope.`, or the value written beside it read whole as one entry (roadmap 0.3.2, L-2.3) ↔ the bare-path grammar | `enforces` |
 | `foreign-write` | P-12 | uncommitted paths ↔ the union of every live scope | `enforces` |
-| `misattributed-write` | P-10, P-12 | a commit's touched paths ↔ the live scope of a task that did **not** author it | `enforces` |
+| `misattributed-write` | P-10, P-12 | the paths touched by each commit naming no task, after a RUNNING task's current claim ↔ that task's scope and its own file. The claim is the label its title names, `RUNNING (since <date>, <label>)`, and it began at the first commit in HEAD's history whose board carries that label in the in-flight table, on the task's row (roadmap 0.3.2, L-2.5; `claim.py`). **What the window does not see:** a commit made before the current claim, while the task was stopped, is judged by nothing here, and neither is a stranger's commit outside every live scope; a title that names no claim, or a label no board commit carries, leaves the window a part not evaluated | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
 | `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_scope` finding or part ↔ what this run reported. `undeclared-write` is judged only by a run for the task it names | `enforces` |
 

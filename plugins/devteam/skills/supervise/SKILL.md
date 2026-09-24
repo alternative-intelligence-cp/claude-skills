@@ -48,9 +48,12 @@ Any missing → stop, report `BLOCKED`, `notes: missing input <name>`.
    failure this whole design exists to prevent (P-12, P-13). It costs one
    look, and skipping it is invisible until the collision.
 3. **Set the title** to `RUNNING (since <date>, <your label>)` if it is not
-   already. Do not commit that alone — it lands in the task's work, and if you
-   die before then, the uncommitted line is exactly what the next supervisor
-   needs to see.
+   already, exactly: the label the board's in-flight row carries, and nothing
+   after it. The label is your claim, and `check_scope` judges the commits
+   into your scope from the one that claimed it; a reason written after it
+   leaves that window unread. Do not commit that alone — it lands in the task's
+   work, and if you die before then, the uncommitted line is exactly what the
+   next supervisor needs to see.
 
 ## 3. Decompose into steps
 

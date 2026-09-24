@@ -741,19 +741,44 @@ def in_flight(devteam):
     other than the template's `—` placeholder and the header -- is returned
     as unparsed, so the allowance cannot read a task into it and fails closed.
     """
-    lines = read(devteam, "BOARD.md")
+    rows, unparsed = in_flight_rows(read(devteam, "BOARD.md"))
+    out = {}
+    for tid, _label, n in rows:
+        out.setdefault(tid, n)
+    return out, unparsed
+
+
+def in_flight_rows(lines):
+    """([(T-n, its claim label or None, its line)], [lines of rows naming no
+    task]) for the `## In flight` table of a board's lines -- the table's one
+    reader, which `in_flight` and the claim's home (claim.py) both read.
+
+    The label is the cell under the header's `Agent label`, decoration
+    peeled, as the Tasks table's state is the cell under `State`. It is None
+    when the table has no such column, the cell is a placeholder, or the row
+    has a cell more or fewer than its header, so that a label is never read
+    from the wrong column (roadmap 0.3.2, L-2.5).
+    """
     start, body = section_lines(lines, "in flight")
-    out, unparsed = {}, []
+    out, unparsed, col, width = [], [], None, 0
     if start is None:
         return out, unparsed
     for k, line in enumerate(body):
         if not line.startswith("|") or TABLE_RULE.match(line):
             continue
         first = line.split("|")[1].strip().strip("*`_ ")
+        if first.lower() == "task":
+            head = [plain(c).lower() for c in cells(line)]
+            col = head.index("agent label") if "agent label" in head else None
+            width = len(head)
+            continue
         m = IN_FLIGHT_ROW.match(line)
         if m:
-            out.setdefault(m.group(1), start + 1 + k)
-        elif first.lower() not in ("task", "—", "-", ""):
+            row = cells(line)
+            label = plain(row[col]) if col is not None and len(row) == width else ""
+            out.append((m.group(1), label if label not in ("", "—", "-") else None,
+                        start + 1 + k))
+        elif first.lower() not in ("—", "-", ""):
             unparsed.append(start + 1 + k)
     return out, unparsed
 

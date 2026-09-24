@@ -614,6 +614,70 @@ def main():
     finally:
         shutil.rmtree(root, ignore_errors=True)
     parse_cases.append(("at-commit-excludes-the-working-state-and-names-it",))
+
+    # --- HEAD's history, not `--all` (roadmap 0.3.2, L-2.6) ----------------
+    # A commit a report cites must be in the history of HEAD, which at the gate
+    # is the commit being judged. `--all` let a subject resolve on another
+    # branch, or under `refs/devteam/sandbox/`, where a promotion stopped on a
+    # conflict leaves an unpromoted worker's commits; and a hash resolved when
+    # it named any commit object, a refused gate candidate among them.
+    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+
+    def side(root, subject, ref):
+        """A commit off HEAD's history: on a branch, under a ref, or (no ref)
+        an object only, as a refused gate candidate is. Its full hash."""
+        run = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, text=True,
+                                        env=env)
+        sha = run("commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", subject).stdout.strip()
+        if ref:
+            run("update-ref", ref, sha)
+        return sha
+
+    history_cases = [
+        # (name, the side commit's subject, its ref, the commits: line given
+        #  that hash, main's subject, expected)
+        ("l26-a-subject-only-on-another-branch-is-an-unknown-commit",
+         "T-1: the side work", "refs/heads/side", lambda sha: "  - T-1: the side work",
+         "T-1: the config loader", {"unknown-commit"}),
+        ("l26-a-subject-only-under-a-sandbox-ref-is-an-unknown-commit",
+         "T-1.S-1: an unpromoted step", "refs/devteam/sandbox/T-1-S-1-120000",
+         lambda sha: "  - T-1.S-1: an unpromoted step", "T-1: the config loader", {"unknown-commit"}),
+        ("l26-a-hash-not-in-heads-history-is-an-unknown-commit",
+         "T-1: a refused gate candidate", None, lambda sha: f"  - {sha[:12]} T-1: a refused gate candidate",
+         "T-1: the config loader", {"unknown-commit"}),
+        ("l26-a-branch-commit-under-the-prefix-does-not-satisfy-head-subject",
+         "T-1: the side work", "refs/heads/side", lambda sha: "  - HEAD chore: land the report",
+         "chore: touch up", {"head-subject"}),
+        ("fp-l26-a-hash-in-heads-history-is-known",
+         "T-1: the side work", "refs/heads/side", None, "T-1: the config loader", set()),
+    ]
+    for name, subject, ref, cite, main_subject, expected in history_cases:
+        root = tempfile.mkdtemp(prefix="devteam-report-history-")
+        try:
+            build(root, task_file(), subject=main_subject)
+            sha = side(root, subject, ref)
+            root_sha = subprocess.run(["git", "-C", root, "rev-list", "--max-parents=0", "HEAD"],
+                                      capture_output=True, text=True).stdout.strip()
+            line = cite(sha) if cite else f"  - {root_sha} T-1: the config loader"
+            with open(os.path.join(root, "devteam", "tasks", "T-1.md"), "w", encoding="utf-8") as fh:
+                fh.write(task_file(report=REPORT.replace("  - HEAD T-1: the config loader", line)))
+            landed = "chore: land the report" if "head-subject" in name else "T-1: land the report"
+            subprocess.run(["git", "-C", root, "commit", "-qam", landed], capture_output=True, env=env)
+            proc = subprocess.run([sys.executable, CHECK, root, "T-1"], capture_output=True, text=True)
+            got = set(re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M))
+            said = ("HEAD's history" in proc.stdout) if expected else True
+            if got == expected and proc.returncode == (1 if expected else 0) and said:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}\n        expected {sorted(expected) or 'clean'}, "
+                      f"got {sorted(got) or 'clean'} exit {proc.returncode}")
+                for text in (proc.stdout + proc.stderr).strip().split("\n")[:6]:
+                    print(f"        | {text}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+        parse_cases.append((name,))
     CASES.extend([(c[0],) for c in parse_cases])
     CASES.extend([(c[0],) for c in blocking_cases])
     CASES.extend([(c[0],) for c in accept_cases])

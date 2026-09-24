@@ -431,7 +431,17 @@ def check(project, want_id):
     # written inside it -- the content would have to hash to a value contained
     # in the content. Both workers in the first real dispatch hit this and
     # refused to invent a placeholder, which was the right call.
-    rc, log = git(repo, "log", "--format=%s", "--all")
+    #
+    # BOTH ARE READ IN HEAD'S HISTORY, NOT `--all` (roadmap 0.3.2, L-2.6). At
+    # the gate HEAD is the commit being judged, and a commit the report cites
+    # must be in the history that commit creates. `--all` let a subject resolve
+    # on another branch, or under `refs/devteam/sandbox/`, where a promotion
+    # stopped on a conflict leaves an unpromoted worker's commits (sandbox.py);
+    # and a hash resolved if it named any commit object, a refused gate
+    # candidate among them. Workers cite their commits by subject, because
+    # promotion rewrites every hash, so the ancestry test reaches the commits a
+    # supervisor or the manager cites by hash.
+    rc, log = git(repo, "log", "--format=%s")
     subjects = set(log.split("\n")) if rc == 0 else set()
     # Only a line that STARTS a list item is a commit; anything else is a
     # continuation of the one above it.
@@ -447,13 +457,15 @@ def check(project, want_id):
             rc, _ = git(repo, "cat-file", "-e", f"{ref}^{{commit}}")
             if rc != 0:
                 add("unknown-commit", f"{ref} is not a commit in this repository")
+            elif git(repo, "merge-base", "--is-ancestor", ref, "HEAD")[0] != 0:
+                add("unknown-commit", f"{ref} is a commit, and not one in HEAD's history")
             continue
         # `HEAD <subject>` names the commit this block is committed in -- its
         # own hash cannot appear inside it, so the SUBJECT is what makes it
         # resolvable afterwards. Validate that, not the marker.
         subject = text[len(ref):].strip() if ref else text
         if subject and subject not in subjects:
-            add("unknown-commit", f"no commit has the subject {subject[:60]!r}")
+            add("unknown-commit", f"no commit in HEAD's history has the subject {subject[:60]!r}")
 
     if status in CLOSING and not is_step:
         # Only paths the TASK controls. A supervisor owns its declared scope and
@@ -488,11 +500,13 @@ def check(project, want_id):
         # finished task report `head-subject` the moment any later task
         # committed -- so an audit run afterwards saw a false positive against
         # every historical task. What the rule means is "this task committed
-        # something that names it", and that stays true forever.
-        rc, log = git(repo, "log", "--format=%s", "--all")
+        # something that names it", and that stays true forever -- in HEAD's
+        # history, where the citations above are read too (L-2.6).
+        rc, log = git(repo, "log", "--format=%s")
         if rc == 0 and not any(l.strip().lower().startswith(task_id.lower())
                                for l in log.split("\n")):
-            add("head-subject", f"no commit's subject begins with {task_id}")
+            add("head-subject", f"no commit in HEAD's history has a subject beginning with "
+                                f"{task_id}")
 
     containment, bad_row = charter_containment(devteam)
     if bad_row:

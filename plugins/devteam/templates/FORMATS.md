@@ -208,7 +208,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | Where | Values |
 |---|---|
 | requirement `Status.` | `open` · `in-progress (T-n)` · `discharged (T-n)` · `partly-discharged (T-n; D-n)` · `awaiting-judgement (T-n; Q-n)` · `struck (D-n)`. **The task list may name several** — `in-progress (T-2, T-5)` — because a requirement is frequently advanced by one task and completed by another, and forcing one id makes the record say something untrue. **`partly-discharged`** names the tasks that discharged part of it and the decision that records what remains; **`awaiting-judgement`** names the tasks that built and evidenced it and the question that asks the client whether it is discharged (roadmap 0.3.2, L-2.4). Either may be left over a closed task that it names, where `open` may not. A parenthetical holds identifiers only: what remains is written in the decision or the question |
-| task title | `PLANNED` · `RUNNING (since <date>, <label>)` · `READY-TO-AUDIT` · `BLOCKED (<why>)` · `NEEDS-DECISION (<what>)` · `ACCEPTED (<date>, D-n)` · `DONE (<date>)` |
+| task title | `PLANNED` · `RUNNING (since <date>, <label>)` · `READY-TO-AUDIT` · `BLOCKED (<why>)` · `NEEDS-DECISION (<what>)` · `ACCEPTED (<date>, D-n)` · `DONE (<date>)`. **The label is the claim's**, the one the board's in-flight table carries: `check_scope` reads it from `RUNNING (since <date>, <label>)` exactly, with nothing after it, and judges the task's commits from the first commit whose board carries it on the task's row (roadmap 0.3.2, L-2.5). A reason goes in the execution record. A restart claimed under a new label opens a new window; one that keeps the label keeps its claim's |
 | task `Kind.` | `implementation` (default when absent) · `probe` · `spike` · `chore` |
 | step checkbox | `[ ]` pending · `[x]` done · `[~]` struck, with a reason on the line |
 | question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn` |
@@ -268,8 +268,8 @@ and compares what it claims against the tree.
 |---|---|---|
 | `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps |
 | `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
-| `check_report.py` | one `tasks/T-n.md`, `git`, and the harness's `.run/locks/T-n.sandbox` line | the REPORT block ↔ the committed tree |
-| `check_scope.py` | `BOARD.md`, `tasks/*.md`, `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written |
+| `check_report.py` | one `tasks/T-n.md`, HEAD's history, and the harness's `.run/locks/T-n.sandbox` line | the REPORT block ↔ the committed tree, and the commits it cites ↔ HEAD's history |
+| `check_scope.py` | `BOARD.md` and its history, `tasks/*.md`, HEAD's `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written: by each task's commits, and by commits naming no task since a running task's current claim |
 
 `check_trace`, `check_refs` and `check_scope` read **what git would show**
 under `devteam/`: tracked files, and untracked ones that no ignore rule
@@ -278,8 +278,11 @@ covers. Each untracked file a check reads is a finding of its own,
 review and the gate (roadmap 0.3.1, L-1.4; F-131). Ignored files,
 `devteam/.run/` among them, stay invisible, so scratch belongs outside
 `devteam/` or under an ignore rule. `check_report` reads the one task file
-it is given. Every project check also reads `DECISIONS.md`'s `Accepts.`
-fields, for what a decision accepted (§"Accepted findings").
+it is given. Every history a check reads is **HEAD's**, never `--all`: at the
+gate HEAD is the commit being judged, so another branch's commits and a
+refused candidate are in no check's history (roadmap 0.3.2, L-2.6). Every
+project check also reads `DECISIONS.md`'s `Accepts.` fields, for what a
+decision accepted (§"Accepted findings").
 Every check exits `0` clean · `1` findings · `2` could not run · `3` not
 evaluated, and takes `--json` and `--at-commit`. `--at-commit` says the tree is
 a clean checkout of one commit, which is how the commit gate reads it

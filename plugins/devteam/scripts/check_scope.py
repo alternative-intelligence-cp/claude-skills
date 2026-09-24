@@ -30,6 +30,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
+import claim   # noqa: E402 -- a task's current claim, one home (roadmap 0.3.2, L-2.5)
 
 DASH = r"[—–-]"
 # A title's separator is a dash SURROUNDED BY WHITESPACE. Neither greedy nor
@@ -303,79 +304,31 @@ def check(project, task_id=None):
     # manager's commit under the manager's message. The step loses its commit,
     # scope attribution inverts (a write belonging to no task is invisible to
     # the undeclared-write check), and the record says one thing while
-    # containing another. Only commits since the claim are considered, so the
-    # scaffold and earlier tasks are not charged to it.
+    # containing another.
+    #
+    # THE WINDOW IS THE TASK'S CURRENT CLAIM (roadmap 0.3.2, L-2.5): the
+    # commits after the first one in HEAD's history whose board carries the
+    # claim label the task's title names. claim.py computes it, and says why
+    # the anchor is that label and never a subject. Two earlier windows each
+    # failed once. The newest commit quoting `RUNNING (since` could be moved
+    # by a commit describing the defect, which switched the check off; the
+    # first claim, which replaced it, charged a restarted task with the
+    # manager's edits made while it was stopped (F-135). A write made while a
+    # task was stopped is now judged by nothing here, and docs/CHECKS.md says
+    # so, as it says of a stranger's commit outside every live scope.
+    claims = claim.current(repo, {t: (tasks[t][0], tasks[t][1]) for t in live})
     for ident in live:
-        # THE CLAIM IS A COMMIT ON THE BOARD (P-11), so read it from there.
-        #
-        # This previously took the NEWEST `git log -S "RUNNING (since"` match on
-        # the task file. Any commit quoting that phrase became the anchor and
-        # collapsed the span to nothing — so a commit DESCRIBING this bug
-        # switched the check off, and the live finding disappeared. An
-        # integrity check disabled by writing about it is the worst failure
-        # available to one, because the act of documenting it is the act of
-        # hiding it.
-        #
-        # `board: claim T-n` is the subject the run skill mandates and the
-        # board's history is the designed record of who claimed what and when.
-        # Prose cannot forge it: a commit merely mentioning the phrase does not
-        # carry that subject.
-        # The OLDEST claim, and any claim-shaped verb.
-        #
-        # Two defects, both found in one run. Taking the NEWEST claim left a
-        # permanent blind spot: a write made while a task was BLOCKED was not
-        # live, so nothing flagged it — and a later re-claim moved the anchor
-        # past it, so nothing ever could. The write was never live-and-in-window
-        # at any single moment, which is worse than F-19's erased findings.
-        # These are findings that never existed.
-        #
-        # And `board: re-claim T-1` did not match a pattern expecting `claim`,
-        # so a real anchor was missed entirely. Commits belonging to other
-        # tasks are skipped by subject anyway, so widening the window to the
-        # first claim costs nothing and closes the hole.
-        # The window opens when the task FIRST EXISTED, not when a board commit
-        # happened to be made. Anchoring on the first board claim still left the
-        # blind spot whenever the only claim commit came late: a write before it
-        # sat outside the window and nothing could ever flag it.
-        #
-        # Take the oldest of every candidate — board claim commits in any
-        # claim-shaped spelling, and the first appearance of a RUNNING title in
-        # the task file — because a commit that wrote into this task's scope
-        # without naming it is misattributed regardless of which claim period
-        # it landed in. Commits belonging to other tasks are skipped by subject,
-        # so a wide window costs nothing.
-        candidates = []
-        rc, out = git(repo, "log", "--reverse", "--format=%H%x00%s", "--", "devteam/BOARD.md")
-        for line in out.strip().split("\n"):
-            if "\0" not in line:
-                continue
-            sha, subject = line.split("\0", 1)
-            if re.match(rf"^board:\s*(?:re-?)?claims?\s+{re.escape(ident)}\b",
-                        subject.strip(), re.I):
-                candidates.append(sha)
-                break
-        rc, out = git(repo, "log", "--reverse", "-S", "RUNNING (since",
-                      "--format=%H", "--", f"devteam/tasks/{ident}.md")
-        if rc == 0 and out.split():
-            candidates.append(out.split()[0])
-        claim = None
-        if candidates:
-            # Oldest wins: `git log` lists newest first, so the last of the
-            # candidates to appear in that listing is the earliest commit.
-            rc, order = git(repo, "log", "--format=%H")
-            seq = order.split()
-            claim = max(candidates, key=lambda s: seq.index(s) if s in seq else -1)
-        if not claim:
+        _label, anchor, why = claims[ident]
+        if anchor is None:
             # A LIVE TASK WITH NO WINDOW. Nothing anchors where its claim
             # began, so no commit was asked whether it wrote into this scope
             # under another name -- which used to read as clean (L-1.3).
-            gaps.append((f"misattributed-write for {ident}", f"{ident} is RUNNING and "
-                         f"no `board: claim {ident}` commit or RUNNING title in "
-                         "history anchors its window"))
+            gaps.append((f"misattributed-write for {ident}", f"{why}, and no commit was "
+                         f"asked whether it wrote into {ident}'s scope under another name"))
             continue
         # Strictly AFTER the claim. The claim commit itself creates or marks the
         # task file, so including it charged the task with its own creation.
-        rc, out = git(repo, "log", f"{claim}..HEAD", "--format=%H%x00%s")
+        rc, out = git(repo, "log", f"{anchor}..HEAD", "--format=%H%x00%s")
         for line in out.strip().split("\n"):
             if "\0" not in line:
                 continue
@@ -444,7 +397,14 @@ def check(project, task_id=None):
         # its own -- found the first time this ran against a real dispatch.
         # The work skill mandates the subject form `T-n:` / `T-n.S-m:`, so the
         # prefix is exactly the set of commits the task actually made.
-        rc, out = git(repo, "log", "--format=%H%x00%s", "--all")
+        #
+        # HEAD'S HISTORY, NOT `--all` (roadmap 0.3.2, L-2.6). A commit on
+        # another branch is not the project's until it is merged, and at the
+        # gate HEAD is the commit being judged. `--all` counted another
+        # branch's `T-n:` commit as the task's write, and an unpromoted
+        # worker's too, which a promotion stopped on a conflict leaves under
+        # `refs/devteam/sandbox/` (sandbox.py).
+        rc, out = git(repo, "log", "--format=%H%x00%s")
         prefix = re.compile(rf"^{re.escape(task_id)}\s*:" if step
                             else rf"^{re.escape(base)}(\.S-\d+)?\s*:")
         shas = [line.split("\0", 1)[0] for line in out.strip().split("\n")
