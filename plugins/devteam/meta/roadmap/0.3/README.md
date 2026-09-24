@@ -228,7 +228,7 @@ benchmark files are in the tracked tree.
 
 | Subcycle | What it produces | Depends on | Core? |
 |---|---|---|---|
-| 0.3.0 — probes, and the README made true | the plugin README's status line and Known problems revised from the register (it still says rotation has never rotated a project); three probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2), and **the Nitpick compiler inside a sandbox** (a compiler built from a pinned commit, bound read-only, compiling and running a program that reads its arguments and standard input — L-10) | — | **yes — first, small, and it can change the design** |
+| 0.3.0 — probes | four probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2), and **the Nitpick compiler inside a sandbox** (a compiler built from a pinned commit, bound read-only, compiling and running a program that reads its arguments and standard input — L-10) | — | **yes — first, small, and it can change the design** |
 | 0.3.1 — the check contract | one result contract for every check — clean, findings, or `not-evaluated` with its reason (L-6); zero rows parsed is `not-evaluated`; untracked files read (F-131); accepted findings as a reasoned, first-class baseline; a commit gate shipped in the plugin that commits only on green, scoped so that a concurrent task's red file cannot block an unrelated commit (F-12, F-19, F-24), with a post-commit re-run of history-derived checks (F-114) | 0.3.0 | yes — every later check is built to it |
 | 0.3.2 — what the checks read | the silent-clean and wrong-window defects, check by check: `check_trace` (F-36 and F-68's slice, F-95's prose edges, F-132's two parses, partial and re-established requirement states, the header against the newest amendment, estimates against `S-` lines); `check_report` (F-34, F-37 and F-88 fail loudly; F-32's hedged figures; per-block meters, F-103 and F-109; `added` and `reconstructed`, F-86); `check_scope` and `check_report` keyed to the current claim window (F-135, F-136); board state against task title (F-107); checkpoint tallies from parsed verdicts (A12) | 0.3.1 | yes |
 | 0.3.3 — the disposition ledger | one ledger for every open item — raised by an adversary, a worker, an auditor, an outgoing manager, or the client between writes — each a countable line with an owner and a decision or an expiry; report grammars that carry open items as lines (F-139); a check that fails any landing that leaves one without; question status in one home (F-63, F-64); the audit skill's output and `check_refs`' audit namespace made one contract (F-99, F-104, F-112); a place outside the writer lock for what the client says during a handoff (F-21) | 0.3.1 | yes |
@@ -256,6 +256,12 @@ compiler probe, 0.3.3 and 0.3.7, and comes before 0.3.13 although its number
 sorts last. *Independent* means no dependency, not that two sessions may work
 one tree at once. Numbers above 0.3.9 sort before 0.3.2 in a directory listing;
 this table is authoritative over that order.
+
+**One deviation from the map as approved, declared here.** The plugin README's
+status and Known problems were to be revised from the register as 0.3.0's
+first act. They were revised at planning instead, on 2026-09-23, because the
+register was already loaded and the README was telling any visitor that
+rotation had never rotated a project. 0.3.0 is therefore probes only.
 
 **CONSOLIDATION 8a is included.** The accepted-findings block
 ([`docs/CONSOLIDATION.md`](../../../docs/CONSOLIDATION.md) §8a) was excluded
@@ -465,6 +471,22 @@ derived** (L-7). Two anchors exist, both measured during 0.2.
   measured — theme 4's finding about the pipeline's meters, applied to this
   plan.
 
+**The model changed under both anchors.** Every figure above was measured on
+Claude Opus 5, and 0.2.9's in-process agents ran on Claude Sonnet 5. This cycle
+is being planned on Claude Opus 5.5, whose list prices, as the API reference
+bundled with the `claude` CLI gives them, are $4 input and $20 output per
+million tokens against Opus 5's $5 and $25 — 20% lower — and $0.20 per million
+for cache reads against $0.50, 60% lower. Cache reads dominate a long session's
+processed tokens, so the blended saving on this pipeline's sessions should sit
+well above 20%; the owner's own reading is *"about 40% cheaper"*. Two
+consequences, both `REASONED` until measured: the anchors above are probably
+high for Opus 5.5 work, and Opus 5.5's cache reads now cost the same per token
+as Sonnet 5's ($0.20), which narrows the price case for running supervisors and
+verifiers on Sonnet — an input to §10.4. **Whether the owner's weekly gauge
+moves in proportion to list price is not known**, and L-7 forbids deriving it:
+0.3.0's reconciliation measures it on the current model mix, and records which
+model ran each session.
+
 **So this section is not finished, and cannot be until 0.3.0 runs.** 0.3.0's
 meter probe produces the missing conversion: metered tokens over an interval
 the owner brackets with two `/usage` readings, split by model family. 0.3.14's
@@ -524,4 +546,5 @@ Each blocks only the subcycle it names. None blocks 0.3.0.
    Opus-or-Fable interviewer and planner
    ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §7). The
    owner, 2026-09-23: *"lets see what the probe says."* Asked again with 0.3.0's
-   figures.
+   figures, alongside §8's note that Opus 5.5's cache reads now cost the same
+   per token as Sonnet 5's.
