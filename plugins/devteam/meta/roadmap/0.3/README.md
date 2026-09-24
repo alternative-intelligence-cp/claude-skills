@@ -187,7 +187,11 @@ It is a floor, because agents whose transcripts were not kept are absent. So
 theme 4's meter is a script to write, not a capability to discover. What 0.3.0
 still has to measure is how the meter's total relates to the owner's `/usage`
 reading, which blends model families: at cycle 2's opening he read 84% on the
-all-model gauge, and *"fable was 50% of that"* (RECORD.md:932).
+all-model gauge, and *"fable was 50% of that"* (RECORD.md:932). *Measured
+2026-09-24 by 0.3.0's probe B ([§3.2](../done/0.3.0.md)):* the owner's own test puts
+the Fable allowance at half the all-model allowance. The meter's list-price
+dollars reconcile with both gauges, family by family, at the rates in §8
+(L-18).
 
 **4.6 A session can now start another session in the background.**
 `claude --help` on 2.1.281 lists `--bg, --background`: *"Start the session in
@@ -205,7 +209,7 @@ supervisor tree, and reach the client is `REASONED` until 0.3.0 runs it. The
 same listing is also a scriptable join between a session's id and its name
 (F-118) and a liveness reading for sessions — `REASONED` until a subcycle reads
 it under load. Whether it lists headless `claude -p` workers is not known.
-*Measured 2026-09-23 by 0.3.0's probe A ([§3.1](0.3.0.md)):* a background
+*Measured 2026-09-23 by 0.3.0's probe A ([§3.1](../done/0.3.0.md)):* a background
 session loads the plugin's skills, dispatches two levels of subagent, is woken
 by their completion, and can start and message its successor (L-15). It reaches
 the client only through the list of background sessions that `claude attach`
@@ -235,7 +239,7 @@ hide them. The sandbox binds `~/.local/bin` read-only because `claude` is named
 from there, so `llc` resolved to 20.1.2 inside by accident. `ld.lld` resolved
 to LLD 18 because `/usr/bin` comes first. And `npkc` resolved to
 `/usr/local/bin/npkc`, the old prototype's compiler. The pinned toolchain
-reaches a worker only through the environment pin ([0.3.0](0.3.0.md) §3.4). The compiler itself reads no environment variable, writes only its
+reaches a worker only through the environment pin ([0.3.0](../done/0.3.0.md) §3.4). The compiler itself reads no environment variable, writes only its
 output file, and links statically. A program reads its arguments through
 `main`'s fixed signature and its standard input through the builtin
 `read_stdin`, and it imports only by relative or absolute path — the compiler
@@ -280,7 +284,7 @@ benchmark files are in the tracked tree.
 
 | Subcycle | What it produces | Depends on | Core? |
 |---|---|---|---|
-| [0.3.0](0.3.0.md) — probes | four probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2), and **the Nitpick compiler inside a sandbox** (a compiler built from a pinned commit, bound read-only, compiling and running a program that reads its arguments and standard input — L-10) | — | **yes — first, small, and it can change the design** |
+| [0.3.0](../done/0.3.0.md) — probes | four probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2), and **the Nitpick compiler inside a sandbox** (a compiler built from a pinned commit, bound read-only, compiling and running a program that reads its arguments and standard input — L-10) | — | **yes — first, small, and it can change the design** |
 | 0.3.1 — the check contract | one result contract for every check — clean, findings, or `not-evaluated` with its reason (L-6); zero rows parsed is `not-evaluated`; untracked files read (F-131); accepted findings as a reasoned, first-class baseline; a commit gate shipped in the plugin that commits only on green, scoped so that a concurrent task's red file cannot block an unrelated commit (F-12, F-19, F-24), with a post-commit re-run of history-derived checks (F-114) | 0.3.0 | yes — every later check is built to it |
 | 0.3.2 — what the checks read | the silent-clean and wrong-window defects, check by check: `check_trace` (F-36 and F-68's slice, F-95's prose edges, F-132's two parses, partial and re-established requirement states, the header against the newest amendment, estimates against `S-` lines); `check_report` (F-34, F-37 and F-88 fail loudly; F-32's hedged figures; per-block meters, F-103 and F-109; `added` and `reconstructed`, F-86); `check_scope` and `check_report` keyed to the current claim window (F-135, F-136); board state against task title (F-107); checkpoint tallies from parsed verdicts (A12) | 0.3.1 | yes |
 | 0.3.3 — the disposition ledger | one ledger for every open item — raised by an adversary, a worker, an auditor, an outgoing manager, or the client between writes — each a countable line with an owner and a decision or an expiry; report grammars that carry open items as lines (F-139); a check that fails any landing that leaves one without; question status in one home (F-63, F-64); the audit skill's output and `check_refs`' audit namespace made one contract (F-99, F-104, F-112); a place outside the writer lock for what the client says during a handoff (F-21) | 0.3.1 | yes |
@@ -492,12 +496,12 @@ evidence cited, and stand until the owner overrules one.
 grants what its recommendation said and nothing adjacent to it.*
 
 **Added from 0.3.0's probes**, each under the decision rule in
-[0.3.0](0.3.0.md) §4, which the owner approved with this map:
+[0.3.0](../done/0.3.0.md) §4, which the owner approved with this map:
 
 - **L-15 — a session can start its successor and hand over to it by message,
   with nobody at the keyboard; the platform sets four conditions.** *Settled
   by:* 0.3.0 §4's rule, applied to probe A (`MEASURED` 2026-09-23, CLI
-  `2.1.281`, [0.3.0](0.3.0.md) §3.1). A background session started with
+  `2.1.281`, [0.3.0](../done/0.3.0.md) §3.1). A background session started with
   `claude --bg` loaded all 15 `devteam:` skills, dispatched two nested levels
   of subagent, and was woken both by their completion and by a background
   command's. A session started another with `claude --bg`, messaged it, had its
@@ -533,7 +537,7 @@ grants what its recommendation said and nothing adjacent to it.*
 - **L-16 — 0.3.12 builds the liaison as the signal.** *Settled by:* owner,
   2026-09-24, choosing *"The signal (Recommended)"* over *"The backlog's full
   liaison"* and *"A watcher, no session"*. He was asked with A6's figure beside
-  §10.4, under [0.3.0](0.3.0.md) §4's rule for probe A. *Why:* L-15 removed the
+  §10.4, under [0.3.0](../done/0.3.0.md) §4's rule for probe A. *Why:* L-15 removed the
   pause the liaison was proposed for, because the outgoing manager now starts
   its successor. Probe A4 measured what is still missing. Nothing told the owner
   that a background session was waiting: one waited 10 min 47 s with only the
@@ -558,7 +562,7 @@ grants what its recommendation said and nothing adjacent to it.*
   (Recommended)"* over *"0.2.9's split, no Fable"* and *"Fable to interview and
   plan"*. This answers §10.4 with 0.3.0's figures, as he asked on 2026-09-23.
   *Why:* per list-price dollar, Fable moves the all-model gauge 1.7 to 2.3 times
-  as much as Opus or Sonnet does ([0.3.0](0.3.0.md) §3.2). Its list prices are
+  as much as Opus or Sonnet does ([0.3.0](../done/0.3.0.md) §3.2). Its list prices are
   higher again, and it draws on the Fable cap the compiler runs on. Opus 5.5's
   cache reads cost the same per token as Sonnet 5's, so Sonnet saves only on
   output and cache writes (`REASONED`: about 20 % on a long agent session). The
@@ -571,6 +575,29 @@ grants what its recommendation said and nothing adjacent to it.*
   this cycle. *Declined:* 0.2.9's split — Sonnet for the in-process agents, the
   workers and the liaison — which is cheaper at list price; and Fable for the
   interviewer and planner, the backlog's *"possibly Fable"*.
+- **L-18 — the ceiling is metered in list-price dollars by model family and
+  converted to points at §8's rate; a converted figure says so, and the owner's
+  reading stays its check.** *Settled by:* [0.3.0](../done/0.3.0.md) §4's rule, applied
+  to probe B (`MEASURED` 2026-09-23 to 24, §3.2 there). And by the owner, who
+  chose *"Dollars, bands widened (Recommended)"* over *"No stable ratio"* and
+  *"More readings first"* once reading 4 had broken a single Fable ratio by a
+  few percent. **This supersedes L-7's second clause** — *a percentage is read,
+  never derived* — and not its first: the meter is the ceiling's instrument
+  because it has been reconciled against the owner's readings. *So:* 0.3.5's
+  meter governs the ceiling in list-price dollars per model family, converted
+  at §8's rate. Every figure converted from it is written as *converted*, with
+  its band, beside the owner's reading wherever one exists. The owner's
+  `/usage` reading at every checkpoint re-checks the rate. A reading outside
+  the band supersedes the rate, and until a new one is measured the ceiling
+  falls back to readings. *Why not processed tokens:* the Fable gauge
+  measurably does not follow them. *Why a check at all:* the rate was measured
+  in one week on one plan, it slipped a few percent within that week, and the
+  owner has seen unannounced resets and a boost change what a point is.
+  *Declined:* keeping every percentage a reading, which leaves a ceiling nobody
+  can check between readings. That is L-7's own reason for a meter, measured in
+  0.2.9, where a token ceiling was raised ten times without governing anything.
+  Also declined: more readings first, which would have held 0.3.0 open for a
+  question that L-18's checkpoint readings go on answering.
 
 ## 7. Excluded from this cycle, with the trigger that would include it
 
@@ -619,15 +646,38 @@ as Sonnet 5's ($0.20), which narrows the price case for running supervisors and
 verifiers on Sonnet — an input to §10.4. **Whether the owner's weekly gauge
 moves in proportion to list price is not known**, and L-7 forbids deriving it:
 0.3.0's reconciliation measures it on the current model mix, and records which
-model ran each session.
+model ran each session. *Measured 2026-09-24 by 0.3.0's probe B:* the gauge
+follows list price within Fable, to a few percent, and not across families.
+Per list-price dollar, Fable moves the all-model gauge about twice as much as
+Opus or Sonnet does (L-18, and the conversion below).
 
-**So this section is not finished, and cannot be until 0.3.0 runs.** 0.3.0's
+~~**So this section is not finished, and cannot be until 0.3.0 runs.**~~ 0.3.0's
 meter probe produces the missing conversion: metered tokens over an interval
 the owner brackets with two `/usage` readings, split by model family. 0.3.14's
 plan is then priced from that conversion and from 0.2.9's per-task figures,
 once 0.3.5 exists. Until then the recommendation in §5 rests on the two anchors
 above: the build costs points, the run costs far more, and the run's size is
 the lever.
+
+**The conversion, measured by 0.3.0's probe B.** This supersedes *"this
+section is not finished"* (L-18; `MEASURED` 2026-09-23 to 24,
+[0.3.0](../done/0.3.0.md) §3.2, on the owner's plan as it stood that week). Spend is
+priced at list, per request, from the transcripts, at the prices in the API
+reference bundled with the CLI, which equal the CLI's own cost records to the
+micro-dollar. It is metered in dollars, not in processed tokens, which the
+Fable gauge measurably does not follow:
+
+| Spend | Moves | Rate, covering all four readings |
+|---|---|---|
+| Fable | the Fable gauge | $5.72 to $6.21 per point (about ±4 %) |
+| Fable | the all-model gauge | half the Fable gauge's move: $11.44 to $12.42 per point |
+| any other model — Opus 5.5 and Sonnet 5 together | the all-model gauge | $21.70 to $26.90 per point (about ±11 %) |
+
+The gauge cannot tell Opus from Sonnet. Under L-17 the pipeline runs only
+Opus 5.5, so the third row prices it. **0.3.14's plan is priced from that
+row** and from 0.2.9's per-task figures once 0.3.5 exists, with the owner's
+reading at every checkpoint as the rate's check (L-18). The run's size is
+still the lever.
 
 **Size 0.3.14's ceiling for the failure path.** `REASONED` from 0.2.9: every
 ceiling raise in its cycle 2 was overtaken before the first item it priced was
