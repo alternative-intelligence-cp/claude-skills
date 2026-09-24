@@ -223,6 +223,17 @@ not look at, with the reason — which is never clean (cycle 0.3's L-6). The
 contract, and what each result means, is `scripts/result.py`'s (roadmap
 0.3.1, L-1.1).
 
+A part is not looked at when its source **offered a row the grammar did not
+read** — a heading, list item, table row or field line written in a shape
+this file does not define, each named by file and line — or when **a field a
+check reads continues past its first line**, since the checks read only that
+line. Zero rows parsed from a source that offered some is the same thing. A
+source that offers nothing is genuinely empty, and clean, with its zero shown
+in the line (roadmap 0.3.1, L-1.3). So a row written slightly wrong is never
+silently skipped: fix the row, or, for a wrapped field, keep the value on the
+field's first line and move the explanation to a bullet of its own, which is
+how pricelog's T-19 repaired its `Discharges.` field (F-132).
+
 ## The identifier prefixes are reserved
 
 `G` `DM` `R` `T` `S` `D` `Q` `C` `F` are this project's namespace, and

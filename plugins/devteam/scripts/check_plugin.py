@@ -31,7 +31,18 @@ PLUGIN = os.path.normpath(os.path.join(HERE, ".."))
 REPO = os.path.normpath(os.path.join(PLUGIN, "..", ".."))
 
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
-RULE = re.compile(r"\bP-(\d+)\b")
+# A RULE NUMBER MAY CARRY A LETTER. P-10b, P-35b and ten more are rules --
+# a refinement written beside the rule it refines, or one superseding it for a
+# narrower case (P-10c supersedes P-10b inside a sandbox). Reading digits only
+# made all twelve invisible in BOTH directions: `**P-35b —` declared nothing,
+# and `P-35b` cited nothing, so a citation of a suffixed rule that does not
+# exist passed unseen. Measured when 0.3.1's step 3.2 applied L-1.3 here: 61
+# lines lead with a rule number and 48 parsed. Widened with the owner's
+# answer, 2026-09-24.
+RULE = re.compile(r"\bP-(\d+[a-z]?)\b")
+RULE_DECLARED = re.compile(r"^\*\*P-(\d+[a-z]?) ", re.M)
+# What PROTOCOL.md OFFERS (L-1.3): any line leading with a bold rule number.
+RULE_ISH = re.compile(r"^\*\*P-(\d+[a-z]?)")
 SCRIPT_REF = re.compile(r"(?:\$\{CLAUDE_PLUGIN_ROOT\}|\$\{CLAUDE_SKILL_DIR\}/\.\.)/(\S+?\.py)")
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 SUBCYCLE_FILE = re.compile(r"\A\d+\.\d+\.\d+\.md\Z")
@@ -44,9 +55,9 @@ SUBCYCLE_STATE = re.compile(r"[\u2014\u2013-]\s*(PLANNED|IN-PROGRESS|DONE|STOPPE
 # with the tool rather than as a finding.
 sys.path.insert(0, HERE)
 try:
-    from root_guard import root_allowlist
+    from root_guard import root_allowlist, ROOT_SECTION, ROOT_ROW
 except ImportError:
-    root_allowlist = None
+    root_allowlist = ROOT_SECTION = ROOT_ROW = None
 
 # --- A MENTION IS NOT A CITATION, and this check had to learn it the hard way
 # check_refs.py worked this out for the project namespace and wrote the reason
@@ -103,7 +114,7 @@ def cited_rules(body):
             continue
         # Blanked before any identifier is read out of the line, so a quoted
         # finding cannot cite anything.
-        out.update(int(x) for x in RULE.findall(CHECK_OUTPUT.sub("`quoted`", line)))
+        out.update(RULE.findall(CHECK_OUTPUT.sub("`quoted`", line)))
     return out
 
 
@@ -201,20 +212,38 @@ def emitted_classes(path):
 
 CHECKS_HEADING = re.compile(r"^## `([^`]+)`")
 CHECKS_ROW = re.compile(r"^\|\s*`([a-z][a-z0-9-]*)`")
+# What the table OFFERS (roadmap 0.3.1, L-1.3): a row whose first cell is a
+# backticked name -- the shape of a class row, whatever the name inside it.
+CHECKS_ROW_ISH = re.compile(r"^\|\s*`[^`]*`\s*\|")
+# A heading that names a script is a source heading, backticked or not.
+SOURCE_ISH = re.compile(r"\b\w+\.py\b")
+UNREAD = object()
 
 
-def checks_table(path):
-    """{source: [class, ...]} as docs/CHECKS.md declares them."""
+def checks_table(path, unparsed=None):
+    """{source: [class, ...]} as docs/CHECKS.md declares them.
+
+    `unparsed`, when given, collects the 1-based line of each class-shaped row
+    that was not read: one whose name the grammar rejects, or one under a
+    source heading written without its backticks -- `## check_trace.py — 21
+    classes` -- whose rows used to be dropped in silence. A table under any
+    other heading is prose, and offers no class.
+    """
     table, source = {}, None
-    for line in open(path, encoding="utf-8"):
+    for n, line in enumerate(open(path, encoding="utf-8"), 1):
         m = CHECKS_HEADING.match(line)
         if m:
             source = m.group(1)
             table.setdefault(source, [])
             continue
+        if line.startswith("## "):
+            source = UNREAD if SOURCE_ISH.search(line) else None
+            continue
         m = CHECKS_ROW.match(line)
-        if m and source:
+        if m and source and source is not UNREAD:
             table[source].append(m.group(1))
+        elif (m or CHECKS_ROW_ISH.match(line)) and source and unparsed is not None:
+            unparsed.append(n)
     return table
 
 
@@ -223,11 +252,28 @@ def main(argv=None):
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
     rel = lambda p: os.path.relpath(p, PLUGIN)
+    # Parts not evaluated, as (part, reason): what a source offered that its
+    # grammar did not read (roadmap 0.3.1, L-1.3). Never findings, so none
+    # needs a CHECKS.md row; they reach the Result through `res.gap`.
+    gaps = []
 
     proto = os.path.join(PLUGIN, "PROTOCOL.md")
     if not os.path.isfile(proto):
         return result.could_not_run("check_plugin", "PROTOCOL.md missing", as_json)
-    declared = {int(n) for n in re.findall(r"^\*\*P-(\d+) ", open(proto).read(), re.M)}
+    protocol = open(proto, encoding="utf-8").read()
+    declared = set(RULE_DECLARED.findall(protocol))
+    # A line leading with a rule number that declares nothing is a LOSS only
+    # if its rule is declared nowhere: `**P-10b's text stands unedited` is a
+    # note about a rule declared elsewhere, not a declaration written wrong.
+    rows = protocol.split("\n")
+    offered = [n for n, l in enumerate(rows, 1) if RULE_ISH.match(l)]
+    missed = [n for n in offered if not RULE_DECLARED.match(rows[n - 1] + "\n")
+              and RULE_ISH.match(rows[n - 1]).group(1) not in declared]
+    if missed:
+        gaps.append(("PROTOCOL.md's rules", result.unparsed(
+            [("PROTOCOL.md", n) for n in missed], len(offered),
+            "lines leading with a rule number", "`**P-n <title>`, a letter allowed after n",
+            "the rules they number are declared nowhere, and unknown-rule ran without them")))
 
     skills_dir = os.path.join(PLUGIN, "skills")
     skills = {}
@@ -261,13 +307,21 @@ def main(argv=None):
         if not field(m.group(1), "name") or not field(m.group(1), "description"):
             add("bad-frontmatter", rel(path), "missing name or description")
         raw = field(m.group(1), "skills") or ""
+        # `skills:` WRITTEN AS A BLOCK LIST is read from its first line only:
+        # `field` takes one line, so `skills:\n  - work\n  - verify` yields
+        # `- work`, and every item after it is never looked up (L-1.3).
+        fm = m.group(1).split("\n")
+        at = next((i for i, l in enumerate(fm) if l.startswith("skills:")), None)
+        if at is not None and at + 1 < len(fm) and re.match(r"^(\s+\S|-\s)", fm[at + 1]):
+            gaps.append((f"{rel(path)}'s skills:", result.wrapped(
+                f"{rel(path)}:{at + 2} `skills:`", "check_plugin")))
         for s in re.findall(r"[A-Za-z0-9_-]+", raw):
             if s not in skills:
                 add("missing-skill", rel(path), f"preloads {s!r}, which does not exist")
 
     for path in walk_md(PLUGIN):
         body = open(path, encoding="utf-8", errors="replace").read()
-        for n in sorted(cited_rules(body)):
+        for n in sorted(cited_rules(body), key=lambda r: (int(r.rstrip("abcdefghijklmnopqrstuvwxyz")), r)):
             if n not in declared:
                 add("unknown-rule", rel(path),
                     f"cites P-{n}, which PROTOCOL.md does not declare. If you are "
@@ -298,6 +352,9 @@ def main(argv=None):
     # something next.
     formats = os.path.join(PLUGIN, "templates", "FORMATS.md")
     refs = os.path.join(HERE, "check_refs.py")
+    if not (os.path.isfile(formats) and os.path.isfile(refs)):
+        gaps.append(("namespace-drift", "templates/FORMATS.md or scripts/check_refs.py "
+                     "is missing, so the reserved prefixes were compared against nothing"))
     if os.path.isfile(formats) and os.path.isfile(refs):
         body = open(formats, encoding="utf-8").read()
         # WIDENED WITH THE SCANNER IN 0.2.6. When the audit namespace became
@@ -306,12 +363,29 @@ def main(argv=None):
         # "carved out means unseen" failure, one level up, inside the check
         # that exists to catch it.
         documented = set(re.findall(r"^\|\s*`([A-Z]{1,3})-`\s*\|", body, re.M))
+        # What the table offers: a row whose first cell is a backticked
+        # prefix, whatever its letters.
+        lines_ = body.split("\n")
+        offered = [n for n, l in enumerate(lines_, 1) if re.match(r"^\|\s*`[A-Za-z]+-`\s*\|", l)]
+        missed = [n for n in offered
+                  if not re.match(r"^\|\s*`([A-Z]{1,3})-`\s*\|", lines_[n - 1])]
+        if missed:
+            gaps.append(("namespace-drift", result.unparsed(
+                [("templates/FORMATS.md", n) for n in missed], len(offered),
+                "prefix rows", "`| `X-` | … |` with one to three capitals",
+                "they were compared against nothing")))
         src = open(refs, encoding="utf-8").read()
         recognised = set()
         for name in ("KNOWN", "EXTERNAL", "AUDIT"):
             m = re.search(rf"^{name}\s*=\s*\{{([^}}]*)\}}", src, re.M)
             if m:
                 recognised |= set(re.findall(r'"([A-Z]{1,3})"', m.group(1)))
+        # EITHER SIDE PARSING TO NOTHING compared nothing, and said so by
+        # saying nothing: the condition below needs both (L-1.3).
+        if (not documented and not missed) or not recognised:
+            gaps.append(("namespace-drift", ("the prefix table in templates/FORMATS.md"
+                         if not documented else "check_refs.py's KNOWN, EXTERNAL and AUDIT sets")
+                         + " parse to no prefix, so the two lists were not compared"))
         if documented and recognised:
             for p_ in sorted(documented - recognised):
                 add("namespace-drift", "templates/FORMATS.md",
@@ -410,10 +484,17 @@ def main(argv=None):
                 [sys.executable, os.path.join(PLUGIN, "scripts", "check_refs.py"), proj],
                 capture_output=True, text=True)
             if out.returncode != 0:
-                for line in out.stdout.strip().split("\n")[1:]:
-                    if line.strip():
-                        add("template-ships-a-finding", "templates/",
-                            f"a freshly scaffolded project reports: {line.strip()}")
+                said = [line.strip() for line in out.stdout.strip().split("\n")[1:] if line.strip()]
+                for line in said:
+                    add("template-ships-a-finding", "templates/",
+                        f"a freshly scaffolded project reports: {line}")
+                # A NON-ZERO EXIT WITH NOTHING TO READ -- exit 2 prints to
+                # stderr, and a crash prints a traceback -- was taken as no
+                # finding at all (L-1.3). The scaffold was not shown clean.
+                if not said:
+                    gaps.append(("the template checks", f"check_refs exited "
+                                 f"{out.returncode} on a fresh scaffold and reported nothing "
+                                 f"this could read: {(out.stderr.strip() or 'no output')[-160:]}"))
     except _SkipScaffold:
         pass
     except OSError as exc:
@@ -448,6 +529,11 @@ def main(argv=None):
                 continue
             for name in sorted(os.listdir(cycle)):
                 if not SUBCYCLE_FILE.match(name):
+                    # Named like a subcycle and not in the grammar -- `0.3.1-
+                    # notes.md` -- so its title's state was never read (L-1.3).
+                    if re.match(r"^\d+\.\d+\.\d+.*\.md$", name):
+                        gaps.append((f"meta/roadmap/{entry}/{name}", "named like a subcycle "
+                                     "but not `<x.y.z>.md`, so its title's state was not read"))
                     continue
                 path = os.path.join(cycle, name)
                 with open(path, encoding="utf-8") as fh:
@@ -486,10 +572,20 @@ def main(argv=None):
         add("unruled-finding", "docs/CHECKS.md",
             "docs/CHECKS.md is missing; no finding class has a rule named")
     else:
-        table = checks_table(CHECKS_MD)
+        unread = []
+        table = checks_table(CHECKS_MD, unread)
+        if unread:
+            gaps.append(("unruled-finding and stale-row", result.unparsed(
+                [("docs/CHECKS.md", n) for n in unread], len(unread) + sum(map(len, table.values())),
+                "class rows", "`| `<class>` | … |` under a `## `<source>`` heading",
+                "no class they name was compared")))
         for script in EMITTERS:
             spath = os.path.join(PLUGIN, "scripts", script)
             if not os.path.isfile(spath):
+                if table.get(script):
+                    gaps.append((f"stale-row for {script}", f"scripts/{script} is missing, "
+                                 f"so its {len(table[script])} row(s) in docs/CHECKS.md were "
+                                 "compared against nothing"))
                 continue
             try:
                 emits = emitted_classes(spath)
@@ -540,6 +636,26 @@ def main(argv=None):
     # two copies would be diffed against each other rather than against the
     # tree, and would agree with each other while both were wrong.
     root_rows = root_allowlist(REPO) if root_allowlist else None
+    # What the table OFFERS: every table row after its separator. One the row
+    # grammar rejects names nothing the hook allows, and an empty result from
+    # a table that has rows used to skip both directions in silence (L-1.3).
+    if root_rows is not None:
+        try:
+            section = ROOT_SECTION.search(open(os.path.join(REPO, "README.md"),
+                                               encoding="utf-8").read()).group(1)
+        except (OSError, AttributeError):
+            section = ""
+        rows_, seen_sep = [], False
+        for line in section.split("\n"):
+            if re.match(r"^\|\s*:?-{3,}", line):
+                seen_sep = True
+            elif seen_sep and line.startswith("|"):
+                rows_.append(line)
+        missed = [l for l in rows_ if not ROOT_ROW.match(l)]
+        if missed:
+            gaps.append(("the root-table checks", f"{len(missed)} of {len(rows_)} rows in "
+                         "README.md's root table do not parse as `| `<entry>` | … |`, so "
+                         "neither direction compared them: " + "; ".join(l[:40] for l in missed)))
 
     if root_rows:
         present, readable = set(), True
@@ -578,6 +694,8 @@ def main(argv=None):
     res = result.Result("check_plugin", "devteam plugin", width=20)
     for kind, where, detail in findings:
         res.finding(kind, where, detail)
+    for part, reason in gaps:
+        res.gap(part, reason)
     # A part this check could not reach used to be printed as "SKIPPED" inside
     # a CLEAN line, exit 0 -- the shape of nothing wrong when what happened was
     # nothing looked at (roadmap 0.3.1, L-1.1). Each is now a part not

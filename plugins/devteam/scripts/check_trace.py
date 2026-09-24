@@ -90,6 +90,24 @@ TASK = re.compile(r"^#\s+(T-\d+)" + SEP + r"(.*?)" + SEP + r"(\S.*)$")
 FIELD = re.compile(r"^-\s+\*\*([A-Za-z][A-Za-z -]*)\.\*\*\s*(.*)$")
 IDS = re.compile(r"\b([GRT]-\d+)\b")
 
+# THE LOOSE SHAPES (roadmap 0.3.1, L-1.3): what a source OFFERS, whatever the
+# grammar above accepts of it. Each is deliberately wider than its grammar --
+# a heading naming a requirement or a task however it is punctuated, any list
+# item or table row inside a section -- so that a row written slightly wrong
+# is counted as offered and named, rather than never seen. Separator rows of
+# a table are not rows.
+#
+# A heading that DECLARES something written wrong is offered; one that merely
+# MENTIONS it is not. So a step's heading in an execution record -- `# T-10.S-3
+# Adversarial Audit`, measured in pricelog -- and a possessive -- `## R-4's
+# history` -- are prose about an identifier, not a title that failed.
+REQ_ISH = re.compile(r"^#{1,6}\s*R-?\s*\d+\b(?![.'’])")
+TASK_ISH = re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])")
+SECTION_ROW = re.compile(r"^(?:[-*+]\s|\d+[.)]\s|\|(?!\s*:?-{3,}))")
+PROTECTED_ISH = re.compile(r"^\|\s*[*`_]*\s*protected[\s_-]*paths\b", re.I)
+BOARD_ROW_ISH = re.compile(r"^\|\s*(?:\[|\*\*|\*|`)*\s*T-\d+\b")
+AUDIT_HEADING_ISH = re.compile(r"^#{2,3}\s+(?:finding\s+\d+\b|\d+\.\s|[A-Z]{1,5}-\d+\b)", re.I)
+
 # A value the interview has not filled in yet. Reported as its own finding
 # rather than silently treated as present -- a placeholder that passes a check
 # is worse than one that fails it.
@@ -101,13 +119,37 @@ PLACEHOLDER = re.compile(r"^\s*(<[^>]*>|_none yet_|tbd|todo|\.\.\.)?\s*$", re.I)
 # been the check committing its own finding. The literals remain only as a
 # fallback for a plugin whose templates cannot be read, because a check that
 # silently stops checking is worse than one that is slightly out of date.
-REQ_FIELDS = tuple(template_names("REQUIREMENTS.md", "field") or
+#
+# A FALLBACK IS STILL A PART NOT EVALUATED (roadmap 0.3.1, L-1.3). The charter
+# rows had no literals behind them, so an unreadable template made
+# `template-drift` compare the charter against nothing and report clean -- found
+# by 0.3.1's own mutation run, from a copy of scripts/ without templates/ beside
+# it. Each template that cannot be read is now named in the line, and the
+# field lists say they fell back.
+_REQ_TEMPLATE = template_names("REQUIREMENTS.md", "field")
+_TASK_TEMPLATE = template_names("tasks/TASK.md", "field")
+_CHARTER_TEMPLATE = template_names("CHARTER.md", "row")
+REQ_FIELDS = tuple(_REQ_TEMPLATE or
                    ("Statement", "Satisfies", "Source", "Acceptance",
                     "Requires-write", "Priority", "Status"))
-TASK_FIELDS = tuple(n for n in (template_names("tasks/TASK.md", "field") or
+TASK_FIELDS = tuple(n for n in (_TASK_TEMPLATE or
                                 ("Discharges", "Depends on", "Scope", "Gate", "Verify"))
                     if n != "Kind")
-CHARTER_ROWS = template_names("CHARTER.md", "row") or []
+CHARTER_ROWS = _CHARTER_TEMPLATE or []
+TEMPLATE_GAPS = [
+    (part, f"templates/{rel} cannot be read beside check_trace, so {what}")
+    for got, part, rel, what in (
+        (_CHARTER_TEMPLATE, "template-drift", "CHARTER.md",
+         "the charter was compared against no template row"),
+        (_REQ_TEMPLATE, "missing-field in requirements", "REQUIREMENTS.md",
+         "requirements were checked against the field list built into this script"),
+        (_TASK_TEMPLATE, "missing-field in tasks", "tasks/TASK.md",
+         "tasks were checked against the field list built into this script"))
+    if got is None]
+# Fields a check below reads by NAME but that no template lists, so that a
+# line naming one in a form the grammar does not accept is still offered.
+REQ_EXTRA = ("Shape reviewed", "Requires-write amended")
+TASK_EXTRA = ("Kind", "Informs", "Because")
 
 STRUCK = re.compile(r"^struck\b", re.I)
 
@@ -139,13 +181,22 @@ REAFFIRM_VERDICT = re.compile(r"^(holds|amended \(this entry\)|struck \(D-\d+[^)
 # a red tree that cost somebody else's agents time.
 LIST_FIELD = re.compile(r"^-\s+\*\*(Scope|Requires-write)\.\*\*\s*(.*)$")
 LIST_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
+# What a path list OFFERS (L-1.3): any indented list item under the field. An
+# item with its reason written inline -- `` - `src/` — because … `` -- is not a
+# path, and used to be skipped here in silence; check_scope has reported the
+# same shape as `unparseable-scope-entry` since 0.2.
+LIST_ITEMISH = re.compile(r"^\s+[-*+]\s+\S")
 NEXT_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]|^#")
 
 
-def path_lists(lines):
-    """{field name: [entries]} for every `Scope.`/`Requires-write.` list in a block."""
+def path_lists(lines, unparsed=None):
+    """{field name: [entries]} for every `Scope.`/`Requires-write.` list in a block.
+
+    `unparsed`, when given, collects (index into `lines`, field name) for each
+    list item under a path list that does not parse as a path.
+    """
     out, collecting = {}, None
-    for line in lines:
+    for i, line in enumerate(lines):
         m = LIST_FIELD.match(line)
         if m:
             collecting = m.group(1)
@@ -166,6 +217,10 @@ def path_lists(lines):
                 # did not, which is the same field with two behaviours.
                 if not PLACEHOLDER.search(item.group(1)):
                     out[collecting].append(item.group(1))
+                continue
+            if LIST_ITEMISH.match(line):
+                if unparsed is not None:
+                    unparsed.append((i, collecting))
                 continue
             if line.strip() and NEXT_FIELD.match(line):
                 collecting = None
@@ -200,22 +255,130 @@ def read(root, rel):
         return []
 
 
+class Fields(dict):
+    """A block's fields, each held as its FIRST physical line -- and what that
+    leaves unread (roadmap 0.3.1, L-1.3).
+
+    `parse_blocks` keeps a field's first line only. That is a partial read
+    exactly when the field continues past it and something reads the value:
+    F-132 was a `Discharges.` field whose first line ended mid-sentence, cut at
+    commas into pieces none of which was the requirement it named. So a value
+    read out of this mapping is RECORDED, and a field both read and wrapped is
+    named as not evaluated. Presence -- `in` -- is not a read, because a field's
+    existence is on its first line.
+
+    Recording reads rather than listing the fields each class uses keeps the
+    two from drifting: a class added later that reads a wrapped field is
+    covered without anybody remembering to add it here.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.line, self.wraps, self.misparsed, self.read = {}, set(), {}, set()
+
+    def get(self, key, default=None):
+        self.read.add(key)
+        return super().get(key, default)
+
+    def __getitem__(self, key):
+        self.read.add(key)
+        return super().__getitem__(key)
+
+
+def _named_field(name):
+    """A line that NAMES this field, however it is decorated: the loose shape."""
+    return re.compile(r"^-\s+\**\s*" + re.escape(name) + r"\s*\**\s*[.:]", re.I)
+
+
 def parse_blocks(lines, header, fields_for):
-    """Yield (identifier, line-number, extra, {field: value}) per heading."""
+    """Yield (identifier, line-number, extra, Fields) per heading.
+
+    `fields_for` are the names the caller reads. A line naming one of them that
+    FIELD does not accept as that name is recorded in `Fields.misparsed`: a
+    field line offered and not parsed (L-1.3).
+    """
+    loose = [(name, _named_field(name)) for name in fields_for]
     cur = None
     for n, line in enumerate(lines, 1):
         m = header.match(line)
         if m:
             if cur:
                 yield cur
-            cur = (m.group(1), n, m.groups()[1:], {})
+            cur = (m.group(1), n, m.groups()[1:], Fields())
             continue
         if cur:
             f = FIELD.match(line)
+            name = f.group(1).strip() if f else None
             if f:
-                cur[3][f.group(1).strip()] = f.group(2).strip()
+                cur[3][name] = f.group(2).strip()
+                cur[3].line[name] = n
+                if result.continuation(lines, n - 1):
+                    cur[3].wraps.add(name)
+            for want, pat in loose:
+                if want != name and pat.match(line):
+                    cur[3].misparsed.setdefault(want, n)
     if cur:
         yield cur
+
+
+def block_starts(lines, header):
+    """{identifier: the 1-based line of its heading}, as `blocks_of` keys them."""
+    return {m.group(1): n for n, m in ((n, header.match(l)) for n, l in enumerate(lines, 1)) if m}
+
+
+def heading_gaps(lines, rel, loose, strict, what, grammar):
+    """[(part, reason)] when `lines` offer headings `strict` does not accept."""
+    offered = [n for n, line in enumerate(lines, 1) if loose.match(line)]
+    missed = [n for n in offered if not strict.match(lines[n - 1])]
+    if not missed:
+        return []
+    return [(f"{rel}'s {what}", result.unparsed(
+        [(rel, n) for n in missed], len(offered), what, grammar,
+        "each is invisible to every class that reads one"))]
+
+
+def list_gaps(ident, bad, rel, start):
+    """[(part, reason)] for path-list items `path_lists` offered and could not read.
+
+    `bad` holds (index into the block's lines, field); the block's lines begin
+    on the line after its heading at `start`.
+    """
+    out = {}
+    for i, field in bad:
+        out.setdefault(field, []).append((rel, start + 1 + i))
+    return [(f"{ident}'s {field}.",
+             f"{len(rows)} list item(s) under the field do not parse as a bare "
+             f"`path`, so no class compares against what they name "
+             f"({result.anchors(rows)})")
+            for field, rows in sorted(out.items())]
+
+
+def field_gaps(ident, where, fields):
+    """[(part, reason)] for a block's fields that were read and not whole."""
+    rel = where.rsplit(":", 1)[0]
+    out = [(f"{ident}'s {name}.", result.wrapped(f"{rel}:{fields.line[name]}", "check_trace"))
+           for name in sorted(fields.wraps & fields.read)]
+    # A misparsed line is a LOSS only when the field never parsed in this
+    # block. The block runs to the end of the file, so an execution record
+    # quoting `- **Scope:** check_scope … prints clean` (pricelog's T-16) is a
+    # mention; the task's real `Scope.` field was read.
+    out += [(f"{ident}'s {name}.",
+             f"{rel}:{n} names the field and does not parse as `- **{name}.** <value>`, "
+             "and the field is read nowhere else in the block")
+            for name, n in sorted(fields.misparsed.items()) if name not in fields]
+    return out
+
+
+def section_lines(lines, title):
+    """(first line number, lines) of the `## <title>` section, or (None, [])."""
+    start = None
+    for n, line in enumerate(lines, 1):
+        m = SECTION.match(line)
+        if m and start is None and m.group(1).strip().lower() == title:
+            start = n
+        elif m and start is not None:
+            return start, lines[start:n - 1]
+    return (start, lines[start:]) if start is not None else (None, [])
 
 
 def blocks_of(lines, header):
@@ -249,13 +412,33 @@ def first_declared(devteam):
                              capture_output=True, text=True, check=True).stdout
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return None
+    # WHAT THE HISTORY DID NOT SHOW (L-1.3). A shallow clone hands this walk
+    # a history that starts partway, so a requirement's first declaration and
+    # its rewrites before the cut are not in it; a revision `git show` cannot
+    # produce is skipped; and churn compares each revision's FIRST line of a
+    # field, so a rewrite past it is not counted.
+    gaps, unread, wrapped_in = [], [], {}
+    shallow = subprocess.run(["git", "-C", devteam, "rev-parse", "--is-shallow-repository"],
+                             capture_output=True, text=True)
+    if shallow.stdout.strip() == "true":
+        gaps.append(("REQUIREMENTS.md's history",
+                     "the repository is a shallow clone, so unrecorded-amendment and "
+                     "re-litigated-requirement read a history that starts partway"))
     seen, prev, churn = {}, {}, {}
     for sha in (s for s in log.split("\n") if s.strip()):
         try:
-            blob = subprocess.run(["git", "-C", devteam, "show", f"{sha}:./REQUIREMENTS.md"],
-                                  capture_output=True, text=True, check=True).stdout
-        except (subprocess.CalledProcessError, OSError):
+            got = subprocess.run(["git", "-C", devteam, "show", f"{sha}:./REQUIREMENTS.md"],
+                                 capture_output=True, text=True)
+        except OSError:
+            got = None
+        if got is None or got.returncode != 0:
+            # A revision in which the file does not exist -- the commit that
+            # deleted it -- has nothing to read, and is no gap.
+            err = got.stderr if got is not None else ""
+            if "does not exist" not in err and "exists on disk, but not in" not in err:
+                unread.append(sha[:7])
             continue
+        blob = got.stdout
         lines = blob.split("\n")
         for ident, block in blocks_of(lines, REQ).items():
             seen.setdefault(ident, path_lists(block).get("Requires-write", []))
@@ -279,7 +462,19 @@ def first_declared(devteam):
             else:
                 churn.setdefault(ident, 0)
             prev[ident] = now
-    return seen, churn
+            for name in fields.wraps & fields.read:
+                wrapped_in.setdefault(ident, {}).setdefault(name, 0)
+                wrapped_in[ident][name] += 1
+    if unread:
+        gaps.append(("REQUIREMENTS.md's history",
+                     f"{len(unread)} revision(s) could not be read ({', '.join(unread)}), "
+                     "so unrecorded-amendment and re-litigated-requirement skipped them"))
+    for ident in sorted(wrapped_in, key=lambda r: int(r.split("-")[1])):
+        names = ", ".join(f"{name}. in {k}" for name, k in sorted(wrapped_in[ident].items()))
+        gaps.append((f"re-litigated-requirement for {ident}",
+                     f"{ident}'s {names} committed revision(s) of REQUIREMENTS.md "
+                     "continue past the first line, and the count compares first lines only"))
+    return seen, churn, gaps
 
 
 BOARD_ROW = re.compile(r"^\|\s*(T-\d+)\s*\|.*\|\s*([^|]+?)\s*\|\s*$")
@@ -328,6 +523,14 @@ def board_states(devteam):
 def check(devteam):
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
+    # Parts not evaluated, as (part, reason) -- never findings, so none of them
+    # needs a CHECKS.md row, and they reach the Result through `res.gap`.
+    gaps = list(TEMPLATE_GAPS)
+    for rel, what in (("CHARTER.md", "no goal, protected path or amendment was read"),
+                      ("REQUIREMENTS.md", "no requirement was read"),
+                      ("BOARD.md", "board-drift compared nothing")):
+        if not os.path.isfile(os.path.join(devteam, rel)):
+            gaps.append((rel, f"missing, so {what}"))
 
     goals, reqs, tasks = {}, {}, {}
 
@@ -336,6 +539,19 @@ def check(devteam):
         m = GOAL.match(line)
         if m:
             goals[m.group(1)] = f"CHARTER.md:{n}"
+    # What the Goals section OFFERS: every top-level list item and table row
+    # in it. GOAL is read over the whole charter and that is unchanged; this
+    # only names a row written in the section that GOAL does not accept.
+    start, body = section_lines(charter, "goals")
+    offered = [start + 1 + k for k, line in enumerate(body) if SECTION_ROW.match(line)]
+    missed = [n for n in offered if not GOAL.match(charter[n - 1])]
+    if missed:
+        gaps.append(("the charter's goals", result.unparsed(
+            [("CHARTER.md", n) for n in missed], len(offered), "rows in its Goals section",
+            "`- **G-n** — <one line>`", "orphan-scope and every goal reference ran without them")))
+    elif charter and start is None and not goals:
+        gaps.append(("the charter's goals", "CHARTER.md has no `## Goals` section and "
+                     "declares no goal, so no goal was read"))
 
     # THE CHARTER AGAINST THE TEMPLATE IT CAME FROM.
     have = {m.group(1).strip() for m in (TPL_ROW.match(l) for l in charter) if m}
@@ -383,8 +599,23 @@ def check(devteam):
     try:
         import guard as _guard
     except Exception:
-        _guard = None                      # a partial tree; not this check's
-    if _guard is not None:                 # business to report (P-35b)
+        _guard = None
+    # A partial tree without guard.py is not this check's to report as a
+    # FINDING (P-35b) -- but it is a part not evaluated, and saying nothing
+    # made it read as a charter whose row was fine (L-1.3).
+    if _guard is None:
+        gaps.append(("unparseable-protected-path", "guard.py cannot be imported beside "
+                     "check_trace, so the Protected paths row was not read the way the "
+                     "guard reads it"))
+    else:
+        offered = [n for n, line in enumerate(charter, 1) if PROTECTED_ISH.match(line)]
+        missed = [n for n in offered if not _guard.PROTECTED_ROW.match(charter[n - 1])]
+        if missed:
+            gaps.append(("unparseable-protected-path", result.unparsed(
+                [("CHARTER.md", n) for n in missed], len(offered),
+                "Protected paths rows", "the guard's `| Protected paths | … |`",
+                "neither the guard nor this check reads them")))
+    if _guard is not None:
         for line in charter:
             m = _guard.PROTECTED_ROW.match(line)
             if not m:
@@ -415,6 +646,10 @@ def check(devteam):
     # claim exist, so the person has something to disagree with.
     section, dm_ids, constraint_rows = None, [], []
     amend_start = None
+    # Rows each list offered that its grammar did not accept (L-1.3). They are
+    # reported only if the amendment check below runs, because only then is
+    # anything read out of them.
+    dm_offered, dm_missed, row_offered, row_missed = 0, [], 0, []
     for n, line in enumerate(charter, 1):
         ms = SECTION.match(line)
         if ms:
@@ -426,12 +661,20 @@ def check(devteam):
             md = DM_DECL.match(line)
             if md:
                 dm_ids.append(md.group(1))
+            if SECTION_ROW.match(line):
+                dm_offered += 1
+                if not md:
+                    dm_missed.append(n)
         elif section == "constraints":
             mr = TPL_ROW.match(line)
             if mr:
                 label = mr.group(1).strip()
                 if label and label.lower() != "constraint" and not set(label) <= set("-: "):
                     constraint_rows.append(label)
+            if line.startswith("|") and SECTION_ROW.match(line):
+                row_offered += 1
+                if not mr:
+                    row_missed.append(n)
 
     if amend_start is not None:
         tail = charter[amend_start:]
@@ -449,7 +692,21 @@ def check(devteam):
             title = AMENDMENT_ENTRY.match(last[0]).group(1)
             where = f"CHARTER.md:{amend_start + pick + 1}"
             named, collecting = {}, False
-            for line in last[1:]:
+            # What each `Re-affirmed.` list OFFERS, for L-1.3: every indented
+            # item from that line to the next line that is not indented. The
+            # parse stops at the first line it cannot read, so an item after it
+            # is offered and never read, as well as one that does not parse.
+            # This measures the same window the parse reads -- every list after
+            # the entry's heading, which is F-36's slice and 0.3.2's to bound.
+            in_list, extent, consumed = False, [], set()
+            for k, line in enumerate(last[1:], 1):
+                if REAFFIRM_OPEN.match(line):
+                    in_list = True
+                elif in_list and line.strip():
+                    if not line[:1].isspace():
+                        in_list = False
+                    elif LIST_ITEMISH.match(line):
+                        extent.append(k)
                 if REAFFIRM_OPEN.match(line):
                     collecting = True
                     continue
@@ -457,9 +714,27 @@ def check(devteam):
                     mi = REAFFIRM_ITEM.match(line)
                     if mi:
                         named[mi.group(1).strip()] = mi.group(2).strip()
+                        consumed.add(k)
                         continue
                     if line.strip():
                         collecting = False
+            first_line = amend_start + pick + 1
+            for missed, offered, what, grammar in (
+                    (dm_missed, dm_offered, "the charter's done-means",
+                     "`- **DM-n** — <one line>`"),
+                    (row_missed, row_offered, "the charter's constraint rows",
+                     "`| <Constraint> | <value> |`")):
+                if missed:
+                    gaps.append((what, result.unparsed(
+                        [("CHARTER.md", n) for n in missed], offered, "rows", grammar,
+                        "amendment-omits-condition cannot ask the amendment for them")))
+            unread = [first_line + k for k in extent if k not in consumed]
+            if unread:
+                gaps.append(("the latest amendment's Re-affirmed. list", result.unparsed(
+                    [("CHARTER.md", n) for n in unread], len(extent), "items",
+                    "`  - <name> — <verdict>`",
+                    "what they re-affirm was not read, and any condition they name "
+                    "reads as omitted")))
             wanted = dm_ids + constraint_rows
             missing = [w for w in wanted if w not in named]
             if missing:
@@ -482,10 +757,17 @@ def check(devteam):
 
     req_lines = read(devteam, "REQUIREMENTS.md")
     req_blocks = blocks_of(req_lines, REQ)
-    must_write = {k: path_lists(v).get("Requires-write", [])
-                  for k, v in req_blocks.items()}
-    original, churn = first_declared(devteam) or (None, {})
-    for ident, n, _, fields in parse_blocks(req_lines, REQ, REQ_FIELDS):
+    starts = block_starts(req_lines, REQ)
+    must_write = {}
+    for k, v in req_blocks.items():
+        bad = []
+        must_write[k] = path_lists(v, bad).get("Requires-write", [])
+        gaps += list_gaps(k, bad, "REQUIREMENTS.md", starts[k])
+    original, churn, history_gaps = first_declared(devteam) or (None, {}, [])
+    gaps += history_gaps
+    gaps += heading_gaps(req_lines, "REQUIREMENTS.md", REQ_ISH, REQ,
+                         "requirement headings", "`### R-n — <title>`")
+    for ident, n, _, fields in parse_blocks(req_lines, REQ, REQ_FIELDS + REQ_EXTRA):
         reqs[ident] = (f"REQUIREMENTS.md:{n}", fields)
         for f in REQ_FIELDS:
             if f not in fields:
@@ -497,10 +779,13 @@ def check(devteam):
     scopes = {}
     for rel in task_files:
         lines = read(devteam, rel)
+        starts = block_starts(lines, TASK)
         for k, v in blocks_of(lines, TASK).items():
-            scopes[k] = path_lists(v).get("Scope", [])
+            bad = []
+            scopes[k] = path_lists(v, bad).get("Scope", [])
+            gaps += list_gaps(k, bad, rel, starts[k])
         parsed_any = False
-        for ident, n, extra, fields in parse_blocks(lines, TASK, TASK_FIELDS):
+        for ident, n, extra, fields in parse_blocks(lines, TASK, TASK_FIELDS + TASK_EXTRA):
             parsed_any = True
             tasks[ident] = (f"{rel}:{n}", fields, extra[1] if len(extra) > 1 else "")
             for f in TASK_FIELDS:
@@ -515,6 +800,13 @@ def check(devteam):
             add("unparseable-task", f"{rel}:1",
                 "no `# T-n — <title> — <status>` title line, so this file is "
                 "invisible to every check and its requirements read as uncovered")
+        else:
+            # Any OTHER title-shaped line this file offers and TASK rejects --
+            # a second task in one file, or a task in a file not named for it.
+            # The whole-file case is the finding above, and one fault gets one
+            # report.
+            gaps += heading_gaps(lines, rel, TASK_ISH, TASK, "task titles",
+                                 "`# T-n — <title> — <status>`")
 
     # --- goal -> requirement ------------------------------------------------
     satisfied = set()
@@ -586,6 +878,19 @@ def check(devteam):
     #
     # Cheap precisely BECAUSE the board is redundant with the task files, which
     # is the same property that lets them disagree.
+    #
+    # AND IT COMPARED NOTHING FOR A PROJECT'S WHOLE LIFE (F-70): every row of
+    # a real board is written as a link, `| [T-1](tasks/T-1.md) | … |`, and the
+    # row grammar wants a bare id, so no row parsed and the check said clean.
+    # Reading the link form is 0.3.2's; naming each row it did not read is
+    # this (L-1.3).
+    board = read(devteam, "BOARD.md")
+    offered = [n for n, line in enumerate(board, 1) if BOARD_ROW_ISH.match(line)]
+    missed = [n for n in offered if not BOARD_ROW.match(board[n - 1])]
+    if missed:
+        gaps.append(("BOARD.md's task rows", result.unparsed(
+            [("BOARD.md", n) for n in missed], len(offered), "table rows naming a task",
+            "`| T-n | … | <state> |`", "board-drift compared nothing for them")))
     for tid, state in sorted(board_states(devteam).items()):
         if tid not in tasks:
             add("board-drift", "BOARD.md",
@@ -831,22 +1136,44 @@ def check(devteam):
     # audit skill already fixes as `T-n-<dimension>-<date>.md`, so nothing is
     # read out of prose.
     audits_dir = os.path.join(devteam, "audits")
+    closed = lambda t: (t in tasks and (tasks[t][2].split() or [""])[0].strip().upper()
+                        in ("DONE", "ACCEPTED"))
     if os.path.isdir(audits_dir):
         for name in sorted(os.listdir(audits_dir)):
             m = AUDIT_FILE.match(name)
             if not m:
+                # A file NAMING a closed task in another form, and holding
+                # findings, cannot be tied to that task, so whether they are
+                # open is never asked (L-1.3). Nothing is inferred from the
+                # name; the file is named as not evaluated. pricelog's step
+                # audit, `pricelog-T-18-S-4-2026-09-17.md`, is one.
+                named = re.search(r"\bT-(\d+)\b", name)
+                if name.endswith(".md") and named and closed(f"T-{named.group(1)}"):
+                    with open(os.path.join(audits_dir, name), encoding="utf-8",
+                              errors="replace") as fh:
+                        headings = sum(1 for line in fh if AUDIT_HEADING_ISH.match(line))
+                    if headings:
+                        gaps.append((f"audits/{name}", f"names T-{named.group(1)} and holds "
+                                     f"{headings} finding heading(s), but is not named "
+                                     "`T-n-<dimension>-<date>.md`, so open-finding-at-close "
+                                     "cannot tie them to the task"))
                 continue
             tid = f"T-{m.group(1)}"
-            if tid not in tasks:
+            if not closed(tid):
                 continue
             phase = (tasks[tid][2].split() or [""])[0].strip().upper()
-            if phase not in ("DONE", "ACCEPTED"):
-                continue
             rel_a = os.path.join("audits", name)
+            with open(os.path.join(audits_dir, name), encoding="utf-8", errors="replace") as fh:
+                audit = fh.read().split("\n")
+            offered = [n for n, line in enumerate(audit, 1) if AUDIT_HEADING_ISH.match(line)]
+            missed = [n for n in offered if not AUDIT_HEADING.match(audit[n - 1])]
+            if missed:
+                gaps.append((f"{rel_a}'s findings", result.unparsed(
+                    [(rel_a, n) for n in missed], len(offered), "finding headings",
+                    "`## <COR|SEC|HYG|REV|CNV>-n — <title>`",
+                    "open-finding-at-close cannot see whether they are open")))
             current, n_at, disposed = None, 0, False
-            for n, line in enumerate(
-                    open(os.path.join(audits_dir, name), encoding="utf-8",
-                         errors="replace").read().split("\n"), 1):
+            for n, line in enumerate(audit, 1):
                 h = AUDIT_HEADING.match(line)
                 if h:
                     if current and not disposed:
@@ -865,7 +1192,16 @@ def check(devteam):
                     f"the audit before the close, so this task closed over a "
                     f"finding it commissioned")
 
-    return findings, len(goals), len(reqs), len(tasks)
+    # Last, because every class above has now read whatever it reads: a field
+    # is not evaluated when it was read AND continues past its first line, and
+    # the reads are only known once they have happened.
+    number = lambda kv: int(kv[0].split("-")[1])
+    for ident, (where, fields) in sorted(reqs.items(), key=number):
+        gaps += field_gaps(ident, where, fields)
+    for ident, (where, fields, _) in sorted(tasks.items(), key=number):
+        gaps += field_gaps(ident, where, fields)
+
+    return findings, gaps, len(goals), len(reqs), len(tasks)
 
 
 AUDIT_FILE = re.compile(r"^T-(\d+)-[a-z]+-\d{4}-\d{2}-\d{2}\.md$")
@@ -942,7 +1278,7 @@ def main(argv):
         got = check(devteam)
         if got is None:
             return result.could_not_run("check_trace", f"not a git repository: {devteam}", as_json)
-        findings, ng, nr, nt = got
+        findings, gaps, ng, nr, nt = got
         res = result.Result("check_trace", os.path.relpath(devteam, os.getcwd()), width=22)
         if pre_plan:
             held = [f for f in findings if f[0] == "uncovered-requirement"]
@@ -950,6 +1286,8 @@ def main(argv):
             res.exclude("uncovered-requirement", f"--pre-plan ({len(held)} held back)")
         for kind, where, detail in findings:
             res.finding(kind, where, detail)
+        for part, reason in gaps:
+            res.gap(part, reason)
         res.count(ng, "goals")
         res.count(nr, "requirements")
         res.count(nt, "tasks")

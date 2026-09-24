@@ -36,6 +36,10 @@ sites -- bare `add(...)` and `findings.append((...))` -- because check_plugin's
 (docs/CHECKS.md). A finding reaches a Result only at the end, through
 `Result.finding`, which that parser deliberately does not match.
 
+What makes a part not evaluated when a check parses rows -- zero rows, a
+partial read, a wrapped field (L-1.3) -- is also here, at the bottom, for the
+same reason.
+
 Its control is test_result.py.
 """
 import json
@@ -173,3 +177,80 @@ def could_not_run(check, message, as_json):
                    "error": message}, sys.stdout, ensure_ascii=False)
         sys.stdout.write("\n")
     return COULD_NOT_RUN
+
+
+# --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) -----
+#
+# Every parse site counts two things: the rows its source OFFERS, by a loose
+# shape -- a table line, a list item, a field line -- and the rows its grammar
+# ACCEPTS. A row offered and not accepted makes the site not evaluated, and is
+# named by file and line; zero rows parsed from a source that offered some is
+# the same thing at its limit. A source that offers nothing is genuinely empty,
+# and clean, with its zero in the denominators. A field whose value continues
+# past its first physical line, where the check reads only that line, is not
+# evaluated either, and the field is named.
+#
+# The loose shapes are each check's, because each reads a different grammar.
+# What is shared is below: what counts as a continuation, and how an unparsed
+# row is named, so the three cases read the same in every check (P-34).
+# Reading continuation lines is 0.3.2's work; this only makes each gap visible.
+
+_BLOCK_START = re.compile(r"^(?:[-*+]\s|\d+[.)]\s|#|\||>|```|~~~)")
+
+
+def continuation(lines, i):
+    """0-based indices of the lines that continue the list item at `lines[i]`.
+
+    CommonMark's rule, cut to what these documents use. An indented line
+    belongs to the item, after a blank line too, because that is how a nested
+    list or a second paragraph is written. An unindented line belongs to it
+    only as a lazy continuation: immediately after, and only when it does not
+    open a block of its own.
+    """
+    out, j, blank = [], i + 1, False
+    while j < len(lines):
+        line = lines[j]
+        if not line.strip():
+            blank = True
+        elif line[:1] in (" ", "\t"):
+            out.append(j)
+            blank = False
+        elif not blank and not _BLOCK_START.match(line):
+            out.append(j)
+        else:
+            break
+        j += 1
+    return out
+
+
+def anchors(rows):
+    """`(file, line)` pairs as one compact string that still names every row.
+
+    `BOARD.md:64-82` only when every line in the run is one of the rows, so a
+    range never names a line that is not.
+    """
+    by_file = {}
+    for f, n in rows:
+        by_file.setdefault(f, set()).add(n)
+    parts = []
+    for f in sorted(by_file):
+        ns, runs = sorted(by_file[f]), []
+        for n in ns:
+            if runs and n == runs[-1][1] + 1:
+                runs[-1][1] = n
+            else:
+                runs.append([n, n])
+        parts.append(f"{f}:" + ", ".join(f"{a}" if a == b else f"{a}-{b}" for a, b in runs))
+    return "; ".join(parts)
+
+
+def unparsed(rows, offered, what, grammar, consequence=""):
+    """The reason a parse site is not evaluated, naming each row it missed."""
+    return (f"{len(rows)} of {offered} {what} do not parse as {grammar}"
+            + (f", so {consequence}" if consequence else "")
+            + f" ({anchors(rows)})")
+
+
+def wrapped(where, check):
+    """The reason a field is not evaluated: it continues past the line read."""
+    return f"{where} continues past its first line, and {check} reads only the first"

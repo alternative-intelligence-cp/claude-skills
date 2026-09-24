@@ -132,7 +132,36 @@ def main():
     check("fp-emit-lines-for-a-clean-run", code == 0 and out.getvalue() == "devteam: clean  [3 tasks]\n",
           out.getvalue())
 
-    fp = sum(1 for c in CASES if c[0].startswith("fp-")) + 1
+    # --- L-1.3's shared helpers: what continues a field, and how a row is named
+    # Each check applies these, so a defect here is a wrapped field or an
+    # unparsed row that every check misses at once.
+    doc = ["- **Discharges.** R-1, and R-2 once",          # 0
+           "  T-2's README exists",                         # 1  indented
+           "lazily continued",                              # 2  lazy, no blank
+           "",                                              # 3
+           "  a second paragraph of the item",              # 4  indented after blank
+           "",                                              # 5
+           "Prose after the list."]                         # 6  unindented after blank
+    got = result.continuation(doc, 0)
+    check("continuation-takes-indented-lazy-and-indented-after-a-blank",
+          got == [1, 2, 4], got)
+    for name, following in (("a-new-list-item", "- **Next.** x"), ("a-heading", "## Steps"),
+                            ("a-table-row", "| a | b |"), ("a-numbered-item", "1. first")):
+        got = result.continuation(["- **Gate.** it works.", following], 0)
+        check(f"fp-continuation-stops-at-{name}", got == [], got)
+    got = result.continuation(["- **Status.** open", "", "Prose."], 0)
+    check("fp-continuation-stops-at-unindented-prose-after-a-blank", got == [], got)
+
+    got = result.anchors([("BOARD.md", n) for n in (64, 65, 66, 70)] + [("a.md", 3)])
+    check("anchors-compress-only-a-run-every-line-of-which-is-a-row",
+          got == "BOARD.md:64-66, 70; a.md:3", got)
+    got = result.unparsed([("BOARD.md", 64), ("BOARD.md", 65)], 20, "rows", "`| T-n |`",
+                          "board-drift compared nothing for them")
+    check("unparsed-names-the-count-the-grammar-and-every-row",
+          got == "2 of 20 rows do not parse as `| T-n |`, so board-drift compared "
+                 "nothing for them (BOARD.md:64-65)", got)
+
+    fp = sum(1 for c in CASES if c[0].startswith("fp-")) + 1 + 5
     total = passed + failed
     print(f"\nresult control: {passed} passed, {failed} failed, {total} cases "
           f"({fp} of them false-positive controls, {100 * fp // total}%)")

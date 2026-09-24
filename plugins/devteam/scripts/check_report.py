@@ -93,16 +93,39 @@ SCOPE_FIELD = re.compile(r"^-\s+\*\*Scope\.\*\*\s*(.*)$")
 SCOPE_ITEM = re.compile(r"^\s+-\s+`?([^`\s]+)`?\s*$")
 ANY_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]")
 
+# --- what the task file OFFERS (roadmap 0.3.1, L-1.3) ----------------------
+# The grammar above says what parses; these say what was written in each
+# shape, so a row the grammar misses is named instead of passed over.
+TITLE_ISH = re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])")
+# A REPORT line naming a task -- `REPORT tester T-18.S-4-pre`, `REPORT auditor
+# T-18 (re-run)` -- whatever follows. Prose that merely begins with the word
+# ("REPORT block above …") names no task and is not offered.
+HEADER_ISH = re.compile(r"^REPORT\s+\S+\s+(T-\d+)")
+# A REPORT field as a writer would write one, annotation and all: F-88's
+# `checks (all run by the supervisor…):` ended the parse, and every field
+# after it read as missing. Only the grammar's own keys: prose after a block
+# ends is full of `landing:` and `anchor:`, and pricelog's T-6, T-11 and T-13
+# each have one -- measured as false gaps with any lowercase key allowed.
+KEY_ISH = re.compile(r"^(" + "|".join(map(re.escape, REQUIRED)) + r")\s*(?:\([^)]*\)\s*)?:")
+SCOPE_ITEMISH = re.compile(r"^\s+[-*+]\s+\S")
+CONTAINMENT_ISH = re.compile(r"^\|\s*[*`_]*\s*containment\b", re.I)
 
-def task_scope(devteam, task_id):
-    """The paths a task declares it writes, relative to the project root."""
+
+def task_scope(devteam, task_id, unparsed=None):
+    """The paths a task declares it writes, relative to the project root.
+
+    `unparsed`, when given, collects the 1-based line of each list item under
+    `Scope.` that does not parse as a path -- one such item used to be
+    skipped here in silence, so `dirty-tree` and `unfinished-scope` never
+    looked at what it named.
+    """
     try:
         lines = open(os.path.join(devteam, "tasks", f"{task_id}.md"),
                      encoding="utf-8", errors="replace").read().split("\n")
     except OSError:
         return []
     out, collecting = [], False
-    for line in lines:
+    for n, line in enumerate(lines, 1):
         if SCOPE_FIELD.match(line):
             collecting = True
             continue
@@ -111,12 +134,16 @@ def task_scope(devteam, task_id):
             if m:
                 out.append(m.group(1).strip("`"))
                 continue
+            if SCOPE_ITEMISH.match(line):
+                if unparsed is not None:
+                    unparsed.append(n)
+                continue
             if line.strip() and (ANY_FIELD.match(line) or line.startswith("#")):
                 break
     return [p for p in out if p and "<" not in p]
 
 
-def parse_report(lines, task_id=None, step_id=None):
+def parse_report(lines, task_id=None, step_id=None, where=None):
     """The last REPORT block FOR THIS TASK, as (role, task, step, fields).
 
     Not simply the last block in the file. A supervisor's record holds its
@@ -125,6 +152,10 @@ def parse_report(lines, task_id=None, step_id=None):
     of the supervisor's -- so a supervisor could not satisfy P-16 and P-17 at
     once. Prefer the last block whose id is exactly the task, and fall back to
     the last block of any kind so a step report can still be checked directly.
+
+    `where`, when given, is filled with what the parse did NOT read (roadmap
+    0.3.1, L-1.3): `start` and `stop`, the 0-based lines of the header and of
+    the line the field parse stopped at, and `lines`, each key's line.
     """
     starts = [i for i, l in enumerate(lines) if HEADER.match(l)]
     if not starts:
@@ -137,20 +168,24 @@ def parse_report(lines, task_id=None, step_id=None):
         if own:
             i = own[-1]
     m = HEADER.match(lines[i])
-    fields, key = {}, None
-    for line in lines[i + 1:]:
+    fields, key, at, stop = {}, None, {}, None
+    for j, line in enumerate(lines[i + 1:], i + 1):
         if HEADER.match(line) or line.startswith("#"):
             break
         k = KEY.match(line)
         if k:
             key = k.group(1)
             fields[key] = [k.group(2)] if k.group(2) else []
+            at[key] = j
         elif key is not None and line.startswith((" ", "\t")) and line.strip():
             fields[key].append(line.strip())
         elif not line.strip():
             continue
         else:
+            stop = j
             break
+    if where is not None:
+        where.update(start=i, stop=stop, lines=at)
     return m.group(1), m.group(2), m.group(3), fields
 
 
@@ -205,21 +240,26 @@ CONTAINMENT = re.compile(r"^\|\s*Containment\s*\|\s*`?(structural|guard-only)`?(
 
 
 def charter_containment(devteam):
-    """`structural`, `guard-only`, or None when the charter declares neither.
+    """(`structural`, `guard-only` or None, the line of a row that did not parse).
 
     Read from the charter's own row (FORMATS.md, charter `Containment`), because
     only a DECLARATION may exclude the harness comparison (roadmap 0.3.1,
-    L-1.2). An unfilled template cell starts with `<` and declares nothing.
+    L-1.2). A row that does not parse -- `guard only`, say, or the template's
+    unfilled `<…>` cell, which `setup` fills -- declares nothing, and is named,
+    because a reader of the charter sees a Containment row there (L-1.3).
     """
+    unparsed = None
     try:
         with open(os.path.join(devteam, "CHARTER.md"), encoding="utf-8", errors="replace") as fh:
-            for line in fh:
+            for n, line in enumerate(fh, 1):
                 m = CONTAINMENT.match(line)
                 if m:
-                    return m.group(1)
+                    return m.group(1), None
+                if CONTAINMENT_ISH.match(line) and unparsed is None:
+                    unparsed = n
     except OSError:
         pass
-    return None
+    return None, unparsed
 
 
 def harness_budget(repo, task_id):
@@ -289,12 +329,45 @@ def check(project, want_id):
     if not any(RECORD_HEADING.match(l) for l in lines):
         add("no-report", "the task file has no `## Execution record` section")
 
-    parsed = parse_report(lines, task_id, step_id)
+    task_rel = f"tasks/{task_id}.md"
+    where = {}
+    parsed = parse_report(lines, task_id, step_id, where)
+    # A REPORT header naming this task that HEADER cannot read, after the
+    # block that was read -- or anywhere, when none was: F-34's shape, where
+    # the check read an earlier block and a later report went unseen.
+    after = where.get("start", -1)
+    headers = [j + 1 for j, l in enumerate(lines)
+               if (h := HEADER_ISH.match(l)) and h.group(1) == task_id
+               and not HEADER.match(l) and j > after]
+    if headers:
+        gaps.append(("the REPORT blocks", result.unparsed(
+            [(task_rel, n) for n in headers], len(headers), f"REPORT lines naming {task_id} "
+            "after the block read", "`REPORT <role> T-n[.S-m]`",
+            "a later report may have been passed over (F-34)"), False))
     if parsed is None:
         add("no-report", "no REPORT block in the execution record")
         return outcome()
 
     _role, reported_task, reported_step, fields = parsed
+    # The field parse stops at the first line it cannot read (F-88). A field
+    # of this block's grammar that it had not yet read, at or after that
+    # point and before the block's end, was offered and never read.
+    if where.get("stop") is not None:
+        rest = []
+        for j in range(where["stop"], len(lines)):
+            if HEADER.match(lines[j]) or HEADER_ISH.match(lines[j]) or lines[j].startswith("#"):
+                break
+            k = KEY_ISH.match(lines[j])
+            if k and k.group(1) not in fields:
+                rest.append(j + 1)
+        if rest:
+            gaps.append(("the REPORT block", f"{task_rel}:{where['stop'] + 1} does not parse as "
+                         f"`<key>: <value>` or an indented continuation, and {len(rest)} field "
+                         f"line(s) from there on were not read ({result.anchors([(task_rel, n) for n in rest])}) "
+                         "(F-88)", False))
+    if len(fields.get("status") or []) > 1:
+        gaps.append(("the report's status", result.wrapped(
+            f"{task_rel}:{where['lines']['status'] + 1} `status:`", "check_report"), False))
     found = f"{reported_task}.{reported_step}" if reported_step else reported_task
     # Asking for a task and finding only one of its steps is a mid-flight
     # state, not a wrong report: the task has simply not reported yet, and the
@@ -334,11 +407,24 @@ def check(project, want_id):
                                "a requirement is discharged by evidence, never by assertion")
     elif status and not is_step and title_status and title_status.startswith("DONE"):
         add("status-mismatch", f"status {status} but the title says {title_status!r}")
+    # The comparison above needs the title, and a title that does not parse
+    # left it silently unmade (L-1.3).
+    if status and not is_step and title_status is None:
+        offered = [n for n, l in enumerate(lines, 1) if TITLE_ISH.match(l)]
+        gaps.append(("status-mismatch", (
+            f"{task_rel}:{offered[0]} does not parse as `# T-n — <title> — <status>`"
+            if offered else f"{task_rel} has no title line")
+            + ", so the report's status was compared against no title", False))
 
+    # NO REPOSITORY IS "COULD NOT RUN" (roadmap 0.3.1, L-1.1). This branch
+    # returned the bare findings list after 0.3.1's step 3.1 made every other
+    # return a (findings, gaps, excluded) triple, so a project that is not a
+    # git repository ended in a traceback -- none of the four results. It was
+    # a `no-file` finding before that, which the rule for that class (the
+    # task id against `tasks/`) never covered.
     rc, _ = git(repo, "rev-parse", "--git-dir")
     if rc != 0:
-        add("no-file", f"{repo} is not a git repository")
-        return findings
+        return None
 
     # A commit may be named by hash OR by subject. A report is committed in
     # the same commit as the work (P-16), so that commit's own hash cannot be
@@ -375,7 +461,13 @@ def check(project, want_id):
         # made a clean close unreachable from inside the task whenever the
         # manager happened to have an uncommitted file of its own. That is a
         # check nobody can satisfy, which is a check that gets ignored (P-35).
-        scope = task_scope(devteam, task_id) + [f"devteam/tasks/{task_id}.md"]
+        unread = []
+        scope = task_scope(devteam, task_id, unread) + [f"devteam/tasks/{task_id}.md"]
+        if unread:
+            gaps.append(("dirty-tree and unfinished-scope", f"{len(unread)} list item(s) "
+                         "under Scope. do not parse as a path, so neither class looked at "
+                         f"what they name ({result.anchors([(f'tasks/{task_id}.md', n) for n in unread])})",
+                         False))
         rc, paths = status_paths(repo)
         if rc == 0 and paths:
             mine = [p for p in paths
@@ -402,7 +494,11 @@ def check(project, want_id):
                                for l in log.split("\n")):
             add("head-subject", f"no commit's subject begins with {task_id}")
 
-    containment = charter_containment(devteam)
+    containment, bad_row = charter_containment(devteam)
+    if bad_row:
+        gaps.append(("the charter's Containment row", f"CHARTER.md:{bad_row} does not parse "
+                     "as `| Containment | structural or guard-only |`, so it declared no "
+                     "exclusion", False))
     harness, missing = (None, None) if containment == "guard-only" else harness_budget(repo, task_id)
     if containment == "guard-only":
         excluded.append(("budget-mismatch and model-mismatch",
@@ -433,15 +529,28 @@ def check(project, want_id):
         # Tokens get 10% and minutes 20%, because the worker is estimating a
         # number it genuinely cannot read, and a tolerance tight enough to fire
         # on honest rounding is one that gets ignored.
+        unreadable = []
         for field, tol, scale in (("tokens", 0.10, 1), ("minutes", 0.20, 1)):
             claimed = report_budget(one("budget"), field)
             actual = harness.get(field)
+            if claimed is None and actual:
+                # The harness has a figure and the report gives none this can
+                # read: F-32's hedged `tokens=~N`, or no figure at all. The
+                # comparison was not made, and that used to read as clean
+                # (L-1.3). Reading `~N` as approximate is 0.3.2's.
+                said = re.search(rf"\b{field}\s*=\s*(\S+)", one("budget"))
+                unreadable.append(f"{field} as `{said.group(1)}`, which is not a number"
+                                  if said else f"no {field}= figure")
             if claimed is None or not actual:
                 continue
             if abs(claimed - actual) > tol * abs(actual):
                 add("budget-mismatch",
                     f"the report says {field}={claimed:g} and the harness "
                     f"metered {actual:g} ({tol:.0%} tolerance)")
+        if unreadable:
+            gaps.append(("budget-mismatch", f"the report's `budget:` gives "
+                         f"{' and '.join(unreadable)}, so it was not compared with "
+                         "the harness's figure (F-32)", True))
 
     return outcome()
 
@@ -482,7 +591,10 @@ def main(argv):
     project, task_id = os.path.realpath(argv[1]), argv[2]
     if not re.fullmatch(r"T-\d+(\.S-\d+)?", task_id):
         return result.could_not_run("check_report", f"{task_id!r} is not a task or step id", as_json)
-    findings, gaps, excluded = check(project, task_id)
+    got = check(project, task_id)
+    if got is None:
+        return result.could_not_run("check_report", f"not a git repository: {project}", as_json)
+    findings, gaps, excluded = got
     res = result.Result("check_report", task_id, width=18)
     res.blocking_only = blocking_only
     anchor = f"tasks/{task_id.partition('.')[0]}.md"

@@ -303,6 +303,23 @@ def main():
         ("an-undeclared-containment-excludes-nothing",
          {"budget": "tokens=1 minutes=1"}, False, None, set(),
          {"budget-mismatch", "model-mismatch"}, None),
+        # ...and a row whose author BELIEVES it declared something is named
+        # as well (L-1.3): `guard only` is not `guard-only`.
+        ("a-containment-row-that-does-not-parse-is-named",
+         {"budget": "tokens=1 minutes=1"}, False, None, set(),
+         {"budget-mismatch", "model-mismatch", "the charter's Containment row"}, "guard only"),
+        # F-32's hedged figure: the harness has a number, the report gives
+        # `~N`, and the comparison was skipped as though it had passed.
+        ("a-hedged-budget-figure-is-not-evaluated",
+         {"budget": "tokens=~4000 minutes=9"}, True,
+         {"tokens": 4210, "minutes": 9.0, "model": "claude-opus-5"},
+         set(), {"budget-mismatch"}, "structural"),
+        # A figure split over two lines is still read whole: the budget field
+        # is joined before it is parsed.
+        ("fp-a-budget-split-over-two-lines-is-read-whole",
+         {"budget": "tokens=4210\n  minutes=9"}, True,
+         {"tokens": 4210, "minutes": 9.0, "model": "claude-opus-5"},
+         set(), set(), "structural"),
     ]
     for name, edits, sb, budget, expected, want_gaps, containment in budget_cases:
         root = tempfile.mkdtemp(prefix="devteam-report-budget-")
@@ -327,7 +344,7 @@ def main():
             proc = subprocess.run([sys.executable, CHECK, root, "T-1"],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
-            gaps = set(re.findall(r"^  not evaluated: (\S+) — ", proc.stdout, re.M))
+            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
             want_rc = 1 if expected else (3 if want_gaps else 0)
             excluded_ok = (containment != "guard-only"
                            or "excluded: budget-mismatch and model-mismatch" in proc.stdout)
@@ -427,6 +444,96 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
+    # Each case here read `clean`, or a misleading finding with nothing naming
+    # its cause, before 0.3.1. The report is inside the task file's fence, as
+    # every real one is.
+    def _task(report=REPORT, edit=lambda body: body):
+        return edit(task_file(report=report))
+
+    parse_cases = [
+        # (name, task file body, expected findings, expected parts not evaluated)
+        # ZERO ROWS: the only REPORT line does not parse, so no block is read.
+        ("zero-rows-the-only-header-carries-an-annotation",
+         _task(REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1 (re-dispatch)")),
+         {"no-report"}, {"the REPORT blocks"}),
+        # A PARTIAL READ, F-34's shape: a later report the header grammar
+        # cannot read, so the check reads the earlier one and says clean.
+        ("partial-read-a-later-header-the-grammar-cannot-read",
+         _task(REPORT + "\nREPORT implementer T-1 (second attempt)\nstatus: RED\n"),
+         set(), {"the REPORT blocks"}),
+        # F-88's shape: an annotated key ends the field parse, and every field
+        # after it reads as missing with nothing naming the line.
+        ("partial-read-an-annotated-key-ends-the-parse",
+         _task(REPORT.replace("checks:", "checks (all run by the supervisor):")),
+         {"missing-field", "no-evidence"}, {"the REPORT block"}),
+        ("partial-read-a-scope-item-with-its-reason-inline",
+         _task(edit=lambda b: b.replace("  - `src/`\n", "  - `src/`\n  - `docs/` — for the notes\n")),
+         set(), {"dirty-tree and unfinished-scope"}),
+        ("partial-read-a-title-without-separators",
+         _task(edit=lambda b: b.replace("# T-1 — make it work — DONE (2026-09-03)",
+                                        "# T-1 make it work DONE")),
+         set(), {"status-mismatch"}),
+        # A WRAPPED FIELD: `status:` read from its first line only.
+        ("wrapped-field-a-status-that-continues",
+         _task(REPORT.replace("status: DONE", "status: DONE\n  (after the re-run)")),
+         set(), {"the report's status"}),
+        # ...and what must stay CLEAN.
+        # A status given wholly on its own continuation line is read whole.
+        ("fp-a-status-on-its-own-line-is-read-whole",
+         _task(REPORT.replace("status: DONE", "status:\n  DONE")), set(), set()),
+        # Prose after a finished block, full of lowercase words and colons,
+        # offers no REPORT field -- pricelog's T-6, T-11 and T-13 each have one.
+        ("fp-prose-after-a-finished-block-is-not-its-fields",
+         _task(REPORT + "\nSUPERVISOR NOTE — reproduced before\nlanding: the refusal line\n"
+                        "anchor: the canonical one\n"), set(), set()),
+        # A malformed header BEFORE the block read cannot hide a later report
+        # -- pricelog's `REPORT tester T-18.S-4-pre` is this.
+        ("fp-a-malformed-header-before-the-block-read",
+         _task("REPORT tester T-1.S-4-pre\nstatus: DONE\n\n" + REPORT), set(), set()),
+    ]
+    for name, body, expected, want_gaps in parse_cases:
+        root = tempfile.mkdtemp(prefix="devteam-report-parse-")
+        try:
+            build(root, body)
+            proc = subprocess.run([sys.executable, CHECK, root, "T-1"],
+                                  capture_output=True, text=True)
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
+            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            want_rc = 1 if expected else (3 if want_gaps else 0)
+            if got == expected and gaps == want_gaps and proc.returncode == want_rc:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected {sorted(expected) or 'clean'}, not evaluated "
+                      f"{sorted(want_gaps) or 'nothing'}, exit {want_rc}")
+                print(f"        got      {sorted(got) or 'clean'}, not evaluated "
+                      f"{sorted(gaps) or 'nothing'}, exit {proc.returncode}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n"):
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # NO REPOSITORY IS COULD-NOT-RUN (L-1.1), and it used to be a traceback:
+    # step 3.1 made every return of check() a triple except this one.
+    root = tempfile.mkdtemp(prefix="devteam-report-nogit-")
+    try:
+        build(root, task_file())
+        shutil.rmtree(os.path.join(root, ".git"))
+        proc = subprocess.run([sys.executable, CHECK, root, "T-1"], capture_output=True, text=True)
+        if proc.returncode == 2 and "Traceback" not in proc.stderr and not proc.stdout.strip():
+            passed += 1
+        else:
+            failed += 1
+            print("FAIL  no-repository-is-could-not-run-not-a-traceback")
+            for line in (proc.stdout + proc.stderr).strip().split("\n")[-4:]:
+                print(f"        | {line}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    parse_cases.append(("no-repository-is-could-not-run-not-a-traceback",))
+
+    CASES.extend([(c[0],) for c in parse_cases])
     CASES.extend([(c[0],) for c in blocking_cases])
     fp = (sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
           + sum(1 for c in budget_cases if c[0].startswith("fp-")))

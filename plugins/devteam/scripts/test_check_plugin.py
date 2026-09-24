@@ -432,6 +432,83 @@ unknown-rule  skills/alpha/SKILL.md  cites P-99, which PROTOCOL.md does not decl
     # names: a thing exempted from a checker for its own protection is a thing
     # the checker cannot see. Here the fenced P-99 is quoted and the prose
     # P-96 four lines later is a real citation, in ONE file.
+    # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
+    # A fourth element names the parts the case plants NOT EVALUATED. Each
+    # used to be silence inside a clean line.
+    #
+    # ZERO ROWS: a prefix table whose every row is outside the grammar, so
+    # namespace-drift compared two lists, one of them empty, and found nothing.
+    ("zero-rows-a-prefix-table-that-parses-to-nothing",
+     lambda p: w(p, "templates/FORMATS.md",
+                 FORMATS.replace("`R-`", "`r-`").replace("`T-`", "`t-`").replace("`P-`", "`p-`")),
+     set(), {"namespace-drift"}),
+    # ...and a FORMATS.md with no prefix table at all offers no row, and one
+    # side of the comparison is still empty.
+    ("zero-rows-no-prefix-table-at-all",
+     lambda p: w(p, "templates/FORMATS.md", "# The formats\n\nThe table moved.\n"),
+     set(), {"namespace-drift"}),
+    # A PARTIAL READ: one class row whose name the grammar rejects, and a
+    # source heading written without its backticks, whose rows were dropped.
+    ("partial-read-a-class-row-the-grammar-rejects",
+     lambda p: w(p, "docs/CHECKS.md",
+                 checks_md(p, extra_rows="| `Bad_Class` | P-1 | x ↔ y | `enforces` |\n")),
+     set(), {"unruled-finding and stale-row"}),
+    ("partial-read-a-source-heading-without-backticks",
+     lambda p: w(p, "docs/CHECKS.md", checks_md(p).replace(
+         "## `check_plugin.py`", "## check_plugin.py")),
+     {"unruled-finding"}, {"unruled-finding and stale-row"}),
+    ("partial-read-a-subcycle-named-outside-the-grammar",
+     lambda p: roadmap(p, {"0.3/0.3.1-notes.md": "# 0.3.1 notes — PLANNED"}),
+     set(), {"meta/roadmap/0.3/0.3.1-notes.md"}),
+    ("partial-read-a-root-row-without-backticks",
+     lambda p: (root_tree(p, BARE_ROOT),
+                open(os.path.join(p, "..", "..", "README.md"), "a",
+                     encoding="utf-8").write("| LICENSE | no backticks |\n")),
+     set(), {"the root-table checks"}),
+    ("an-emitter-gone-with-its-rows-still-in-the-table",
+     lambda p: os.remove(os.path.join(p, "scripts", "check_refs.py")),
+     set(), {"stale-row for check_refs.py", "namespace-drift"}),
+    # A WRAPPED FIELD: `skills:` as a YAML block list is read from its first
+    # line only. The finding is that old reading's artifact, and the gap
+    # names its cause.
+    ("wrapped-field-skills-as-a-block-list",
+     lambda p: w(p, "agents/runner.md",
+                 AGENT.format(name="runner", skills="alpha").replace("skills: [alpha]",
+                                                                     "skills:\n  - alpha")),
+     {"missing-skill"}, {"agents/runner.md's skills:"}),
+    # A RULE NUMBER MAY CARRY A LETTER (the owner's answer, 2026-09-24). The
+    # twelve suffixed rules were invisible both ways -- declared nothing,
+    # cited nothing -- so a citation of one that does not exist passed.
+    ("unknown-rule-for-a-suffixed-rule-nobody-declared",
+     lambda p: w(p, "skills/alpha/SKILL.md", SKILL.format(name="alpha") + "\nThis refines P-2b.\n"),
+     {"unknown-rule"}),
+    ("fp-a-declared-suffixed-rule-is-cited-cleanly",
+     lambda p: (w(p, "PROTOCOL.md", PROTOCOL + "\n**P-2b — a refinement of P-2.** Because.\n"),
+                w(p, "skills/alpha/SKILL.md", SKILL.format(name="alpha") + "\nThis refines P-2b.\n")),
+     set()),
+    # A line numbering a rule that declares nothing, and whose rule nothing
+    # else declares: offered, not read. Its own number then reads as a
+    # citation of an undeclared rule -- the finding; the gap names the line.
+    ("partial-read-a-rule-line-that-declares-nothing",
+     lambda p: w(p, "PROTOCOL.md", PROTOCOL + "\n**P-3: a third rule.** Because.\n"),
+     {"unknown-rule"}, {"PROTOCOL.md's rules"}),
+    ("fp-a-note-about-a-declared-rule-is-not-a-declaration",
+     lambda p: w(p, "PROTOCOL.md", PROTOCOL + "\n**P-2's text stands unedited** for the host.\n"),
+     set()),
+    # ...and what must stay quiet.
+    ("fp-a-folded-description-is-not-a-wrapped-skills-field",
+     lambda p: w(p, "agents/runner.md",
+                 AGENT.format(name="runner", skills="alpha").replace(
+                     "description: A fixture agent.", "description: >\n  A fixture agent.")),
+     set()),
+    ("fp-a-prose-table-under-another-heading-offers-no-class",
+     lambda p: w(p, "docs/CHECKS.md", checks_md(p, extra_rows=(
+         "\n## Coverage\n\n| Control | Cases |\n|---|---|\n| `test_x` | 12 |\n"))),
+     set()),
+    ("fp-a-cycle-readme-is-not-a-subcycle",
+     lambda p: roadmap(p, {"0.3/README.md": "# The cycle"}),
+     set()),
+
     ("unknown-rule-still-fires-in-prose-below-an-exempt-fence",
      lambda p: w(p, "skills/alpha/SKILL.md", SKILL.format(name="alpha") + '''
 ```
@@ -446,7 +523,11 @@ This step is required by P-96.
 
 def main():
     passed = failed = 0
-    for name, mutate, expected in CASES:
+    for case in CASES:
+        name, mutate, expected = case[:3]
+        # Parts a case plants NOT EVALUATED, on top of what the fixture itself
+        # cannot exercise (roadmap 0.3.1, L-1.3).
+        planted = case[3] if len(case) > 3 else set()
         root, plugin = build(mutate)
         try:
             proc = subprocess.run(
@@ -467,6 +548,7 @@ def main():
                 want_gaps.add("the root-table checks")
             if not os.path.isdir(os.path.join(plugin, "docs")):
                 want_gaps.add("unruled-finding and stale-row")
+            want_gaps |= planted
             want_exit = 1 if expected else 3
             if got == expected and gaps == want_gaps and proc.returncode == want_exit:
                 passed += 1
@@ -480,7 +562,82 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
-    fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
+    # --- THE TEMPLATE CHECKS, RUN (roadmap 0.3.1, found at step 3.1) --------
+    # Every case above is a partial plugin with no setup.py, so the template
+    # checks never ran in this control: `template-ships-a-finding` and
+    # `template-scaffold-fails` were planted nowhere, and the CASES loop has no
+    # clean case at all -- each expects a part not evaluated. A fixture that
+    # can scaffold has to carry the real scaffolder, the real templates, and
+    # every rule and script they cite, so it is the WHOLE plugin, copied under
+    # a throwaway repository root with its root table. Nothing is planted in
+    # the shipped tree.
+    def whole_plugin():
+        root = os.path.realpath(tempfile.mkdtemp(prefix="devteam-plugincheck-whole-"))
+        plugin = os.path.join(root, "plugins", "devteam")
+        # meta/ comes too: the plugin's README and docs link into it, and a
+        # copy without it is a plugin with broken links. So these cases are
+        # green only while check_plugin is clean on the real plugin -- which
+        # every step's commit requires anyway, and a failure here shows the
+        # same finding.
+        shutil.copytree(os.path.dirname(HERE), plugin,
+                        ignore=shutil.ignore_patterns("__pycache__", ".run"))
+        shutil.copy2(REAL, os.path.join(plugin, "scripts", "check_plugin.py"))
+        return root, plugin
+
+    def append_to(rel, text):
+        return lambda p: open(os.path.join(p, rel), "a", encoding="utf-8").write(text)
+
+    scaffold_cases = [
+        # (name, plant, expected findings, expected parts not evaluated)
+        ("clean-a-whole-plugin-scaffolds-a-clean-project", None, set(), set()),
+        # A template citing something no scaffolded project declares: the
+        # class 0.2.4 built this check for (`F-100`, `in-progress (T-2, T-5)`).
+        ("template-ships-a-finding",
+         append_to("templates/REQUIREMENTS.md", "\nSee R-99 for why.\n"),
+         {"template-ships-a-finding"}, set()),
+        ("template-scaffold-fails",
+         lambda p: open(os.path.join(p, "scripts", "setup.py"), "w").write(
+             "import sys\nsys.exit('refusing to scaffold')\n"),
+         {"template-scaffold-fails"}, set()),
+        # The scaffold's check_refs exits non-zero and prints nothing to read:
+        # that was taken as no finding, so the scaffold was never shown clean
+        # (L-1.3). Its source is unchanged, so the class scanner still reads it.
+        ("a-scaffold-check-that-says-nothing-is-not-evaluated",
+         lambda p: open(os.path.join(p, "scripts", "check_refs.py"), "w").write(
+             "import sys\nif __name__ == '__main__':\n    sys.exit(2)\n"
+             + open(os.path.join(HERE, "check_refs.py"), encoding="utf-8").read()),
+         set(), {"the template checks"}),
+    ]
+    for name, plant, expected, want_gaps in scaffold_cases:
+        root, plugin = whole_plugin()
+        try:
+            if plant:
+                plant(plugin)
+            # The plugin's README links to the repository's LICENSE, so the
+            # throwaway root carries one, and lists it.
+            root_tree(plugin, BARE_ROOT + ["LICENSE"], tracked=["LICENSE"])
+            proc = subprocess.run(
+                [sys.executable, os.path.join(plugin, "scripts", "check_plugin.py")],
+                capture_output=True, text=True)
+            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
+            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            want_exit = 1 if expected else (3 if want_gaps else 0)
+            if got == expected and gaps == want_gaps and proc.returncode == want_exit:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected {sorted(expected) or 'clean'} not evaluated "
+                      f"{sorted(want_gaps) or 'none'} exit {want_exit}")
+                print(f"        got      {sorted(got) or 'clean'} not evaluated "
+                      f"{sorted(gaps) or 'none'} exit {proc.returncode}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n")[:8]:
+                    print(f"        | {line[:200]}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+    CASES.extend([(c[0],) for c in scaffold_cases])
+
+    fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0].startswith("clean"))
     print(f"\ncheck_plugin control: {passed} passed, {failed} failed, "
           f"{len(CASES)} cases ({fp} of them false-positive controls, "
           f"{100 * fp // len(CASES)}%)")

@@ -60,8 +60,20 @@ def git(root, *args):
     return p.returncode, p.stdout
 
 
-def load_tasks(devteam):
-    """{T-n: (relpath, status, [scope entries])} for every tracked task file."""
+# What a task file OFFERS (roadmap 0.3.1, L-1.3). A title-shaped line that
+# TITLE rejects -- a step's heading in an execution record is prose, not one.
+TITLE_ISH = re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])")
+
+
+def load_tasks(devteam, gaps=None):
+    """{T-n: (relpath, status, [scope entries])} for every tracked task file.
+
+    `gaps`, when given, collects (part, reason) for what a file offered and
+    this did not read: a task whose title does not parse -- it was dropped
+    from every comparison in silence, and a RUNNING one with it, so an
+    overlap with it could not be seen -- and an inline `Scope.` value that
+    continues past its line.
+    """
     rc, out = git(devteam, "ls-files", "-z", "--", "tasks/*.md")
     if rc != 0:
         return None
@@ -84,6 +96,13 @@ def load_tasks(devteam):
                 inline = SCOPE_FIELD.match(line).group(1).strip()
                 if inline and not PLACEHOLDER.search(inline):
                     scope.append(inline.strip("`"))
+                    # An inline value is one entry; a line continuing it that
+                    # is not a list item was never read.
+                    more = [j for j in result.continuation(lines, n - 1)
+                            if not SCOPE_ITEMISH.match(lines[j])]
+                    if more and gaps is not None:
+                        gaps.append((f"{rel}'s Scope.", result.wrapped(
+                            f"{rel}:{n}", "check_scope")))
                 continue
             if collecting:
                 item = SCOPE_ITEM.match(line)
@@ -97,6 +116,13 @@ def load_tasks(devteam):
                     collecting = False
         if ident:
             tasks[ident] = (rel, status or "", scope)
+        elif gaps is not None:
+            offered = [n for n, line in enumerate(lines, 1) if TITLE_ISH.match(line)]
+            if offered or os.path.basename(rel).startswith("T-"):
+                gaps.append((f"{rel}'s title", (
+                    f"{rel}:{offered[0]} does not parse as `# T-n — <title> — <status>`"
+                    if offered else f"{rel} has no title line")
+                    + ", so its scope and state were in no comparison"))
     return tasks, unparsed
 
 
@@ -146,7 +172,8 @@ def check(project, task_id=None):
     repo = os.path.dirname(devteam)
     if not os.path.isdir(devteam):
         return None
-    loaded = load_tasks(devteam)
+    gaps = []  # (part, reason): parts not evaluated (roadmap 0.3.1, L-1.3)
+    loaded = load_tasks(devteam, gaps)
     if loaded is None:
         return None
     tasks, unparsed = loaded
@@ -309,6 +336,12 @@ def check(project, task_id=None):
             seq = order.split()
             claim = max(candidates, key=lambda s: seq.index(s) if s in seq else -1)
         if not claim:
+            # A LIVE TASK WITH NO WINDOW. Nothing anchors where its claim
+            # began, so no commit was asked whether it wrote into this scope
+            # under another name -- which used to read as clean (L-1.3).
+            gaps.append((f"misattributed-write for {ident}", f"{ident} is RUNNING and "
+                         f"no `board: claim {ident}` commit or RUNNING title in "
+                         "history anchors its window"))
             continue
         # Strictly AFTER the claim. The claim commit itself creates or marks the
         # task file, so including it charged the task with its own creation.
@@ -368,7 +401,12 @@ def check(project, task_id=None):
         # judging the whole task.
         base, _, step = task_id.partition(".")
         if base not in tasks:
-            return [("no-file", f"tasks/{base}.md", "no such task")]
+            # AN ARGUMENT THAT NAMES NO TASK IS COULD-NOT-RUN (L-1.1). This
+            # returned a bare list where the caller unpacks a triple, so it
+            # ended in a traceback; and `no-file` was never a class this check
+            # has a rule for.
+            return ("no task", f"{task_id!r} names no tracked tasks/{base}.md "
+                    "whose title parses")
         # Attribute by SUBJECT PREFIX, not by grepping the whole message.
         # `--grep T-1` also matched the manager's own `board: claim T-1` and
         # `plan: T-1 and T-2` commits and charged their paths to the task, so
@@ -381,6 +419,22 @@ def check(project, task_id=None):
                             else rf"^{re.escape(base)}(\.S-\d+)?\s*:")
         shas = [line.split("\0", 1)[0] for line in out.strip().split("\n")
                 if "\0" in line and prefix.match(line.split("\0", 1)[1])]
+        # A STEP-SHAPED subject missing its colon -- `T-3.S-2 fix` -- is a
+        # worker's commit this attribution did not read, so what it wrote was
+        # checked against nothing (L-1.3). A bare `T-3 <words>` is NOT offered:
+        # it is the manager's topic commit, which the prefix exists to leave
+        # out, and pricelog's five such subjects are all the manager's
+        # (`T-10 DONE, verified PASS -- …`), measured as false gaps.
+        loose = re.compile(rf"^{re.escape(base)}\.S-\d+\b")
+        stray = [line.split("\0", 1)[0][:7] for line in out.strip().split("\n")
+                 if "\0" in line and loose.match(line.split("\0", 1)[1])
+                 and not prefix.match(line.split("\0", 1)[1])
+                 and (not step or re.match(rf"^{re.escape(task_id)}(?!\d)",
+                                           line.split("\0", 1)[1]))]
+        if stray:
+            gaps.append((f"undeclared-write for {task_id}", f"{len(stray)} commit(s) "
+                         f"are subjected `{base}.S-m` without the colon, so what they "
+                         f"wrote was not attributed to {task_id} ({', '.join(stray)})"))
         allowed = clean[base] + [f"devteam/tasks/{base}.md"]
         seen = set()
         for sha in shas:
@@ -391,7 +445,7 @@ def check(project, task_id=None):
                 seen.add(path)
                 add("undeclared-write", tasks[base][0],
                     f"{task_id} committed {path}, which its scope does not cover")
-    return findings, len(tasks), len(live)
+    return findings, gaps, len(tasks), len(live)
 
 
 def main(argv):
@@ -404,10 +458,14 @@ def main(argv):
     got = check(os.path.realpath(argv[1]), task_id)
     if got is None:
         return result.could_not_run("check_scope", "not a devteam project, or not a git repository", as_json)
-    findings, ntasks, nlive = got
+    if got[0] == "no task":
+        return result.could_not_run("check_scope", got[1], as_json)
+    findings, gaps, ntasks, nlive = got
     res = result.Result("check_scope", "scopes" + (f" for {task_id}" if task_id else ""), width=20)
     for kind, where, detail in findings:
         res.finding(kind, where, detail)
+    for part, reason in gaps:
+        res.gap(part, reason)
     # The live count is the denominator RECORD.md:86 asked for: "a check that is
     # silent because nothing is running looks identical to a check that is
     # silent because nothing is wrong". With it on the line, they do not.

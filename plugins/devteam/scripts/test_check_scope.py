@@ -174,6 +174,67 @@ CASES = [
      {**BASE, "T-3": task("T-3", "PLANNED", ["<area>/"])}, None, [], set()),
     ("fp-blocked-task-with-scope-is-not-live",
      {**BASE, "T-3": task("T-3", "BLOCKED (Q-2)", ["src/loader/"])}, None, [], set()),
+
+    # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
+    # The ninth element names the parts expected NOT EVALUATED. Each case
+    # here used to report clean.
+    #
+    # ZERO ROWS: no title parses, so no task is in any comparison -- and both
+    # are RUNNING, over intersecting scopes.
+    ("zero-rows-no-title-parses",
+     {"T-1": task("T-1", "RUNNING (since x, y)", ["src/"]).replace("# T-1 — a task — ", "# T-1 a task "),
+      "T-2": task("T-2", "RUNNING (since x, y)", ["src/"]).replace("# T-2 — a task — ", "# T-2 a task ")},
+     None, [], set(), "T-1: the work", (), (), {"tasks/T-1.md's title", "tasks/T-2.md's title"}),
+    # A PARTIAL READ: one task dropped, and with it the overlap it has.
+    ("partial-read-one-title-does-not-parse",
+     {**BASE, "T-3": task("T-3", "RUNNING (since x, y)", ["src/loader/"]).replace(
+         "# T-3 — a task — ", "# T-3: a task — ")},
+     None, [], set(), "T-1: the work", (), (), {"tasks/T-3.md's title"}),
+    # A live task with nothing in history to anchor its claim window: its
+    # RUNNING title is in the working tree only.
+    ("partial-read-a-live-task-with-no-claim-anchor",
+     {**BASE, "T-1": task("T-1", "PLANNED", ["src/loader/"])},
+     None, [], set(), "T-1: the work", (),
+     [("devteam/tasks/T-1.md", task("T-1", "RUNNING (since x, y)", ["src/loader/"]))],
+     {"misattributed-write for T-1"}),
+    # A worker's step commit missing its colon is not attributed to the task.
+    # Inside the live scope it is already `misattributed-write`, correctly;
+    # the gap names why the task's own attribution never read it.
+    ("partial-read-a-step-commit-without-its-colon",
+     BASE, "T-1", [("src/loader/a.py", "x=1\n")], {"misattributed-write"}, "T-1.S-2 the work",
+     (), (), {"undeclared-write for T-1"}),
+    # A WRAPPED FIELD: an inline `Scope.` value is one entry, and a line
+    # continuing it was never read.
+    ("wrapped-field-an-inline-scope-that-continues",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", []).replace(
+         "- **Scope.**\n", "- **Scope.** `src/loader/`,\n  `tests/loader/`\n")},
+     None, [], set(), "T-1: the work", (), (), {"tasks/T-1.md's Scope."}),
+    # ...and what must stay CLEAN.
+    #
+    # A GENUINELY EMPTY SOURCE: nothing planned yet, only the directory's
+    # README -- which is not a task and offers no title.
+    ("fp-no-task-files-yet-is-clean",
+     {"README": "# Tasks\n\nOne file per task, named `T-1.md`.\n"}, None, [], set()),
+    # A MULTI-LINE LIST FIELD THIS CHECK READS WHOLE.
+    ("fp-a-long-scope-list-is-read-whole",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)",
+                          ["src/loader/", "src/loader_util/", "tests/loader/", "docs/loader.md"])},
+     None, [], set()),
+    # The manager's own topic commit names the task and is not the task's
+    # (pricelog has five: `T-10 DONE, verified PASS -- …`).
+    ("fp-a-manager-topic-commit-is-not-a-stray",
+     BASE, "T-1", [("devteam/RECORD.md", "the manager's entry\n")], set(),
+     "T-1 DONE, verified PASS"),
+    # A step's heading is not a title: a notes file in tasks/ quoting one
+    # offers no task. (The title shape is consulted only where a file's own
+    # title failed, so the heading has to be in a file with none.)
+    ("fp-a-step-heading-in-a-notes-file-is-not-a-title",
+     {**BASE, "notes": "# Notes\n\n# T-1.S-2 adversarial pass\n\nProse.\n"}, None, [], set()),
+    # An inline value FOLLOWED BY LIST ITEMS is not a wrap: the items are read.
+    ("fp-an-inline-scope-with-list-items-under-it",
+     {**BASE, "T-1": task("T-1", "RUNNING (since 2026-09-03, T1-a-1200)", []).replace(
+         "- **Scope.**\n", "- **Scope.** `src/loader/`\n  - `tests/loader/`\n")},
+     None, [], set()),
 ]
 
 
@@ -224,24 +285,45 @@ def main():
         subject = case[5] if len(case) > 5 else "T-1: the work"
         later = case[6] if len(case) > 6 else ()
         dirty = case[7] if len(case) > 7 else ()
+        want_gaps = case[8] if len(case) > 8 else set()
         root = tempfile.mkdtemp(prefix="devteam-scope-")
         try:
             build(root, tasks, writes, subject, later, dirty)
             argv = [sys.executable, CHECK, root] + ([task_id] if task_id else [])
             proc = subprocess.run(argv, capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
-            want_exit = 1 if expected else 0
-            if got == expected and proc.returncode == want_exit:
+            got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            want_exit = 1 if expected else (3 if want_gaps else 0)
+            if got == expected and got_gaps == want_gaps and proc.returncode == want_exit:
                 passed += 1
             else:
                 failed += 1
                 print(f"FAIL  {name}")
-                print(f"        expected {sorted(expected) or 'clean'} exit {want_exit}")
-                print(f"        got      {sorted(got) or 'clean'} exit {proc.returncode}")
+                print(f"        expected {sorted(expected) or 'clean'} "
+                      f"not evaluated {sorted(want_gaps) or 'none'} exit {want_exit}")
+                print(f"        got      {sorted(got) or 'clean'} "
+                      f"not evaluated {sorted(got_gaps) or 'none'} exit {proc.returncode}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n"):
                     print(f"        | {line}")
         finally:
             shutil.rmtree(root, ignore_errors=True)
+
+    # AN ARGUMENT NAMING NO TASK IS COULD-NOT-RUN (L-1.1), and it used to be
+    # a traceback: check() returned a bare list where main() unpacks a tuple.
+    root = tempfile.mkdtemp(prefix="devteam-scope-")
+    try:
+        build(root, BASE, [])
+        proc = subprocess.run([sys.executable, CHECK, root, "T-9"], capture_output=True, text=True)
+        if proc.returncode == 2 and "Traceback" not in proc.stderr and "T-9" in proc.stderr:
+            passed += 1
+        else:
+            failed += 1
+            print("FAIL  a-task-id-naming-no-task-is-could-not-run")
+            for line in (proc.stdout + proc.stderr).strip().split("\n")[-4:]:
+                print(f"        | {line}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    CASES.append(("a-task-id-naming-no-task-is-could-not-run",))
 
     fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
     print(f"\ncheck_scope control: {passed} passed, {failed} failed, "

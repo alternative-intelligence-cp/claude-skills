@@ -270,12 +270,58 @@ class CouldNotRun(Exception):
 DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
 OPEN_DISPOSITION = re.compile(r"^\**open\**\.?\s*$", re.I)
 
+# --- what each file OFFERS (roadmap 0.3.1, L-1.3) --------------------------
+# The grammar above says what parses. These say what was WRITTEN in each
+# shape, however it is punctuated, so a row the grammar misses is counted and
+# named instead of never seen.
+#
+# A declaration is offered only IN THE FILE WHERE ITS KIND IS DECLARED, and
+# only in a declaration's position -- a heading, or the bold lead of a list
+# item. A record discussing `## C-3 notes` is not a checkpoint declared wrong;
+# a `### D-5: title` in DECISIONS.md is a decision declared wrong.
+DECLARED_IN = {
+    "G": re.compile(r"^CHARTER\.md$"), "DM": re.compile(r"^CHARTER\.md$"),
+    "F": re.compile(r"^RECORD\.md$"), "R": re.compile(r"^REQUIREMENTS\.md$"),
+    "D": re.compile(r"^DECISIONS\.md$"), "Q": re.compile(r"^QUESTIONS\.md$"),
+    "T": re.compile(r"^tasks/"), "S": re.compile(r"^tasks/"),
+    "C": re.compile(r"^checkpoints/"),
+    **{p: re.compile(r"^audits/") for p in AUDIT},
+}
+DECLARATION_ISH = (
+    re.compile(r"^#{1,6}\s*([A-Z]{1,3})-?\s*(\d+)\b(?![.'’])"),
+    re.compile(r"^-\s+\*\*\s*([A-Z]{1,3})-(\d+)\b"),
+    re.compile(r"^-\s+\[[ x~]\]\s+\**\s*(S)-?(\d+)\b"),
+)
+# An audit's findings, in any of the forms pricelog's four gate audits used:
+# `## Finding 1 (…) —`, `### 1. …`, `## F-1 — HIGH —`. None is in the
+# namespace `undispositioned-finding` reads, so none was ever seen (register
+# A6, F-99), and the check said clean.
+AUDIT_FINDING_ISH = re.compile(r"^#{2,3}\s+(?:finding\s+\d+\b|\d+\.\s|[A-Z]{1,5}-\d+\b)", re.I)
+
+
+def named_field(name):
+    """A list item that NAMES this field, however it is decorated."""
+    return re.compile(r"^\s*-\s+\**\s*" + re.escape(name) + r"\s*\**\s*[.:]", re.I)
+
+
+# Each vocabulary's loose shape, in the order of VOCAB.
+VOCAB_ISH = {
+    "requirement-status": named_field("Status"),
+    "question-class": named_field("Class"),
+    "question-status": named_field("Status"),
+    "task-title": re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])"),
+    "checkpoint-verdict": re.compile(r"^#\s*C-?\s*\d+\b(?![.'’])"),
+}
+DISPOSITION_ISH = named_field("Disposition")
+
 
 def scan(files, base):
     declared, cited, findings = {}, {}, []
     step_cited = {}
     # ident -> (file:line, disposition-text-or-None) for audit findings only.
     audit_findings = {}
+    # What the files offered, for the parts not evaluated (L-1.3).
+    offered = {"declarations": [], "audit": {}, "vocab": {}, "dispositions": {}}
 
     for path in files:
         rel = os.path.relpath(path, base)
@@ -345,9 +391,32 @@ def scan(files, base):
                 if md and audit_findings.get(current_audit, (None, None))[1] is None:
                     audit_findings[current_audit] = (
                         audit_findings[current_audit][0], md.group(1))
+                # A disposition this check reads, written so it cannot be read
+                # whole: named and not parsed, or continuing past its line.
+                if DISPOSITION_ISH.match(line) and (not md or result.continuation(lines, n - 1)):
+                    offered["dispositions"].setdefault(rel, []).append(n)
 
             if not is_artifact:
                 continue
+
+            # --- what this line OFFERS (L-1.3) -------------------------------
+            relp = rel.replace(os.sep, "/")
+            for pat in DECLARATION_ISH:
+                mo = pat.match(line)
+                if mo:
+                    if mo.group(1) in DECLARED_IN and DECLARED_IN[mo.group(1)].search(relp):
+                        offered["declarations"].append((mo.group(1), mo.group(2), rel, n))
+                    break
+            if relp.startswith("audits/") and AUDIT_FINDING_ISH.match(line):
+                offered["audit"].setdefault(rel, []).append(
+                    (n, bool(DECLARATIONS[4].match(line))))
+            for name, scope, field, _valid in VOCAB:
+                if scope.search(rel) and VOCAB_ISH[name].match(line):
+                    state = ("unparsed" if not field.match(line)
+                             else "wrapped" if (name.endswith(("status", "class"))
+                                                and result.continuation(lines, n - 1))
+                             else None)
+                    offered["vocab"].setdefault((rel, name), []).append((n, state))
 
             # Status vocabularies are checked BEFORE declarations are handled,
             # because a task's title line is both -- it declares T-n AND
@@ -516,7 +585,52 @@ def scan(files, base):
                          f"{ident} {why} and nothing cites it — filed is not "
                          f"routed; disposition is `routed T-n`, `raised Q-n` "
                          f"or `declined (D-n)`"))
-    return findings, (len(files), len(declared), len(cited))
+    return findings, gaps_from(offered, declared), (len(files), len(declared), len(cited))
+
+
+def gaps_from(offered, declared):
+    """[(part, reason)]: what the files offered that the grammar did not read.
+
+    A line in a declaration's position that does not parse is a LOSS only if
+    what it names is declared nowhere. pricelog's record writes each finding
+    twice -- the `- **F-70** —` register line, and a bold narrative entry
+    `- **F-70 — …**` -- and the second is not a declaration written wrong,
+    because the first declared it.
+    """
+    gaps = []
+    decl = offered["declarations"]
+    missed = [(rel, n) for kind, num, rel, n in decl
+              if (f"{rel}:S-{num}" if kind == "S" else f"{kind}-{num}") not in declared]
+    if missed:
+        gaps.append(("declarations", result.unparsed(
+            missed, len(decl), "lines in a declaration's position",
+            "a declaration (templates/FORMATS.md)",
+            "what they name is declared nowhere, and cited-undefined and "
+            "defined-uncited ran without it")))
+    for rel, rows in sorted(offered["audit"].items()):
+        missed = [(rel, n) for n, ok in rows if not ok]
+        if missed:
+            gaps.append((f"{rel}'s findings", result.unparsed(
+                missed, len(rows), "finding headings",
+                "`## <COR|SEC|HYG|REV|CNV>-n — <title>`",
+                "undispositioned-finding cannot see them")))
+    for (rel, name), rows in sorted(offered["vocab"].items()):
+        bad = [(rel, n) for n, state in rows if state == "unparsed"]
+        long_ = [(rel, n) for n, state in rows if state == "wrapped"]
+        why = []
+        if bad:
+            why.append(result.unparsed(bad, len(rows), "fields", f"the {name} field's grammar"))
+        if long_:
+            why.append(f"{len(long_)} continue past their first line, and check_refs "
+                       f"reads only the first ({result.anchors(long_)})")
+        if why:
+            gaps.append((f"{rel}'s {name}", "; ".join(why) + ", so bad-status did not judge them"))
+    for rel, rows in sorted(offered["dispositions"].items()):
+        gaps.append((f"{rel}'s dispositions", f"{len(rows)} `Disposition.` field(s) do not "
+                     "parse as one line, so undispositioned-finding read a finding's "
+                     f"disposition as absent or from its first line only "
+                     f"({result.anchors([(rel, n) for n in rows])})"))
+    return gaps
 
 
 def check(target: str, as_json=False):
@@ -531,7 +645,7 @@ def check(target: str, as_json=False):
         return result.could_not_run("check_refs", f"not a git repository: {target}", as_json)
     res = result.Result("check_refs", os.path.relpath(target, os.getcwd()), width=16)
     try:
-        findings, (nfiles, ndeclared, ncited) = scan(files, target)
+        findings, gaps, (nfiles, ndeclared, ncited) = scan(files, target)
     except CouldNotRun as exc:
         # One unreadable file makes every cross-file class untrustworthy -- a
         # declaration inside it would read as `cited-undefined` everywhere else
@@ -542,6 +656,8 @@ def check(target: str, as_json=False):
         return res
     for kind, path, line, detail in findings:
         res.finding(kind, f"{path}:{line}", detail)
+    for part, reason in gaps:
+        res.gap(part, reason)
     res.count(nfiles, "files")
     res.count(ndeclared, "declared")
     res.count(ncited, "cited")

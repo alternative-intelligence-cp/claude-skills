@@ -461,6 +461,79 @@ S-1 is the only step.
      set()),
     ("fp-untracked-file-is-not-scanned",
      [("untracked", "SCRATCH.md", "Broken [link](nope.md) and R-99 and /home/x/y/\n")], set()),
+
+    # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
+    # A fourth element names the parts expected NOT EVALUATED. Each case here
+    # used to report clean.
+    #
+    # ZERO ROWS: an audit whose every finding is outside the namespace --
+    # pricelog's four gate audits, which `undispositioned-finding` never saw
+    # (register A6, F-99).
+    ("zero-rows-an-audit-in-no-finding-namespace",
+     [("tracked", "audits/T-1-safety-2026-09-04.md",
+       "# T-1 safety audit\n\n## Finding 1 (HIGH) — the log can be truncated\n\nProse.\n\n"
+       "## Finding 2 (LOW) — a message is vague\n\nProse.\n")],
+     set(), {"audits/T-1-safety-2026-09-04.md's findings"}),
+    # A PARTIAL READ: one finding outside the namespace among one inside it.
+    ("partial-read-one-audit-finding-outside-the-namespace",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_ROUTED + "\n## SAF-2 — a second finding, another prefix\n\nProse.\n")],
+     set(), {"audits/T-1-security-2026-09-04.md's findings"}),
+    # A declaration written wrong declares nothing, so its own line reads as a
+    # citation of what it failed to declare -- the finding, and the old
+    # behaviour. The gap names the line that caused it.
+    ("partial-read-a-decision-declared-with-a-colon",
+     [append("DECISIONS.md", "\n### D-2: a decision nobody can cite\n\n- **Decision.** x.\n")],
+     {"cited-undefined"}, {"declarations"}),
+    ("partial-read-a-status-named-with-a-colon",
+     [replace("QUESTIONS.md", "- **Status.** open", "- **Status**: open")],
+     set(), {"QUESTIONS.md's question-status"}),
+    # A WRAPPED FIELD: the vocabulary is judged on the first line only.
+    ("wrapped-field-a-requirement-status-that-continues",
+     [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** open\n  (until D-1 is reviewed)")],
+     set(), {"REQUIREMENTS.md's requirement-status"}),
+    ("wrapped-field-a-disposition-that-continues",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_ROUTED.replace("routed T-1", "routed T-1\n  after the review"))],
+     set(), {"audits/T-1-security-2026-09-04.md's dispositions"}),
+    # ...and what must stay CLEAN.
+    #
+    # A GENUINELY EMPTY SOURCE: an audit with no finding, only its method.
+    ("fp-an-audit-with-no-findings-offers-none",
+     [("tracked", "audits/T-1-hygiene-2026-09-04.md",
+       "# T-1 hygiene audit\n\n## Checked and found clean\n\nEverything.\n\n"
+       "## Method\n\nRead every file.\n")],
+     set()),
+    # A MULTI-LINE FIELD THIS CHECK READS WHOLE: every line is scanned for
+    # citations, so a field outside the vocabularies may wrap freely.
+    ("fp-a-wrapped-field-outside-the-vocabularies",
+     [replace("QUESTIONS.md", "- **Evidence.** none needed.",
+              "- **Evidence.** none needed,\n  beyond D-1's reasoning.")],
+     set()),
+    # A title is a heading, and a heading has no continuation: a line written
+    # directly under it is a paragraph, not the title wrapping.
+    ("fp-a-line-directly-under-a-title-is-not-a-wrap",
+     [replace("tasks/T-1.md", "— PLANNED\n\n", "— PLANNED\nA line directly under the title.\n\n")],
+     set()),
+    # Numbered headings are an audit's finding shape ONLY in audits/. A
+    # research digest numbering its sections offers no finding.
+    ("fp-numbered-headings-outside-audits-are-not-findings",
+     [("tracked", "research/2026-09-04-limits.md",
+       "# Limits\n\n## 1. Sources\n\nProse.\n\n## 2. Method\n\nProse.\n")],
+     set()),
+    # pricelog writes each finding twice: the `- **F-n** —` register line
+    # declares it, and a bold narrative entry `- **F-n — …**` discusses it.
+    # The second is not a declaration written wrong.
+    ("fp-a-narrative-finding-entry-beside-its-declaration",
+     [append("RECORD.md", "- **F-1** — the store truncates\n"
+                          "- **F-1 — the store truncates, and here is how.**\n")],
+     set()),
+    # A declaration's shape is offered only where its kind is DECLARED: a
+    # decision number written in declaration form in the record is a citation
+    # of an undeclared decision, and that is the finding -- not a gap as well.
+    ("fp-a-declaration-shape-outside-its-home-is-a-citation-only",
+     [append("RECORD.md", "- **D-9** proposed, not yet taken\n")],
+     {"cited-undefined"}),
 ]
 
 
@@ -522,22 +595,27 @@ def build(root, mutations):
 
 def main():
     passed = failed = 0
-    for name, mutations, expected in CASES:
+    for case in CASES:
+        name, mutations, expected = case[:3]
+        want_gaps = case[3] if len(case) > 3 else set()
         root = tempfile.mkdtemp(prefix="devteam-refs-")
         try:
             dt = build(root, mutations)
             proc = subprocess.run([sys.executable, CHECK, dt],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
-            expected_exit = 1 if expected else 0
-            ok = got == expected and proc.returncode == expected_exit
+            got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            expected_exit = 1 if expected else (3 if want_gaps else 0)
+            ok = got == expected and got_gaps == want_gaps and proc.returncode == expected_exit
             if ok:
                 passed += 1
             else:
                 failed += 1
                 print(f"FAIL  {name}")
-                print(f"        expected {sorted(expected) or 'clean'} exit {expected_exit}")
-                print(f"        got      {sorted(got) or 'clean'} exit {proc.returncode}")
+                print(f"        expected {sorted(expected) or 'clean'} "
+                      f"not evaluated {sorted(want_gaps) or 'none'} exit {expected_exit}")
+                print(f"        got      {sorted(got) or 'clean'} "
+                      f"not evaluated {sorted(got_gaps) or 'none'} exit {proc.returncode}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n"):
                     print(f"        | {line}")
         finally:

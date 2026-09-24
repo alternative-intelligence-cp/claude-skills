@@ -14,7 +14,9 @@ beside it because *a check that has never failed has not been shown to work*
 
 All four exit `0` clean, `1` findings, `2` could not run, `3` not evaluated —
 a part the check did not look at, named with its reason, which is never
-clean — and take `--json`. They read
+clean: a row it could not parse, named by file and line, or a field it reads
+that continues past its first line (FORMATS.md §"What each check reads") —
+and take `--json`. They read
 **git-tracked files only** — so scratch work is never a finding, and a file
 you have not committed yet is invisible to them.
 

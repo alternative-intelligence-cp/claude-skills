@@ -266,14 +266,127 @@ CASES = [
      {"audits/T-1-correctness-2026-09-04.md": AUDIT_OPEN},
      set()),
     # The task id is read from the FILENAME, which the audit skill fixes as
-    # `T-n-<dimension>-<date>.md`. A file that does not match names no task,
-    # so nothing is inferred from prose.
-    ("fp-audit-filename-outside-the-grammar-is-ignored",
+    # `T-n-<dimension>-<date>.md`. A file that does not match is tied to no
+    # task, so nothing is inferred from its name and no finding is raised.
+    #
+    # THIS CASE USED TO SAY "IGNORED" AND EXPECT CLEAN, and that was the
+    # defect roadmap 0.3.1 exists to end: the file holds an open finding about
+    # a closed task, and the check said clean without having asked whether it
+    # was open. It is now a part not evaluated, named (L-1.3). pricelog's step
+    # audit is this shape exactly.
+    ("audit-filename-outside-the-grammar-is-not-evaluated",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
       "REQUIREMENTS.md": REQS_R1_DONE,
       "audits/notes-about-T-1.md": AUDIT_OPEN,
       "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     set(), [], None, {"audits/notes-about-T-1.md"}),
+    # ...and a file in audits/ naming a closed task and holding NO finding
+    # heading offers nothing, so it stays quiet.
+    ("fp-audit-notes-with-no-finding-heading-offer-nothing",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/notes-about-T-1.md": "# Notes about T-1\n\nProse only.\n",
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
      set()),
+    # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
+    # Each of these used to report CLEAN, and each is a row the source offered
+    # that the grammar did not read. The case expects the part named, and a
+    # finding only where the missed row really does cause one.
+    #
+    # ZERO ROWS: F-70's own board, every row a link. board-drift compared
+    # nothing for a project's whole life and said clean.
+    ("zero-rows-a-board-of-link-rows-is-not-evaluated",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace(
+         "| T-1 |", "| [T-1](tasks/T-1.md) |").replace("| T-2 |", "| [T-2](tasks/T-2.md) |")},
+     set(), [], None, {"BOARD.md's task rows"}),
+    # A PARTIAL READ: one row among parsed ones.
+    ("partial-read-one-link-row-among-bare-rows",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| T-2 |", "| [T-2](tasks/T-2.md) |")},
+     set(), [], None, {"BOARD.md's task rows"}),
+    ("partial-read-a-requirement-heading-with-a-colon",
+     {"REQUIREMENTS.md": REQS + "\n### R-3: it is fast\n\n- **Statement.** fast.\n"},
+     set(), [], None, {"REQUIREMENTS.md's requirement headings"}),
+    ("partial-read-a-goal-written-with-a-colon",
+     {"CHARTER.md": CHARTER.replace("- **G-2** — the thing is documented",
+                                    "- **G-2** — the thing is documented\n- **G-3**: it is fast")},
+     set(), [], None, {"the charter's goals"}),
+    # A WRAPPED FIELD: F-132's shape. The check keeps a field's first line,
+    # and this one ends mid-list.
+    ("wrapped-field-a-discharges-line-that-continues",
+     {"tasks/T-1.md": T1.replace("- **Discharges.** R-1",
+                                 "- **Discharges.** R-1, and R-2 once T-2's\n  README exists")},
+     set(), [], None, {"T-1's Discharges."}),
+    ("wrapped-field-a-requirement-status-that-continues",
+     {"REQUIREMENTS.md": REQS.replace("- **Status.** open", "- **Status.** open\n  (until D-3)", 1)},
+     set(), [], None, {"R-1's Status."}),
+    # A field NAMED and not parsed as that field. The finding is the old
+    # behaviour and stays; the gap names the line that caused it.
+    ("field-named-with-a-colon-is-a-row-not-parsed",
+     {"REQUIREMENTS.md": REQS.replace("- **Priority.** should", "- **Priority**: should")},
+     {"missing-field"}, [], None, {"R-2's Priority."}),
+    ("path-list-item-with-its-reason-inline",
+     {"tasks/T-1.md": T1.replace("  - `src/`", "  - `src/`\n  - `docs/` — for the notes")},
+     set(), [], None, {"T-1's Scope."}),
+    ("protected-paths-row-the-guard-cannot-read",
+     {"CHARTER.md": CHARTER.replace("| Protected paths | fixture |",
+                                    "| **Protected paths** | `dist/` |")},
+     {"template-drift"}, [], None, {"unparseable-protected-path"}),
+    ("re-affirmed-item-without-a-separator",
+     {"CHARTER.md": CHARTER_AMENDED.replace("  - DM-2 — holds", "  - DM-2 holds")},
+     {"amendment-omits-condition"}, [], None, {"the latest amendment's Re-affirmed. list"}),
+    ("audit-heading-outside-the-namespace",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/T-1-safety-2026-09-04.md": AUDIT_OPEN.replace("COR-1", "SAF-1"),
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     set(), [], None, {"audits/T-1-safety-2026-09-04.md's findings"}),
+    # MISSING SOURCES. A project always has these files, so a missing one is
+    # not an empty source: nothing was there to read.
+    ("missing-board-is-not-an-empty-board",
+     {"BOARD.md": None}, set(), [], None, {"BOARD.md"}),
+    ("missing-requirements-is-not-zero-requirements",
+     {"REQUIREMENTS.md": None}, {"unknown-reference", "orphan-scope"}, [], None,
+     {"REQUIREMENTS.md"}),
+    # HISTORY. churn counts first lines, so a rewrite past one is uncounted.
+    ("wrapped-statement-in-a-committed-revision",
+     {}, set(), [], [REQS.replace("- **Statement.** the thing works when run.",
+                                  "- **Statement.** the thing works\n  when run.", 1)],
+     {"re-litigated-requirement for R-1"}),
+    # ...and what must stay CLEAN.
+    #
+    # A GENUINELY EMPTY SOURCE: nothing planned yet, which is every project
+    # between setup and planning. Offered nothing, so it read everything.
+    ("fp-genuinely-empty-sources-are-clean",
+     {"CHARTER.md": CHARTER.replace("- **G-1** — the thing works\n", "").replace(
+         "- **G-2** — the thing is documented\n", ""),
+      "REQUIREMENTS.md": "# Requirements\n\nNone yet.\n",
+      "tasks/T-1.md": None, "tasks/T-2.md": None,
+      "BOARD.md": BOARD.split("| T-1 |")[0]},
+     set()),
+    # A MULTI-LINE LIST FIELD THE CHECK DOES READ is not a wrapped field.
+    ("fp-a-multi-line-path-list-is-read-whole",
+     {"tasks/T-1.md": T1.replace("  - `src/`", "  - `src/`\n  - `lib/`\n  - `tests/`"),
+      "REQUIREMENTS.md": REQS.replace("  - `src/`", "  - `src/`\n  - `lib/`", 1)},
+     set()),
+    # A field that wraps and that NO class reads is not a partial read of
+    # anything this check evaluates.
+    ("fp-a-wrapped-field-nothing-reads",
+     {"tasks/T-1.md": T1.replace("- **Estimate.** tokens=1000 minutes=10",
+                                 "- **Estimate.** tokens=1000 minutes=10,\n  from T-0's figure")},
+     set()),
+    # A field-shaped line in an execution record, when the task's real field
+    # parsed, is a mention (pricelog's T-16.md:190, a verifier quoting
+    # `- **Scope:** check_scope … prints clean`).
+    ("fp-a-field-mentioned-in-the-record-after-the-real-one",
+     {"tasks/T-1.md": T1 + "\n## Execution record\n\n- **Scope:** `check_scope` printed clean.\n"},
+     set()),
+    # A step heading and a possessive MENTION a task or requirement; they are
+    # not titles written wrong.
+    ("fp-step-headings-and-possessives-are-not-titles",
+     {"tasks/T-1.md": T1 + "\n## Execution record\n\n# T-1.S-2 adversarial pass\n\nProse.\n",
+      "REQUIREMENTS.md": REQS + "\n## R-1's history\n\nProse.\n"},
+     set()),
+
     # --- board-drift: the one artifact no check read back ------------------
     # A board saying a task was CLAIMED with a live in-flight row, two hours
     # after that task closed, passed all four checks. `check_scope` reads the
@@ -719,6 +832,30 @@ CASES = [
 ]
 
 
+_TITLE = re.compile(r"^#\s+(T-\d+)\s+[—–-]\s+(.*?)\s+[—–-]\s+(\S+)")
+_STATE = {"PLANNED": "—", "RUNNING": "CLAIMED T-a-1200", "DONE": "DONE",
+          "ACCEPTED": "ACCEPTED (2026-09-05, D-41)", "BLOCKED": "BLOCKED on Q-1",
+          "NEEDS-DECISION": "BLOCKED on Q-1"}
+
+
+def board_for(files):
+    """A BOARD.md that agrees with every tracked task title in the fixture.
+
+    A project always has a board, and a missing one is now a part not
+    evaluated (roadmap 0.3.1, L-1.3), so a case that says nothing about the
+    board gets one that board-drift reads and finds nothing wrong with. A case
+    testing the board supplies its own, and `"BOARD.md": None` removes it.
+    """
+    rows = []
+    for name, body in sorted(files.items()):
+        m = _TITLE.match(body) if name.startswith("tasks/") else None
+        if m:
+            rows.append(f"| {m.group(1)} | {m.group(2)} | — | — | — | "
+                        f"{_STATE.get(m.group(3), '—')} |")
+    return ("# The board\n\n| Task | Title | Discharges | Depends on | Scope | State |\n"
+            "|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n")
+
+
 def build(root, overrides, prior=None):
     dt = os.path.join(root, "devteam")
     files = dict(FIXTURE)
@@ -730,6 +867,8 @@ def build(root, overrides, prior=None):
             untracked[name] = body[1]
         else:
             files[name] = body
+    if "BOARD.md" not in overrides:
+        files["BOARD.md"] = board_for(files)
 
     for name, body in {**files, **untracked}.items():
         p = os.path.join(dt, name)
@@ -773,13 +912,18 @@ def main():
         name, overrides, expected = case[:3]
         extra = case[3] if len(case) > 3 else []
         prior = case[4] if len(case) > 4 else None
+        # The parts the case expects NOT EVALUATED (roadmap 0.3.1, L-1.3),
+        # compared as a set like the findings: a part named that the case did
+        # not plant fails it as surely as a missing one.
+        want_gaps = case[5] if len(case) > 5 else set()
         root = tempfile.mkdtemp(prefix="devteam-trace-")
         try:
             dt = build(root, overrides, prior)
             proc = subprocess.run([sys.executable, CHECK, *extra, dt],
                                   capture_output=True, text=True)
             got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
-            want_exit = 1 if expected else 0
+            got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            want_exit = 1 if expected else (3 if want_gaps else 0)
             # HELD BACK IS NOT CLEAN (roadmap 0.3.1, L-1.2): `--pre-plan`
             # excludes one class by the caller's declaration, so the line must
             # NAME it and how many it held back, or an onboarding gate that
@@ -788,13 +932,16 @@ def main():
             named = ("--pre-plan" not in extra or re.search(
                 r"^  excluded: uncovered-requirement — by --pre-plan \(\d+ held back\)$",
                 proc.stdout, re.M) is not None)
-            if got == expected and proc.returncode == want_exit and named:
+            if (got == expected and got_gaps == want_gaps
+                    and proc.returncode == want_exit and named):
                 passed += 1
             else:
                 failed += 1
                 print(f"FAIL  {name}")
-                print(f"        expected {sorted(expected) or 'clean'} exit {want_exit}")
-                print(f"        got      {sorted(got) or 'clean'} exit {proc.returncode}")
+                print(f"        expected {sorted(expected) or 'clean'} "
+                      f"not evaluated {sorted(want_gaps) or 'none'} exit {want_exit}")
+                print(f"        got      {sorted(got) or 'clean'} "
+                      f"not evaluated {sorted(got_gaps) or 'none'} exit {proc.returncode}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n"):
                     print(f"        | {line}")
         finally:
@@ -838,6 +985,56 @@ def main():
                 print(f"FAIL  {name}")
                 print(f"        expected exit {want_exit}, got {proc.returncode}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n")[:4]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # WHAT THE CASES LOOP CANNOT BUILD: the check's own inputs gone, and a
+    # history cut short. Both used to report clean (roadmap 0.3.1, L-1.3).
+    #
+    # The first is the silent zero 0.3.1's mutation run found: this check read
+    # its template rows as `template_names(...) or []`, so a check run from a
+    # copy of scripts/ with no templates/ beside it compared the charter
+    # against nothing and said clean. The copy is of the WHOLE scripts/
+    # directory, so the one thing missing is the templates.
+    def _no_templates(root):
+        plugin = os.path.join(root, "plugin")
+        shutil.copytree(os.path.dirname(CHECK), os.path.join(plugin, "scripts"),
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copy(CHECK, os.path.join(plugin, "scripts", "check_trace.py"))
+        return (os.path.join(plugin, "scripts", "check_trace.py"),
+                build(os.path.join(root, "p"), {}))
+
+    def _shallow(root):
+        build(os.path.join(root, "p"), {}, [REQS])
+        subprocess.run(["git", "clone", "-q", "--depth", "1",
+                        "file://" + os.path.join(root, "p"), os.path.join(root, "s")],
+                       check=True, capture_output=True)
+        return CHECK, os.path.join(root, "s", "devteam")
+
+    inputs = [
+        ("templates-unreadable-is-not-evaluated-not-clean", _no_templates,
+         {"template-drift", "missing-field in requirements", "missing-field in tasks"}),
+        ("a-shallow-clone-reads-a-history-that-starts-partway", _shallow,
+         {"REQUIREMENTS.md's history"}),
+    ]
+    for name, make, want_gaps in inputs:
+        root = tempfile.mkdtemp(prefix="devteam-trace-inputs-")
+        try:
+            check, target = make(root)
+            proc = subprocess.run([sys.executable, check, target],
+                                  capture_output=True, text=True)
+            got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            got = set(re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M))
+            if got_gaps == want_gaps and not got and proc.returncode == 3:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected not evaluated {sorted(want_gaps)} exit 3")
+                print(f"        got      {sorted(got) or 'clean'} "
+                      f"not evaluated {sorted(got_gaps) or 'none'} exit {proc.returncode}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n")[:6]:
                     print(f"        | {line}")
         finally:
             shutil.rmtree(root, ignore_errors=True)
