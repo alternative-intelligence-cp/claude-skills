@@ -215,6 +215,36 @@ checkout instead.
 | `hook-refused` | P-49 — the commit is made as `git commit` makes it | the project's `pre-commit`, `prepare-commit-msg` and `commit-msg` hooks, run on the candidate ↔ exit 0 | `enforces` |
 | `head-moved` | P-49 — the commit made is the commit checked | the branch HEAD named, and its commit, when the gate began ↔ the same at the compare-and-swap | `enforces` |
 
+## `commit_guard.py` — 5 refusal families
+
+`commit_guard.py` is the `PreToolUse` hook that makes the gate the way an agent
+commits into a devteam project (roadmap 0.3.1, L-1.7; P-49). It reads a Bash
+command as a shell reads it, finds every git command the text runs, and
+refuses two things in a repository whose top level holds `devteam/`, which is
+`gate.locate`'s own test:
+
+- a git command that writes a commit — `commit`, `merge`, `cherry-pick`,
+  `revert`, `am`, `rebase`, `pull`, `commit-tree`, `filter-branch`,
+  `filter-repo`, `fast-import` — except its forms that write none;
+- a command that points a branch at a commit that no local branch reaches and
+  that the branch's own reflog does not record. So P-12b's recovery,
+  `git reset --soft` to a commit from `git reflog`, is never refused.
+
+The owner settled both on 2026-09-24. The hook exempts a worker inside a
+sandbox, read from `DEVTEAM_SANDBOX` in the hook's own environment, because
+promotion gates its commits (P-44). It never runs in the client's terminal. It
+refuses as `guard.py` does, with a deny decision at exit 0. Unlike `guard.py`'s
+families, each of these has a name in the code, and the reason begins
+`Refused [<family>]:`, so its control asserts which rule fired.
+
+| Class | Rule | The two sides | Verdict |
+|---|---|---|---|
+| `writes-commit` | P-49 — a commit is checked before it is made | each git command the text runs, with its options ↔ the commands that write a commit, less their forms that write none; and the repository git resolves for it ↔ a top level holding `devteam/` | `enforces` |
+| `lands-unheld-commit` | P-49; P-12b's recovery is left open | the commit a branch is pointed at ↔ the commits a local branch reaches, and the moved branch's own reflog | `enforces` |
+| `unresolved-target` | P-49 | the branch and the commit a ref move names ↔ what the command text resolves them to | `enforces` |
+| `unresolved-repository` | P-49 | the directory a commit-writing or branch-moving command runs in ↔ what the command text resolves, where the call's directory or the session's project is a devteam project | `enforces` |
+| `guard-failed` | P-49 — like the gate, its guard fails closed on its own failure | the hook's reading of the command ↔ a reading that finished, where the call's directory or the session's project is a devteam project | `enforces` |
+
 ## `sandbox.py promote` — 14 classes
 
 Declared as a closed set in `FORMATS.md` §"Status vocabularies". Emitted by

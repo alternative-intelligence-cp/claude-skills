@@ -820,6 +820,15 @@ recorded as unknown rather than quietly dropped, and the honest test is to
 remove the `settings.json` entry at some future restart and see whether a
 literal-path write is still refused.
 
+*Settled 2026-09-24, roadmap 0.3.1 §3.6, by a cleaner test than the one
+proposed here: the claim was false.* `commit_guard.py` was registered in
+`hooks/hooks.json` and nowhere else. A fresh headless session on CLI 2.1.281
+listed its plugin as `devteam@skills-dir` and refused a direct commit with that
+hook's message. So a symlinked plugin loads its hooks. `guard.py` is registered
+in both `hooks.json` and this machine's `settings.json`, under two different
+paths, so it probably runs twice on every call. That is inferred, not
+measured. The `setup` skill now says what was measured.
+
 **The lesson underneath all of it is one error, made twice, and it is the
 error this whole pipeline exists to prevent.** First: thirty-two control cases
 proved the guard *script* behaved correctly, and not one proved the guard was

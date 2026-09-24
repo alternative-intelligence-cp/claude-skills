@@ -135,32 +135,53 @@ terminal nobody is watching.
 
 **Two separate things, and only the second one matters.**
 
-The control proves the guard *script* is correct:
+The plugin has two guard hooks. `guard.py` keeps writes inside declared scopes
+and protected paths. `commit_guard.py` refuses an agent's commit into a
+devteam project that does not go through the gate (P-49). Their controls prove
+the *scripts* are correct:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/test_guard.py
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/test_commit_guard.py
 ```
 
-It proves **nothing about whether the hook is registered.** A green control
+They prove **nothing about whether the hooks are registered.** A green control
 and an unregistered hook look identical from here, and that is exactly how
 this pipeline once ran a whole rehearsal believing it was protected while the
 guard never fired once. **Never report a guard as live on the strength of its
 control.**
 
-**Register it.** A plugin's `hooks/hooks.json` is loaded when the plugin is
-installed through the marketplace. If it was installed by symlinking into
-`~/.claude/skills/`, that loads its skills and agents but **not its hooks** —
-register the guard by hand in `~/.claude/settings.json`:
+**Register them.** A plugin's `hooks/hooks.json` loads with the plugin. That
+holds for a plugin installed through the marketplace, and for one symlinked
+into `~/.claude/skills/`. The second was measured on CLI 2.1.281 on
+2026-09-24: `commit_guard.py`, registered nowhere but `hooks.json`, refused a
+commit in a fresh session whose plugin list read `devteam@skills-dir` (roadmap
+0.3.1, §3.6). An earlier version of this section said a symlinked plugin loads
+no hooks; that was never measured, and it was wrong. So normally there is
+nothing to register by hand. On a harness that does not load `hooks.json`,
+register both in `~/.claude/settings.json`:
 
 ```json
 { "hooks": { "PreToolUse": [ {
     "matcher": "Bash|Write|Edit|NotebookEdit",
     "hooks": [ { "type": "command",
       "command": "python3 <plugin>/scripts/guard.py", "timeout": 10 } ]
+  }, {
+    "matcher": "Bash",
+    "hooks": [ { "type": "command",
+      "command": "python3 <plugin>/scripts/commit_guard.py", "timeout": 10 } ]
 } ] } }
 ```
 
-Hooks are read at session start, so **this needs a restart.**
+Where `hooks.json` also loads, an entry here registers its hook a second time,
+under a second path. Unless the harness merges the two, the hook runs twice on
+every call. That is inferred, not measured. Both runs give the same answer,
+and each costs a Python start-up.
+
+Hooks are read at session start, so **this needs a restart.** That was measured
+too, on 2026-09-24. A session already running when `commit_guard.py` was added
+to `hooks.json` let a direct commit reach git, while a session started
+afterwards refused it.
 
 **Skills and agents load differently, which will catch you out.** A skill added
 to an installed plugin appears in the *current* session almost immediately. A
@@ -195,6 +216,20 @@ must refuse — a path outside every declared scope while a task is `RUNNING` �
 and confirm it is actually refused. That single refused write is the only
 evidence that matters.
 
+**Prove the commit guard the same way, with a commit that cannot land if the
+hook is absent:**
+
+```bash
+git -C /literal/path/to/project commit -m probe -- devteam/no-such-file
+#  hook live:   Refused [writes-commit]: ... without the gate.
+#  hook absent: error: pathspec 'devteam/no-such-file' did not match any file(s) known to git
+```
+
+The hook refuses a commit whatever it names, so a pathspec that matches
+nothing is enough to prove it. If the hook is not firing, git refuses the
+missing path and nothing is committed. A probe that could really commit would
+leave that commit in the client's history.
+
 **Use a literal absolute path in that test.** Not `$REPO/...`, not any shell
 variable. The guard cannot resolve a target containing an unexpanded variable
 and does not judge it, so a test written the natural way **passes silently and
@@ -205,6 +240,12 @@ published claim that had to be retracted.
 The guard is inert until the charter names protected paths and a task is
 `RUNNING`, so it will not obstruct the client's own work before the loop
 starts.
+
+**The commit guard is not inert.** From the moment `devteam/` exists, every
+agent commit in the project goes through `gate.py commit`. The client's own
+terminal runs no hook. The scaffold's first commit is the client's, as *What
+this stage must not do* says, because the gate compares a commit with the
+project at HEAD, and there is no project at HEAD before that commit.
 
 ## 3b. Then prove the sandbox contains, and write the charter's row from it
 
