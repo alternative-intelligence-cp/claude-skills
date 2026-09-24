@@ -45,7 +45,6 @@ locally; anything else appears here as a finding.
 | `.claude/` | this repository's own Claude Code settings — it registers the root-guard hook, and nothing else |
 | `.claude-plugin/` | the marketplace manifest that makes this repository installable |
 | `.gitignore` | what never reaches the remote, with the reasoning in its comments |
-| `HANDOFF.md` | the state of the work for whoever picks it up next |
 | `LICENSE` | Apache 2.0 |
 | `plugins/` | the plugins themselves — one directory each |
 | `README.md` | this file |

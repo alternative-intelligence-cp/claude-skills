@@ -43,7 +43,7 @@ lexical order.
 
 | Input | Where |
 |---|---|
-| the handoff from the session that ran cycle 0.1 | [`HANDOFF.md`](../../../../HANDOFF.md) at the repository root |
+| the handoff from the session that ran cycle 0.1 | `HANDOFF.md` — moved to `.internal/` in `8f4a9a3`; its last public version is `git show 67660b8:HANDOFF.md` |
 | the work queue the run left, nine items each with its measurement | [`docs/CONSOLIDATION.md`](../../docs/CONSOLIDATION.md) |
 | every lesson the run produced | [`DESIGN.md`](../../DESIGN.md) §15–§21 |
 | the numbered rules, each with the failure that produced it | [`PROTOCOL.md`](../../PROTOCOL.md) |
