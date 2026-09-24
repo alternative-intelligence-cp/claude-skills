@@ -38,11 +38,14 @@ sites -- bare `add(...)` and `findings.append((...))` -- because check_plugin's
 
 What makes a part not evaluated when a check parses rows -- zero rows, a
 partial read, a wrapped field (L-1.3) -- is also here, at the bottom, for the
-same reason.
+same reason. So is what a decision accepts (L-1.6): its grammar is read here,
+and a finding's identity -- what the gate also matches by -- is defined here.
 
 Its control is test_result.py.
 """
+import collections
 import json
+import os
 import re
 import subprocess
 import sys
@@ -77,6 +80,8 @@ class Result:
         self.findings = []      # dicts: class, file, line, detail, advisory
         self.gaps = []          # (part, reason, advisory)
         self.excluded = []      # (part, declaration)
+        self.accepted = []      # finding dicts, each with `by`: the D-n that accepts it
+        self.accepted_gaps = [] # (part, reason, advisory, by)
         self.counts = []        # (n, label): the denominators, in order
         self.clean_note = ""    # said after the denominators, only when clean
         self.blocking_only = False
@@ -100,6 +105,54 @@ class Result:
     def count(self, n, label):
         self.counts.append((n, label))
 
+    def accept(self, got, covers=lambda a: True):
+        """Apply what DECISIONS.md accepts of this check (L-1.6), and return
+        each acceptance this run covers that matched nothing, as `(where,
+        detail)` for the check to emit as `stale-acceptance` at its own emit
+        site -- which is where check_plugin's `unruled-finding` reads classes.
+
+        `covers(a)` says whether this run evaluated what `a` names, so that
+        only a run able to have found it can call it stale. A targeted run --
+        one task's report, one task's writes -- covers only what names its
+        target, or every acceptance of a task-scoped class would read as
+        stale in every other task's run. A class this run EXCLUDED by a
+        declaration was not evaluated either, so it is never covered.
+
+        An acceptance matches every finding with its identity, so two lines
+        naming one finding both match and neither is stale.
+        """
+        if got.unreadable:
+            self.gap("DECISIONS.md's acceptances", got.unreadable)
+            return []
+        held = " ".join(part for part, _ in self.excluded)
+        found, gaps = list(self.findings), list(self.gaps)
+        took_f, took_g, stale = {}, {}, []
+        for a in got.items:
+            if a.check != self.check or not covers(a):
+                continue
+            if a.cls and re.search(rf"(?<![\w-]){re.escape(a.cls)}(?![\w-])", held):
+                continue
+            if a.part is not None:
+                hit = [i for i, g in enumerate(gaps) if " ".join(g[0].split()) == a.part]
+                for i in hit:
+                    took_g.setdefault(i, a.decision)
+            else:
+                hit = [i for i, f in enumerate(found) if identity(self.check, f) == a.key]
+                for i in hit:
+                    took_f.setdefault(i, a.decision)
+            if not hit:
+                stale.append((f"DECISIONS.md:{a.line}", _stale(a, self.check)))
+        self.findings = [f for i, f in enumerate(found) if i not in took_f]
+        self.accepted += [dict(f, by=took_f[i]) for i, f in enumerate(found) if i in took_f]
+        self.gaps = [g for i, g in enumerate(gaps) if i not in took_g]
+        self.accepted_gaps += [(*g, took_g[i]) for i, g in enumerate(gaps) if i in took_g]
+        return stale
+
+    def deciders(self):
+        """The decisions that accepted anything here, in number order."""
+        by = {f["by"] for f in self.accepted} | {g[3] for g in self.accepted_gaps}
+        return sorted(by, key=lambda d: int(d.split("-")[1]))
+
     def _live(self, items, advisory):
         # --blocking-only changes the VERDICT, never the report: advisory
         # findings and gaps are still printed, and only stop counting here.
@@ -116,28 +169,44 @@ class Result:
     def status(self):
         n, k = len(self.findings), len(self.gaps)
         if n:
-            return f"{n} finding(s)" + (f", {k} part(s) not evaluated" if k else "")
-        if k:
-            return f"not evaluated ({k} part(s))"
-        return "clean"
+            out = f"{n} finding(s)" + (f", {k} part(s) not evaluated" if k else "")
+        elif k:
+            out = f"not evaluated ({k} part(s))"
+        else:
+            out = "clean"
+        # What a decision accepted is said ON THE LINE, with the decisions,
+        # so a zero reached by accepting is never read as a zero reached by
+        # fixing (CONSOLIDATION 8a).
+        accepted = len(self.accepted) + len(self.accepted_gaps)
+        if accepted:
+            out += f", {accepted} accepted by {', '.join(self.deciders())}"
+        return out
 
     def lines(self):
         head = f"{self.target}: {self.status()}" if self.target else self.status()
         denominators = ", ".join(f"{n} {label}" for n, label in self.counts)
-        if denominators and self.clean_note and not (self.findings or self.gaps):
+        # A part a decision accepted was still not looked at, so a note that
+        # claims the whole was read -- `traced end to end` -- would be false.
+        if (denominators and self.clean_note
+                and not (self.findings or self.gaps or self.accepted_gaps)):
             denominators += f" {self.clean_note}"
         if denominators:
             head += f"  [{denominators}]"
         out = [head]
-        for f in sorted(self.findings, key=lambda f: (f["class"], f["file"], f["line"] or 0)):
-            where = f"{f['file']}:{f['line']}" if f["line"] is not None else f["file"]
+        at = lambda f: f"{f['file']}:{f['line']}" if f["line"] is not None else f["file"]
+        order = lambda f: (f["class"], f["file"], f["line"] or 0)
+        for f in sorted(self.findings, key=order):
             mark = "  (advisory)" if f["advisory"] else ""
-            out.append(f"  {f['class']:{self.width}} {where}  {f['detail']}{mark}".rstrip())
+            out.append(f"  {f['class']:{self.width}} {at(f)}  {f['detail']}{mark}".rstrip())
         for part, reason, advisory in self.gaps:
             mark = "  (advisory)" if advisory else ""
             out.append(f"  not evaluated: {part} — {reason}{mark}")
         for part, declaration in self.excluded:
             out.append(f"  excluded: {part} — by {declaration}")
+        for f in sorted(self.accepted, key=order):
+            out.append(f"  accepted by {f['by']}: {f['class']} {at(f)}  {f['detail']}".rstrip())
+        for part, reason, _advisory, by in self.accepted_gaps:
+            out.append(f"  accepted by {by}: not evaluated: {part} — {reason}")
         return out + self.trailer
 
     def as_dict(self):
@@ -151,6 +220,9 @@ class Result:
             "not_evaluated": [{"part": p, "reason": r, "advisory": a}
                               for p, r, a in self.gaps],
             "excluded": [{"part": p, "by": d} for p, d in self.excluded],
+            "accepted": self.accepted,
+            "accepted_not_evaluated": [{"part": p, "reason": r, "advisory": a, "by": b}
+                                       for p, r, a, b in self.accepted_gaps],
         }
 
 
@@ -285,3 +357,205 @@ def listed(root, *patterns):
 UNTRACKED = ("is not tracked by git, so it is in no commit: every check reads it, "
              "and a clone, a review or the gate at HEAD does not. Commit it, or "
              "move it out of devteam/ if it is scratch")
+
+
+# --- accepted findings (roadmap 0.3.1, L-1.6) --------------------------------
+#
+# AN ACCEPTED FINDING IS A DECISION, classed like any other. A `D-n` in
+# DECISIONS.md carries an `Accepts.` field, and each item under it names one
+# finding as the check printed it -- check, class and anchor file, then the
+# message after a dash -- or one part not evaluated, by its part:
+#
+#     - **Accepts.**
+#       - `check_trace` `missing-field` `tasks/T-1.md` — T-1 has no **Discharges.**
+#       - `check_refs` not evaluated: audits/x.md's findings
+#
+# There is no line number, so an edit above the anchor moves the line and
+# leaves the finding accepted. The check reports what was accepted, names the
+# decision on its line, and exits 0 when nothing else is found.
+#
+# The decision's P-26 class decides who makes it: the manager decides a
+# REVERSIBLE acceptance alone, recorded as unreviewed (P-27), and the client
+# decides a CHARTER one. So a decision that accepts anything must say who
+# reviewed it -- the `Reviewed.` line is where P-27's record lives -- or it
+# accepts nothing. Which class an acceptance IS stays the decider's judgement,
+# because no check can tell.
+#
+# THE ZERO STAYS A SIGNAL (CONSOLIDATION 8a). An acceptance that matches
+# nothing is `stale-acceptance`, so a fixed finding leaves no standing
+# exemption for the next one to hide under. An acceptance the grammar cannot
+# read accepts NOTHING and is reported, as `unparseable-acceptance` by
+# check_refs, which owns DECISIONS.md's grammar -- the direction the run's own
+# gate parser failed in, which was the right one (pricelog RECORD.md:430).
+# Superseding the decision withdraws what it accepted (P-23).
+
+PROJECT_CHECKS = ("check_trace", "check_refs", "check_report", "check_scope")
+
+_DECISION = re.compile(r"^###\s+(D-\d+)\s*[—–-]")
+_HEADING = re.compile(r"^#{1,3}\s")
+_FENCE = re.compile(r"^\s*(?:```|~~~)")
+_ACCEPTS = re.compile(r"^-\s+\*\*Accepts\.\*\*\s*$")
+# The field NAMED, however it is decorated -- `- **Accepts:**`, a paragraph's
+# `**Accepts.**`, an item carried inline -- so a field written slightly wrong
+# is reported instead of never seen (L-1.3).
+_ACCEPTS_ISH = re.compile(r"^\s*(?:[-*+]\s+)?\**\s*Accepts\s*\**\s*[.:]", re.I)
+_SUPERSEDES = re.compile(r"^-\s+\*\*Supersedes\.\*\*\s*(.*?)\s*$")
+_REVIEWED = re.compile(r"^-\s+\*\*Reviewed\.\*\*\s*(.*?)\s*$")
+_REVIEWED_OK = re.compile(r"^(?:client|unreviewed|proceeded-unreviewed \(Q-\d+\))$")
+_ITEM = re.compile(r"^\s+[-*+]\s+(.*?)\s*$")
+_A_FINDING = re.compile(r"^`(\w+)`\s+`([a-z][a-z0-9-]*)`\s+`([^`\s]+)`\s+[—–-]\s+(\S.*)$")
+_A_PART = re.compile(r"^`(\w+)`\s+not evaluated:\s+(\S.*)$")
+# A line number inside a message moves with the file, exactly as the anchor's
+# does: `already declared at tasks/T-4.md:12`, `(also 14, 22)`.
+_LINE_REF = re.compile(r"(\.[A-Za-z0-9]+):\d+(?:-\d+)?(?!\d)")
+_ALSO = re.compile(r"\s*\(also \d+(?:, \d+)*\)")
+
+Acceptance = collections.namedtuple("Acceptance", "decision line check cls file message part text")
+Acceptance.key = property(lambda a: (a.check, a.cls, a.file, stable(a.message)))
+
+
+class Accepted:
+    """What DECISIONS.md accepts. `items` are applied; `unread` are reported,
+    as `(where, detail)`; `quoted` is every line an acceptance occupies, which
+    check_refs reads as quoted check output rather than as citations; and
+    `unreadable` is why nothing could be read, when nothing could."""
+
+    def __init__(self):
+        self.items, self.unread, self.quoted, self.unreadable = [], [], set(), None
+
+
+def stable(text):
+    """A message as it stays when an edit above its anchor moves it: the line
+    numbers inside it dropped, and its whitespace collapsed."""
+    return " ".join(_LINE_REF.sub(r"\1", _ALSO.sub("", text or "")).split())
+
+
+def identity(check, finding):
+    """What a finding IS, apart from where it sits today: its check, class,
+    anchor file and message, with no line number (L-1.6). An acceptance
+    matches by it, and so does the gate, comparing HEAD with the candidate."""
+    return (check, finding["class"], finding["file"], stable(finding["detail"]))
+
+
+def acceptances(devteam):
+    """Every acceptance in `devteam/DECISIONS.md`, read as git would show it
+    (L-1.4): tracked, or untracked and not ignored."""
+    got = Accepted()
+    listing = listed(devteam, "DECISIONS.md")
+    if not listing or "DECISIONS.md" not in listing[0]:
+        return got
+    try:
+        with open(os.path.join(devteam, "DECISIONS.md"), "rb") as fh:
+            text = fh.read().decode("utf-8")
+    except UnicodeDecodeError as exc:
+        got.unreadable = (f"DECISIONS.md is not UTF-8 (byte {exc.object[exc.start]:#04x} at "
+                          f"offset {exc.start}), so no acceptance was read and none could be "
+                          "found stale")
+        return got
+    except OSError as exc:
+        got.unreadable = (f"DECISIONS.md cannot be read ({exc.strerror}), so no acceptance "
+                          "was read and none could be found stale")
+        return got
+    return parse_acceptances(text.split("\n"), got)
+
+
+def parse_acceptances(lines, got=None):
+    """The `Accepts.` fields in DECISIONS.md's lines, into an `Accepted`."""
+    got = got or Accepted()
+    unread = lambda n, why: got.unread.append((f"DECISIONS.md:{n}", f"{why}, so it accepts nothing"))
+
+    # Which decision each line sits in, outside fences, and what each decision
+    # says about itself -- in either order, since fields are not ordered.
+    owner, fenced, decision, inside = [], [], None, False
+    reviewed, superseded = {}, set()
+    for line in lines:
+        if _FENCE.match(line):
+            inside = not inside
+            owner.append(None)
+            fenced.append(True)
+            continue
+        fenced.append(inside)
+        if inside:
+            owner.append(None)
+            continue
+        m = _DECISION.match(line)
+        if m:
+            decision = m.group(1)
+        elif _HEADING.match(line):
+            decision = None
+        owner.append(decision)
+        if decision:
+            r, s = _REVIEWED.match(line), _SUPERSEDES.match(line)
+            if r:
+                reviewed.setdefault(decision, r.group(1))
+            if s:
+                superseded.update(d for d in re.findall(r"\bD-\d+\b", s.group(1)) if d != decision)
+
+    for i, line in enumerate(lines):
+        if fenced[i] or not _ACCEPTS_ISH.match(line):
+            continue
+        d, n, under = owner[i], i + 1, continuation(lines, i)
+        got.quoted.update(j + 1 for j in under)
+        if d in superseded:
+            continue                        # withdrawn with its decision (P-23)
+        if not _ACCEPTS.match(line):
+            unread(n, "the line names `Accepts.` and does not parse as `- **Accepts.**` "
+                      "alone on its line, with each acceptance an indented item under it")
+            continue
+        if d is None:
+            unread(n, "`Accepts.` sits in no decision's block (`### D-n — …`), so no "
+                      "decision stands behind it (L-1.6)")
+            continue
+        if not _REVIEWED_OK.match(reviewed.get(d, "")):
+            said = f"reads {reviewed[d]!r}" if d in reviewed else "is missing"
+            unread(n, f"{d} accepts findings and its `Reviewed.` line {said}, not `client`, "
+                      "`unreviewed` or `proceeded-unreviewed (Q-n)` — so nobody can tell "
+                      "whether the client saw what it accepts (L-1.6, P-27)")
+            continue
+        items = [j for j in under if _ITEM.match(lines[j])]
+        if not items:
+            unread(n, f"{d}'s `Accepts.` has no indented item under it")
+            continue
+        for j in under:
+            if j < items[0]:
+                unread(j + 1, f"a line under {d}'s `Accepts.` is not an item")
+        for k, j in enumerate(items):
+            end = items[k + 1] if k + 1 < len(items) else len(lines)
+            if any(j < x < end for x in under):
+                unread(j + 1, f"{d}'s acceptance continues past its line, and an "
+                              "acceptance is read from one line")
+                continue
+            body = _ITEM.match(lines[j]).group(1)
+            f, p = _A_FINDING.match(body), _A_PART.match(body)
+            m = f or p
+            if not m:
+                unread(j + 1, f"{d}'s acceptance does not parse as a backticked check, "
+                              "class and file, then a dash and the message; or a backticked "
+                              "check, then `not evaluated:` and the part")
+            elif m.group(1) not in PROJECT_CHECKS:
+                unread(j + 1, f"{d}'s acceptance names `{m.group(1)}`, which is not one of "
+                              f"the project checks ({', '.join(PROJECT_CHECKS)})")
+            elif p and m.group(1) == "check_report":
+                unread(j + 1, f"{d} accepts a part check_report did not evaluate, and "
+                              "check_report reads one task at a time with parts that name "
+                              "no task, so no run could ever find the acceptance stale — "
+                              "accept its findings, which name their task's file")
+            elif f:
+                got.items.append(Acceptance(d, j + 1, f.group(1), f.group(2), f.group(3),
+                                            f.group(4), None, body))
+            else:
+                got.items.append(Acceptance(d, j + 1, p.group(1), None, None, None,
+                                            " ".join(p.group(2).split()), body))
+    return got
+
+
+def _stale(a, check):
+    """Why a covered acceptance that matched nothing is a finding."""
+    if a.part is not None:
+        return (f"{a.decision} accepts the part `{a.part}`, which {check} does not report "
+                f"as not evaluated — evaluated since, or not the part as {check} prints "
+                f"it, up to its dash. If it is evaluated now, supersede {a.decision} "
+                "without it (P-23)")
+    return (f"{a.decision} accepts `{a.cls}` at {a.file}, which {check} does not report — "
+            f"fixed since, or not the finding as {check} prints it, less its line number. "
+            f"If it is fixed, supersede {a.decision} without it (P-23). It reads: {a.message}")

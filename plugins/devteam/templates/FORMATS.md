@@ -223,7 +223,8 @@ covers. Each untracked file a check reads is a finding of its own,
 review and the gate (roadmap 0.3.1, L-1.4; F-131). Ignored files,
 `devteam/.run/` among them, stay invisible, so scratch belongs outside
 `devteam/` or under an ignore rule. `check_report` reads the one task file
-it is given.
+it is given. Every project check also reads `DECISIONS.md`'s `Accepts.`
+fields, for what a decision accepted (§"Accepted findings").
 Every check exits `0` clean · `1` findings · `2` could not run · `3` not
 evaluated, and takes `--json`. `3` means the check ran and names a part it did
 not look at, with the reason — which is never clean (cycle 0.3's L-6). The
@@ -240,6 +241,64 @@ in the line (roadmap 0.3.1, L-1.3). So a row written slightly wrong is never
 silently skipped: fix the row, or, for a wrapped field, keep the value on the
 field's first line and move the explanation to a bullet of its own, which is
 how pricelog's T-19 repaired its `Discharges.` field (F-132).
+
+## Accepted findings
+
+A finding that will not be fixed is **accepted by a decision**: a `D-n` in
+`DECISIONS.md` carrying an `Accepts.` field. It is never accepted by a
+baseline file, a flag or a comment (roadmap 0.3.1, L-1.6). Each item names one
+finding as the check prints it: the check, the class and the anchor file, each
+in backticks, then a dash and the message. A part not evaluated is named by its
+part, up to its dash. One acceptance, one line.
+
+```
+- **Supersedes.** none
+- **Reviewed.** unreviewed
+- **Accepts.**
+  - `check_trace` `missing-field` `tasks/T-1.md` — T-1 has no **Discharges.**
+  - `check_refs` not evaluated: audits/x.md's findings
+```
+
+- **No line number.** The anchor's line is left out, and so is any line number
+  inside the message, so an edit above the anchor does not un-accept it. What
+  is matched is the finding's identity: its check, class, anchor file and
+  message. The gate compares HEAD with the commit it is about to make by the
+  same identity.
+- **Who decides.** The decision's P-26 class decides who makes it. The
+  manager decides a `REVERSIBLE` acceptance alone, recorded as unreviewed under
+  P-27; the client decides a `CHARTER` one. A decision carrying `Accepts.` must
+  have a `Reviewed.` line reading `client`, `unreviewed` or
+  `proceeded-unreviewed (Q-n)`, or it accepts nothing, because that line is
+  where P-27's record lives. **The check enforces that the line is there. It
+  cannot enforce which class an acceptance is**, because no check can tell what
+  a finding means to the charter: that stays the decider's judgement.
+- **What the check does.** It reports each accepted finding under the number
+  of the decision that accepted it, says how many on its result line, and exits
+  `0` when nothing else is found. An accepted part is still a part nobody looked
+  at, so a line that accepted one never says the whole was read.
+- **Stale.** An acceptance whose finding no longer fires is
+  `stale-acceptance`, so the count returns to zero and stays a signal
+  (CONSOLIDATION §8a). So fixing an accepted finding means superseding the
+  decision that accepted it, carrying over whatever else it accepted that
+  still stands.
+- **Withdrawn.** A decision named in another decision's `Supersedes.` line
+  accepts nothing (P-23).
+- **Outside the grammar.** An `Accepts.` line or item outside this grammar
+  accepts nothing, and `check_refs` reports it as `unparseable-acceptance`.
+  That covers a field line that is not exactly `- **Accepts.**`, a field with no
+  item, an item in neither shape or wrapped past its line, a check that is not
+  one of the four project checks, a field in no decision, and a decision with
+  no `Reviewed.` line.
+- **Runs that read one task.** `check_report` runs for one task, so an
+  acceptance of its finding covers the run for that task, and never another
+  task's run or a step's. A part of `check_report` cannot be accepted: its parts
+  name no task, so no run could ever find such an acceptance stale.
+  `check_scope`'s `undeclared-write` is judged only by the run for the task it
+  names.
+- **An acceptance cites nothing.** It is quoted check output, so `check_refs`
+  reads no identifier from its lines. Otherwise, accepting a finding that names
+  an undeclared `T-99` would cite `T-99` from `DECISIONS.md`, and a new finding
+  would appear there in place of the one accepted.
 
 ## The identifier prefixes are reserved
 

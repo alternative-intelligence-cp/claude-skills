@@ -319,6 +319,61 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- accepted findings (roadmap 0.3.1, L-1.6) --------------------------
+    # `undeclared-write` is evaluated only for the task a run names, so only
+    # that run may apply an acceptance of it or call one stale. The `fp-`
+    # cases fail if every run judged every acceptance: a run naming no task,
+    # or naming another, would call T-1's acceptance stale though neither
+    # looked at T-1's commits.
+    decisions = lambda *items: ("# Decisions\n\n### D-1 — what stands as it is\n\n"
+                                "- **Decision.** it stands.\n- **Supersedes.** none\n"
+                                "- **Reviewed.** unreviewed\n- **Accepts.**\n"
+                                + "".join(f"  - {i}\n" for i in items))
+    empty = {**BASE, "T-2": task("T-2", "RUNNING (since 2026-09-03, T2-b-1210)", [])}
+    a_empty = "`check_scope` `empty-scope` `tasks/T-2.md` — T-2 is RUNNING and declares no scope"
+    stray = [("src/loader/a.py", "x=1\n"), ("src/render/b.py", "y=2\n")]
+    a_stray = ("`check_scope` `undeclared-write` `tasks/T-1.md` — T-1 committed src/render/b.py, "
+               "which its scope does not cover")
+    accept_cases = [
+        # (name, tasks, writes, run for, acceptances, exit, findings, accepted)
+        ("accepted-finding-exits-0-and-is-named",
+         empty, [], None, [a_empty], 0, set(), {("D-1", "empty-scope")}),
+        ("a-fixed-finding-leaves-its-acceptance-stale",
+         BASE, [], None, [a_empty], 1, {"stale-acceptance"}, set()),
+        ("an-undeclared-write-is-accepted-in-its-tasks-run",
+         BASE, stray, "T-1", [a_stray], 0, set(), {("D-1", "undeclared-write")}),
+        ("an-undeclared-write-fixed-leaves-its-acceptance-stale-in-its-tasks-run",
+         BASE, [], "T-1", [a_stray], 1, {"stale-acceptance"}, set()),
+        ("fp-a-run-naming-no-task-does-not-judge-an-undeclared-write-acceptance",
+         BASE, [], None, [a_stray], 0, set(), set()),
+        ("fp-another-tasks-run-does-not-judge-it",
+         BASE, stray, "T-2", [a_stray], 0, set(), set()),
+    ]
+    for name, tasks, writes, task_id, items, want_rc, expected, want_acc in accept_cases:
+        root = tempfile.mkdtemp(prefix="devteam-scope-accept-")
+        try:
+            os.makedirs(os.path.join(root, "devteam"))
+            with open(os.path.join(root, "devteam", "DECISIONS.md"), "w", encoding="utf-8") as fh:
+                fh.write(decisions(*items))
+            build(root, tasks, writes)
+            argv = [sys.executable, CHECK, root] + ([task_id] if task_id else [])
+            proc = subprocess.run(argv, capture_output=True, text=True)
+            out = proc.stdout
+            got = set(re.findall(r"^  (?!not evaluated: |excluded: |accepted by )(\S+)", out, re.M))
+            got_acc = set(re.findall(r"^  accepted by (D-\d+): (\S+)", out, re.M))
+            if proc.returncode == want_rc and got == expected and got_acc == want_acc:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected exit {want_rc} {sorted(expected) or 'clean'} "
+                      f"accepted {sorted(want_acc) or 'none'}")
+                for line in (out + proc.stderr).strip().split("\n")[:8]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+    CASES.extend([(c[0],) for c in accept_cases])
+
     # AN ARGUMENT NAMING NO TASK IS COULD-NOT-RUN (L-1.1), and it used to be
     # a traceback: check() returned a bare list where main() unpacks a tuple.
     root = tempfile.mkdtemp(prefix="devteam-scope-")

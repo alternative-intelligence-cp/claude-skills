@@ -316,7 +316,7 @@ VOCAB_ISH = {
 DISPOSITION_ISH = named_field("Disposition")
 
 
-def scan(files, base, untracked=frozenset()):
+def scan(files, base, untracked=frozenset(), quoted=frozenset()):
     declared, cited, findings = {}, {}, []
     step_cited = {}
     # ident -> (file:line, disposition-text-or-None) for audit findings only.
@@ -494,6 +494,17 @@ def scan(files, base, untracked=frozenset()):
             # The check was measuring whether a number had ever been used
             # anywhere, which is not what it is for.
             owner = rel if TASK_FILE.search(rel) else None
+            # AN ACCEPTANCE IS QUOTED CHECK OUTPUT TOO (roadmap 0.3.1, L-1.6),
+            # and it reproduces itself the same way: accepting a finding that
+            # names an undeclared T-99 would cite T-99 from DECISIONS.md, which
+            # sorts first, so the finding's anchor moved there and the
+            # acceptance naming the old anchor went stale. Its lines cite
+            # nothing. What watches them instead: every one is an acceptance
+            # that must match a finding, or `stale-acceptance`; or one the
+            # grammar cannot read, `unparseable-acceptance` below; or one its
+            # decision's supersession withdrew.
+            if relp == "DECISIONS.md" and n in quoted:
+                continue
             # Blanked before any identifier is read out of the line, so a
             # quoted finding cannot cite anything.
             line = CHECK_OUTPUT.sub("`quoted check output`", line)
@@ -650,8 +661,10 @@ def check(target: str, as_json=False):
         return result.could_not_run("check_refs", f"not a git repository: {target}", as_json)
     files, untracked = got
     res = result.Result("check_refs", os.path.relpath(target, os.getcwd()), width=16)
+    accepted = result.acceptances(target)
     try:
-        findings, gaps, (nfiles, ndeclared, ncited) = scan(files, target, untracked)
+        findings, gaps, (nfiles, ndeclared, ncited) = scan(files, target, untracked,
+                                                           accepted.quoted)
     except CouldNotRun as exc:
         # One unreadable file makes every cross-file class untrustworthy -- a
         # declaration inside it would read as `cited-undefined` everywhere else
@@ -664,6 +677,15 @@ def check(target: str, as_json=False):
         res.finding(kind, f"{path}:{line}", detail)
     for part, reason in gaps:
         res.gap(part, reason)
+    # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6). This check owns
+    # DECISIONS.md's grammar, so it alone reports an acceptance it cannot
+    # read -- once, rather than once per check -- and that acceptance
+    # accepts nothing, in this check or any other.
+    add = lambda kind, where, detail: res.finding(kind, where, detail)
+    for where, detail in res.accept(accepted):
+        add("stale-acceptance", where, detail)
+    for where, detail in accepted.unread:
+        add("unparseable-acceptance", where, detail)
     res.count(nfiles, "files")
     res.count(ndeclared, "declared")
     res.count(ncited, "cited")

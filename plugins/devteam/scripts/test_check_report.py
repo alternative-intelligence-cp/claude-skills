@@ -515,6 +515,64 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- accepted findings (roadmap 0.3.1, L-1.6) --------------------------
+    # This check reads ONE task, so an acceptance names the task's file and
+    # only that task's own run may apply it or call it stale. The `fp-` cases
+    # are the ones that fail if it judges every acceptance in every run: a run
+    # for T-1 would call T-2's acceptance stale, and a step's run would call
+    # its task's acceptance stale, though neither evaluated what it names.
+    mismatch = task_file(report=REPORT.replace("status: DONE", "status: NEEDS-DECISION"))
+    a_mismatch = ("`check_report` `status-mismatch` `tasks/T-1.md` — status NEEDS-DECISION "
+                  "but the title says 'DONE (2026-09-03)'")
+    step = task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1"),
+                     title="RUNNING (since 2026-09-03, T1-a-1200)")
+    decisions = lambda *items: ("# Decisions\n\n### D-1 — T-1's report stands as it is\n\n"
+                                "- **Decision.** it stands.\n- **Supersedes.** none\n"
+                                "- **Reviewed.** client\n- **Accepts.**\n"
+                                + "".join(f"  - {i}\n" for i in items))
+    accept_cases = [
+        # (name, task file, acceptances, run, containment, exit, findings, accepted, parts)
+        ("accepted-finding-in-the-tasks-own-run-exits-0",
+         mismatch, [a_mismatch], "T-1", "guard-only", 0, set(), {("D-1", "status-mismatch")}, set()),
+        ("a-fixed-finding-leaves-its-acceptance-stale-in-the-tasks-own-run",
+         task_file(), [a_mismatch], "T-1", "guard-only", 1, {"stale-acceptance"}, set(), set()),
+        ("fp-a-run-for-one-task-does-not-judge-anothers-acceptance",
+         task_file(), [a_mismatch.replace("tasks/T-1.md", "tasks/T-2.md")], "T-1", "guard-only",
+         0, set(), set(), set()),
+        ("fp-a-steps-run-neither-applies-nor-judges-its-tasks-acceptance",
+         step, [a_mismatch], "T-1.S-1", "guard-only", 0, set(), set(), set()),
+        # A part cannot be accepted here (result.py refuses it, and check_refs
+        # reports the line): the harness gap stands, named, and exits 3.
+        ("a-part-of-check_report-is-not-acceptable",
+         task_file(), ["`check_report` not evaluated: model-mismatch"], "T-1", "structural",
+         3, set(), set(), {"budget-mismatch", "model-mismatch"}),
+    ]
+    for (name, body, items, run_id, containment, want_rc, expected, want_acc,
+         want_gaps) in accept_cases:
+        root = tempfile.mkdtemp(prefix="devteam-report-accept-")
+        try:
+            os.makedirs(os.path.join(root, "devteam"))
+            with open(os.path.join(root, "devteam", "DECISIONS.md"), "w", encoding="utf-8") as fh:
+                fh.write(decisions(*items))
+            build(root, body, containment=containment)
+            proc = subprocess.run([sys.executable, CHECK, root, run_id], capture_output=True, text=True)
+            out = proc.stdout
+            got = set(re.findall(r"^  (?!not evaluated: |excluded: |accepted by )(\S+)", out, re.M))
+            got_acc = set(re.findall(r"^  accepted by (D-\d+): (\S+)", out, re.M))
+            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", out, re.M))
+            if (proc.returncode == want_rc and got == expected and got_acc == want_acc
+                    and gaps == want_gaps):
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected exit {want_rc} {sorted(expected) or 'clean'} "
+                      f"accepted {sorted(want_acc) or 'none'} not evaluated {sorted(want_gaps) or 'none'}")
+                for line in (out + proc.stderr).strip().split("\n")[:8]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     # NO REPOSITORY IS COULD-NOT-RUN (L-1.1), and it used to be a traceback:
     # step 3.1 made every return of check() a triple except this one.
     root = tempfile.mkdtemp(prefix="devteam-report-nogit-")
@@ -535,6 +593,7 @@ def main():
 
     CASES.extend([(c[0],) for c in parse_cases])
     CASES.extend([(c[0],) for c in blocking_cases])
+    CASES.extend([(c[0],) for c in accept_cases])
     fp = (sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
           + sum(1 for c in budget_cases if c[0].startswith("fp-")))
     print(f"\ncheck_report control: {passed} passed, {failed} failed, "

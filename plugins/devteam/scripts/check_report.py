@@ -604,11 +604,22 @@ def main(argv):
         res.gap(part, reason, advisory)
     for part, declaration in excluded:
         res.exclude(part, declaration)
+    # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6), for this task's own
+    # report. An acceptance names the task's file, so a run for another task
+    # neither applies it nor calls it stale; and a step's block is not the
+    # task's report the acceptance was decided against, so a step run covers
+    # none. A part is not acceptable here at all: check_report's parts name no
+    # task, so no run could ever find one stale (result.py refuses it).
+    devteam = project if os.path.basename(project) == "devteam" else os.path.join(project, "devteam")
+    covers = lambda a: "." not in task_id and a.file == anchor
+    add = lambda kind, where, detail: res.finding(kind, where, detail)
+    for where, detail in res.accept(result.acceptances(devteam), covers):
+        add("stale-acceptance", where, detail)
     # ADVISORY findings are still PRINTED under --blocking-only. Suppressing
     # them would make the flag a way to not see something, which is how a
     # check loses the thing it was built for; it changes the verdict, never
     # the report.
-    if blocking_only and findings and res.exit_code == result.CLEAN:
+    if blocking_only and res.findings and res.exit_code == result.CLEAN:
         res.trailer.append(f"{task_id}: no blocking findings — every one above is advisory, "
                            f"a fact about the report that the work does not depend on")
     return result.emit([res], as_json)

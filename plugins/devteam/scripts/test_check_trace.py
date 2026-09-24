@@ -853,6 +853,94 @@ CASES = [
 ]
 
 
+# --- accepted findings (roadmap 0.3.1, L-1.6) ------------------------------
+# An accepted finding is a DECISION, and the check says so on its line. These
+# are the plan's planted cases (§3.4) in fixture form: accepted exits 0 and is
+# named; a finding nobody accepted still exits 1; an edit that moves the
+# anchor does not un-accept it; a fixed finding leaves its acceptance STALE,
+# which is a finding; and an acceptance outside the grammar accepts nothing.
+# Each fails if the check reads an acceptance as a quiet exemption.
+
+FINDING_LINE = r"^  (?!not evaluated: |excluded: |accepted by )(\S+)"
+
+T1_NO_VERIFY = T1.replace("- **Verify.** `make test`\n", "")
+_ACCEPT_VERIFY = "`check_trace` `missing-field` `tasks/T-1.md` — T-1 has no **Verify.**"
+
+
+def decisions(*items, reviewed="unreviewed", more=""):
+    """DECISIONS.md with one decision, D-1, accepting `items`."""
+    field = "- **Accepts.**\n" + "".join(f"  - {i}\n" for i in items) if items else ""
+    return f"""# Decisions
+
+### D-1 — what T-1 leaves as it is
+
+- **Decision.** it stays.
+- **Because.** a fixture.
+- **Alternatives declined.**
+  - change it — a fixture.
+- **Date.** 2026-09-24
+- **Supersedes.** none
+- **Reviewed.** {reviewed}
+{field}{more}"""
+
+
+ACCEPT_CASES = [
+    # (name, overrides, extra args, exit, findings, accepted (D, class or
+    #  part), parts not evaluated)
+    ("accepted-finding-exits-0-and-the-line-names-the-decision",
+     {"tasks/T-1.md": T1_NO_VERIFY, "DECISIONS.md": decisions(_ACCEPT_VERIFY)},
+     [], 0, set(), {("D-1", "missing-field")}, set()),
+    ("a-finding-nobody-accepted-still-exits-1",
+     {"tasks/T-1.md": T1_NO_VERIFY, "DECISIONS.md": decisions(_ACCEPT_VERIFY),
+      "tasks/T-2.md": T2.replace("- **Gate.** the README exists and is non-empty.\n", "")},
+     [], 1, {"missing-field"}, {("D-1", "missing-field")}, set()),
+    ("an-edit-that-moves-the-anchor-does-not-un-accept-it",
+     {"tasks/T-1.md": "<!-- a note above the title -->\n\n" + T1_NO_VERIFY,
+      "DECISIONS.md": decisions(_ACCEPT_VERIFY), "BOARD.md": BOARD.format(s1="—", s2="—")},
+     [], 0, set(), {("D-1", "missing-field")}, set()),
+    ("a-fixed-finding-leaves-its-acceptance-stale",
+     {"DECISIONS.md": decisions(_ACCEPT_VERIFY)},
+     [], 1, {"stale-acceptance"}, set(), set()),
+    ("an-acceptance-outside-the-grammar-accepts-nothing",
+     {"tasks/T-1.md": T1_NO_VERIFY,
+      "DECISIONS.md": decisions(_ACCEPT_VERIFY.replace("`check_trace` ", "check_trace "))},
+     [], 1, {"missing-field"}, set(), set()),
+    ("a-decision-that-does-not-say-who-reviewed-it-accepts-nothing",
+     {"tasks/T-1.md": T1_NO_VERIFY, "DECISIONS.md": decisions(_ACCEPT_VERIFY, reviewed="")},
+     [], 1, {"missing-field"}, set(), set()),
+    ("a-superseded-acceptance-accepts-nothing-and-is-not-stale",
+     {"tasks/T-1.md": T1_NO_VERIFY, "DECISIONS.md": decisions(
+         _ACCEPT_VERIFY, more="\n### D-2 — T-1 gets its Verify. after all\n\n"
+                              "- **Decision.** add it.\n- **Supersedes.** D-1\n")},
+     [], 1, {"missing-field"}, set(), set()),
+    # A PART ACCEPTED: F-70's board, blind until 0.3.2 reads link rows.
+    ("an-accepted-part-exits-0-and-is-named",
+     {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| T-1 |", "| [T-1](tasks/T-1.md) |"),
+      "DECISIONS.md": decisions("`check_trace` not evaluated: BOARD.md's task rows")},
+     [], 0, set(), {("D-1", "BOARD.md's task rows")}, set()),
+    ("a-part-now-evaluated-leaves-its-acceptance-stale",
+     {"DECISIONS.md": decisions("`check_trace` not evaluated: BOARD.md's task rows")},
+     [], 1, {"stale-acceptance"}, set(), set()),
+    # EXCLUDED IS NOT EVALUATED (L-1.2), so --pre-plan cannot judge an
+    # acceptance of the class it holds back -- and without the flag, the
+    # same acceptance is applied.
+    ("fp-pre-plan-does-not-judge-an-acceptance-of-the-class-it-excludes",
+     {"tasks/T-2.md": None, "DECISIONS.md": decisions(
+         "`check_trace` `uncovered-requirement` `REQUIREMENTS.md` — R-2 is not discharged by any task")},
+     ["--pre-plan"], 0, set(), set(), set()),
+    ("fp-without-pre-plan-the-same-acceptance-is-applied",
+     {"tasks/T-2.md": None, "DECISIONS.md": decisions(
+         "`check_trace` `uncovered-requirement` `REQUIREMENTS.md` — R-2 is not discharged by any task")},
+     [], 0, set(), {("D-1", "uncovered-requirement")}, set()),
+    ("fp-an-acceptance-of-another-check-changes-nothing-here",
+     {"DECISIONS.md": decisions("`check_refs` `broken-link` `tasks/T-1.md` — missing.md")},
+     [], 0, set(), set(), set()),
+    ("fp-a-decisions-file-with-no-acceptance-changes-nothing",
+     {"DECISIONS.md": decisions()},
+     [], 0, set(), set(), set()),
+]
+
+
 _TITLE = re.compile(r"^#\s+(T-\d+)\s+[—–-]\s+(.*?)\s+[—–-]\s+(\S+)")
 _STATE = {"PLANNED": "—", "RUNNING": "CLAIMED T-a-1200", "DONE": "DONE",
           "ACCEPTED": "ACCEPTED (2026-09-05, D-41)", "BLOCKED": "BLOCKED on Q-1",
@@ -942,7 +1030,7 @@ def main():
             dt = build(root, overrides, prior)
             proc = subprocess.run([sys.executable, CHECK, *extra, dt],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
+            got = set(re.findall(FINDING_LINE, proc.stdout, re.M))
             got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
             want_exit = 1 if expected else (3 if want_gaps else 0)
             # HELD BACK IS NOT CLEAN (roadmap 0.3.1, L-1.2): `--pre-plan`
@@ -1046,7 +1134,7 @@ def main():
             proc = subprocess.run([sys.executable, check, target],
                                   capture_output=True, text=True)
             got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
-            got = set(re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M))
+            got = set(re.findall(FINDING_LINE, proc.stdout, re.M))
             if got_gaps == want_gaps and not got and proc.returncode == 3:
                 passed += 1
             else:
@@ -1060,11 +1148,43 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    for name, overrides, extra, want_exit, expected, want_acc, want_gaps in ACCEPT_CASES:
+        root = tempfile.mkdtemp(prefix="devteam-trace-accept-")
+        try:
+            dt = build(root, overrides)
+            proc = subprocess.run([sys.executable, CHECK, *extra, dt],
+                                  capture_output=True, text=True)
+            out = proc.stdout
+            got = set(re.findall(FINDING_LINE, out, re.M))
+            got_acc = (set(re.findall(r"^  accepted by (D-\d+): not evaluated: (.+?) — ", out, re.M))
+                       | set(re.findall(r"^  accepted by (D-\d+): (?!not evaluated: )(\S+)", out, re.M)))
+            got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", out, re.M))
+            # The head line says how many were accepted, and by which decision,
+            # so a zero reached by accepting never reads as a zero reached by
+            # fixing -- and an accepted part never claims the whole was read.
+            head = out.split("\n", 1)[0]
+            said = (not want_acc or f", {len(want_acc)} accepted by D-1" in head) and not (
+                any(" " in p or "'" in p for _, p in want_acc) and "traced end to end" in head)
+            if (proc.returncode == want_exit and got == expected and got_acc == want_acc
+                    and got_gaps == want_gaps and said):
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected exit {want_exit} {sorted(expected) or 'clean'} "
+                      f"accepted {sorted(want_acc) or 'none'}")
+                print(f"        got      exit {proc.returncode} {sorted(got) or 'clean'} "
+                      f"accepted {sorted(got_acc) or 'none'}")
+                for line in (out + proc.stderr).strip().split("\n")[:8]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     # COUNTED FROM WHAT RAN, not from len(CASES). The gate cases above are not
     # in that list, and a hand-maintained total that disagrees with the number
     # of cases executed is the exact defect docs/CHECKS.md exists to stop.
     total = passed + failed
-    fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean") + 1
+    fp = sum(1 for c in CASES + ACCEPT_CASES if c[0].startswith("fp-") or c[0] == "clean") + 1
     print(f"\ncheck_trace control: {passed} passed, {failed} failed, "
           f"{total} cases ({fp} of them false-positive controls, "
           f"{100 * fp // total}%)")

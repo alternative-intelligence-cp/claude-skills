@@ -473,6 +473,22 @@ def main(argv):
         res.finding(kind, where, detail)
     for part, reason in gaps:
         res.gap(part, reason)
+
+    # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6). `undeclared-write` is
+    # evaluated only for the task a run names, so only that run can judge an
+    # acceptance of it; in any other run, every such acceptance would read as
+    # stale. The rest are evaluated in every run.
+    def covers(a):
+        if a.cls == "undeclared-write":
+            return bool(task_id) and a.message.startswith(f"{task_id} committed ")
+        if a.part is not None and a.part.startswith("undeclared-write for "):
+            return a.part == f"undeclared-write for {task_id}"
+        return True
+    add = lambda kind, where, detail: res.finding(kind, where, detail)
+    project = os.path.realpath(argv[1])
+    devteam = project if os.path.basename(project) == "devteam" else os.path.join(project, "devteam")
+    for where, detail in res.accept(result.acceptances(devteam), covers):
+        add("stale-acceptance", where, detail)
     # The live count is the denominator RECORD.md:86 asked for: "a check that is
     # silent because nothing is running looks identical to a check that is
     # silent because nothing is wrong". With it on the line, they do not.

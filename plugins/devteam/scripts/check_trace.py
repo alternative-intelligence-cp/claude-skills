@@ -1289,6 +1289,12 @@ def main(argv):
             res.finding(kind, where, detail)
         for part, reason in gaps:
             res.gap(part, reason)
+        # WHAT A DECISION ACCEPTED (roadmap 0.3.1, L-1.6) is reported as
+        # accepted, and an acceptance nothing matches is a finding here, so
+        # the count returns to zero when the finding is fixed.
+        add = lambda kind, where, detail: res.finding(kind, where, detail)
+        for where, detail in res.accept(result.acceptances(devteam)):
+            add("stale-acceptance", where, detail)
         res.count(ng, "goals")
         res.count(nr, "requirements")
         res.count(nt, "tasks")

@@ -1957,6 +1957,13 @@ checks downgrading exactly those to notes; and — the half that stops it rottin
 — **a stale acceptance that no longer matches anything is itself a finding**,
 because an acceptance nobody revisits is a silence nobody chose.
 
+**Built in roadmap 0.3.1 (L-1.6), in a different shape, 2026-09-24.** An
+acceptance is an `Accepts.` field on a decision in `DECISIONS.md`, classed by
+P-26 like any other decision, not an entry in a block. It names the finding
+without its line, because a line number moves with every edit above it and
+would un-accept the finding. The stale half is built as written above
+(`templates/FORMATS.md` §"Accepted findings").
+
 ---
 
 ## 21. The open question: how much of this is ceremony

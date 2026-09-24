@@ -163,7 +163,7 @@ the target moved.
 
 ## 8. Two mechanisms deferred with their triggers
 
-### 8a. The accepted-findings block — **remains, trigger not fired**
+### 8a. The accepted-findings block — **fired in 0.2.9's run; built in roadmap 0.3.1 (L-1.6)**
 
 A block recording a finding that may not be fixed, so the resting count returns
 to zero and stays a signal. The framing decides who reaches for it: read as
@@ -171,6 +171,14 @@ to zero and stays a signal. The framing decides who reaches for it: read as
 the zero*, they are reluctant, because every entry costs the signal.
 **Trigger:** the day a manager reads a finding count and does not read the
 finding under it. Reported as *not yet*, and **nothing watches this trigger**.
+
+**2026-09-24.** The trigger fired in the run: a permanently red exit code
+taught managers to commit over red (the cycle 0.3 README, §5). Roadmap 0.3.1
+built it as a decision rather than a block. A `D-n` carries an `Accepts.` field
+naming each finding by check, class, anchor file and message, without the line;
+the check reports those findings as accepted, naming the decision; and an
+acceptance nothing matches is `stale-acceptance`, which is the half that
+restores the zero (`templates/FORMATS.md` §"Accepted findings").
 
 ### 8b. The narrow unscoped-commit refusal — **THE TRIGGER HAS FIRED**
 

@@ -560,6 +560,64 @@ S-1 is the only step.
 ]
 
 
+# --- accepted findings (roadmap 0.3.1, L-1.6) ------------------------------
+# This check owns DECISIONS.md's grammar, so it is the one that reports an
+# acceptance it cannot read -- and an acceptance is quoted check output, so it
+# cites nothing. The two `cites-nothing` cases are the discriminating ones:
+# without that rule, accepting a finding that names an undeclared T-99 cites
+# T-99 again from DECISIONS.md, which sorts first, so the finding moves there
+# and the acceptance naming its old anchor goes stale.
+
+FINDING_LINE = r"^  (?!not evaluated: |excluded: |accepted by )(\S+)"
+LINK = append("tasks/T-1.md", "See [the notes](notes.md).\n")
+A_LINK = "`check_refs` `broken-link` `tasks/T-1.md` — notes.md"
+A_T99 = ("`check_refs` `cited-undefined` `tasks/T-1.md` — T-99 is cited but never declared. "
+         "Declare it in tasks/T-99.md as `# T-99 — <title>`")
+
+
+def accepts(*items):
+    """An `Accepts.` field for D-1, the fixture's last decision."""
+    return append("DECISIONS.md", "- **Accepts.**\n" + "".join(f"  - {i}\n" for i in items))
+
+
+ACCEPT_CASES = [
+    # (name, mutations, exit, findings, accepted as (D, class or part))
+    ("accepted-finding-exits-0-and-the-line-names-the-decision",
+     [LINK, accepts(A_LINK)], 0, set(), {("D-1", "broken-link")}),
+    ("a-fixed-finding-leaves-its-acceptance-stale",
+     [accepts(A_LINK)], 1, {"stale-acceptance"}, set()),
+    ("unparseable-acceptance-an-item-without-its-backticks",
+     [LINK, accepts(A_LINK.replace("`", ""))], 1, {"broken-link", "unparseable-acceptance"}, set()),
+    ("unparseable-acceptance-a-decision-that-does-not-say-who-reviewed-it",
+     [LINK, replace("DECISIONS.md", "- **Reviewed.** client", "- **Reviewed.** the team"),
+      accepts(A_LINK)], 1, {"broken-link", "unparseable-acceptance"}, set()),
+    ("unparseable-acceptance-a-field-in-no-decision",
+     [LINK, replace("DECISIONS.md", "# Decisions\n", f"# Decisions\n\n- **Accepts.**\n  - {A_LINK}\n")],
+     1, {"broken-link", "unparseable-acceptance"}, set()),
+    ("unparseable-acceptance-a-field-written-with-a-colon",
+     [LINK, append("DECISIONS.md", f"- **Accepts:**\n  - {A_LINK}\n")],
+     1, {"broken-link", "unparseable-acceptance"}, set()),
+    # A part of check_report names no task, so no run could judge it: without
+    # the refusal, the line would be read and then never applied and never
+    # stale -- an acceptance nobody could see doing nothing.
+    ("unparseable-acceptance-a-part-of-check_report",
+     [accepts("`check_report` not evaluated: model-mismatch")], 1, {"unparseable-acceptance"}, set()),
+    ("an-acceptance-cites-nothing-so-accepting-an-undeclared-id-holds",
+     [append("tasks/T-1.md", "Waiting on T-99.\n"), accepts(A_T99)],
+     0, set(), {("D-1", "cited-undefined")}),
+    ("fp-a-malformed-acceptance-cites-nothing-either",
+     [accepts(A_T99.replace("`check_refs` ", "check_refs "))], 1, {"unparseable-acceptance"}, set()),
+    ("an-accepted-part-exits-0-and-is-named",
+     [("tracked", "audits/T-1-safety-2026-09-04.md",
+       "# T-1 safety audit\n\n## Finding 1 (HIGH) — the log can be truncated\n\nProse.\n"),
+      accepts("`check_refs` not evaluated: audits/T-1-safety-2026-09-04.md's findings")],
+     0, set(), {("D-1", "audits/T-1-safety-2026-09-04.md's findings")}),
+    ("fp-an-acceptance-of-another-check-is-neither-applied-nor-stale-here",
+     [accepts("`check_trace` `missing-field` `tasks/T-1.md` — T-1 has no **Verify.**")],
+     0, set(), set()),
+]
+
+
 def build(root, mutations):
     dt = os.path.join(root, "devteam")
     for name, body in FIXTURE.items():
@@ -631,7 +689,7 @@ def main():
             dt = build(root, mutations)
             proc = subprocess.run([sys.executable, CHECK, dt],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
+            got = set(re.findall(FINDING_LINE, proc.stdout, re.M))
             got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
             expected_exit = 1 if expected else (3 if want_gaps else 0)
             ok = got == expected and got_gaps == want_gaps and proc.returncode == expected_exit
@@ -701,8 +759,50 @@ def main():
             finally:
                 shutil.rmtree(root, ignore_errors=True)
 
-    total = len(CASES) + 2 * len(gap_cases)
-    fp = sum(1 for c in CASES if c[0].startswith("fp-") or c[0] == "clean")
+    for name, mutations, want_exit, expected, want_acc in ACCEPT_CASES:
+        for as_json in (False, True) if name.startswith("accepted-finding") else (False,):
+            root = tempfile.mkdtemp(prefix="devteam-refs-accept-")
+            try:
+                dt = build(root, mutations)
+                proc = subprocess.run([sys.executable, CHECK, dt] + (["--json"] if as_json else []),
+                                      capture_output=True, text=True)
+                out = proc.stdout
+                if as_json:
+                    # The gate reads this, never the line: an accepted finding
+                    # is out of `findings` and in `accepted`, with its decision.
+                    try:
+                        r = json.loads(out)["results"][0]
+                        ok = (proc.returncode == want_exit and r["result"] == "clean"
+                              and not r["findings"]
+                              and {(f["by"], f["class"]) for f in r["accepted"]} == want_acc)
+                    except (ValueError, KeyError, IndexError, TypeError):
+                        ok = False
+                else:
+                    got = set(re.findall(FINDING_LINE, out, re.M))
+                    got_acc = (set(re.findall(r"^  accepted by (D-\d+): not evaluated: (.+?) — ",
+                                              out, re.M))
+                               | set(re.findall(r"^  accepted by (D-\d+): (?!not evaluated: )(\S+)",
+                                                out, re.M)))
+                    head = out.split("\n", 1)[0]
+                    ok = (proc.returncode == want_exit and got == expected and got_acc == want_acc
+                          and (not want_acc or f", {len(want_acc)} accepted by D-1" in head))
+                label = f"{name}{' --json' if as_json else ''}"
+                if ok:
+                    passed += 1
+                else:
+                    failed += 1
+                    print(f"FAIL  {label}")
+                    print(f"        expected exit {want_exit} {sorted(expected) or 'clean'} "
+                          f"accepted {sorted(want_acc) or 'none'}")
+                    for line in (out + proc.stderr).strip().split("\n")[:10]:
+                        print(f"        | {line}")
+            finally:
+                shutil.rmtree(root, ignore_errors=True)
+
+    # COUNTED FROM WHAT RAN: a total computed from the case lists missed every
+    # loop that was not one of them.
+    total = passed + failed
+    fp = sum(1 for c in CASES + ACCEPT_CASES if c[0].startswith("fp-") or c[0] == "clean")
     print(f"\ncheck_refs control: {passed} passed, {failed} failed, "
           f"{total} cases ({fp} of them false-positive controls, "
           f"{100 * fp // total}%)")
