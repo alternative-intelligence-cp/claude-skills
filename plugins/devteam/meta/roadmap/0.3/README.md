@@ -206,13 +206,29 @@ same listing is also a scriptable join between a session's id and its name
 (F-118) and a liveness reading for sessions — `REASONED` until a subcycle reads
 it under load. Whether it lists headless `claude -p` workers is not known.
 
-**4.7 The Nitpick compiler moves daily, and the user guides for it were
-written by another model.** The compiler (`~/Workspace/REPOS/nitpick`) is
-self-hosted and under active development: step 1.5.8b landed commits on the
-day this was planned, each carrying its own reference-document changes
-(`LEXICAL_REFERENCE`, `OP_REFERENCE`, `TYPE_REFERENCE`), and its standard
-library tier includes `nio`, `nstr`, `nproc` and `nsys` — enough, `REASONED`,
-for a program that reads its arguments and standard input. Separately,
+**4.7 The Nitpick compiler is under active development, and the user guides
+for it were written by another model.** The compiler
+(`~/Workspace/REPOS/nitpick`) is self-hosted. Its `main` branch last moved on
+2026-09-19 — steps 3 to 6 of cycle 1.5.8b, each commit carrying its own
+reference-document changes — and on the day this was planned its current work
+was committed on two branches in separate worktrees (`s12-158b-6b` and
+`s12-158b-6c`, both at `c88bfd8`, 2026-09-23 21:23). **Corrected at planning:**
+an earlier version of this paragraph, and of L-12, said step 1.5.8b landed on
+the planning day; that was read from the step numbers without checking the
+dates. A pinned build is therefore a commit on `main`, never a work branch. The
+language's authority is its `meta/specs/` directory — seventeen references,
+from `LEXICAL_REFERENCE.md` to `VERIFICATION_REFERENCE.md` — and the compiler
+has no tags; its version reads `0.0.0`, so a build is pinned by commit.
+Building it needs LLVM **20.1.2** exactly (`llc` and `ld.lld`; its
+`nitpick.toml` pins the version), and on this machine that is a trap for a
+sandbox: `/usr/bin/llc` does not exist, `/usr/bin/ld.lld` is LLD 18, and the
+LLVM 20 names are symlinks in `~/.local/bin`, which a sandbox's private `HOME`
+hides. The compiler itself reads no environment variable, writes only its
+output file, and links statically. A program reads its arguments through
+`main`'s fixed signature and its standard input through the builtin
+`read_stdin`, and it imports only by relative or absolute path — the compiler
+searches no library path. No program in the compiler's own tests reads
+standard input. Separately,
 `~/Workspace/REPOS/nitpick-docs` holds three user guides (quick start, cheat
 sheet, driver model) and two examples, written by another model on 2026-09-21
 and reviewed by the owner, who reports finding and fixing a couple of errors
@@ -224,11 +240,35 @@ know — and it is why 0.3.15 admits those guides as worker input only once ever
 example in them has been compiled and run against the pinned build. No
 benchmark files are in the tracked tree.
 
+**4.8 Four defects the planning reads turned up, each assigned.**
+- **The session meter cannot find a session whose project path contains a
+  dot.** The harness names a project's transcript directory by turning both `/`
+  and `.` into `-` — `…claude-skills--internal-scratch` is on disk — while
+  `session_cost.py` turns only `/`, so
+  `session_cost.py --project ~/Workspace/REPOS/claude-skills/.internal/scratch`
+  exits `no-transcript`. Every session this cycle's probes start from
+  `.internal/scratch` is affected. 0.3.0 passes transcript paths directly;
+  0.3.5 fixes the lookup.
+- **Workers leave no transcript.** `sandbox.py` dispatches every worker with
+  `--no-session-persistence`, so a worker's spend exists only in its sandbox's
+  `meta/budget.json`, which `close` deletes (F-9) — and the message `close
+  --keep` prints, that the worker's transcript is kept under
+  `home/.claude/projects/`, cannot be true of a session that saved none. 0.3.5
+  and 0.3.7.
+- **The outgoing manager is never told to answer the question its successor
+  must ask.** `resume` §0 has the successor ask for *"the sha of your last
+  intended write"*; `run` §2, which tells the outgoing manager how to stop,
+  never says to reply with it. 0.3.6.
+- **The sandbox probe's control cites a file that has moved.**
+  `scripts/test_sandbox_probe.py` cites `meta/roadmap/0.2/0.2.0.md`, which is
+  now under `done/`, and `check_plugin` does not read citations inside
+  Python files. 0.3.2 gives the reference check a reach it does not have.
+
 ## 5. The map
 
 | Subcycle | What it produces | Depends on | Core? |
 |---|---|---|---|
-| 0.3.0 — probes | four probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2), and **the Nitpick compiler inside a sandbox** (a compiler built from a pinned commit, bound read-only, compiling and running a program that reads its arguments and standard input — L-10) | — | **yes — first, small, and it can change the design** |
+| [0.3.0](0.3.0.md) — probes | four probes — **the liaison** (can a background session run the manager's loop to a checkpoint and be replaced with nobody at the keyboard, with a decision rule for L-2), **the meter** (every session and in-process agent from transcripts, reconciled against `/usage` readings the owner supplies), **the frozen overlay** (a commit as the lower layer, `devteam/` read-only, promotion correct at width 2), and **the Nitpick compiler inside a sandbox** (a compiler built from a pinned commit, bound read-only, compiling and running a program that reads its arguments and standard input — L-10) | — | **yes — first, small, and it can change the design** |
 | 0.3.1 — the check contract | one result contract for every check — clean, findings, or `not-evaluated` with its reason (L-6); zero rows parsed is `not-evaluated`; untracked files read (F-131); accepted findings as a reasoned, first-class baseline; a commit gate shipped in the plugin that commits only on green, scoped so that a concurrent task's red file cannot block an unrelated commit (F-12, F-19, F-24), with a post-commit re-run of history-derived checks (F-114) | 0.3.0 | yes — every later check is built to it |
 | 0.3.2 — what the checks read | the silent-clean and wrong-window defects, check by check: `check_trace` (F-36 and F-68's slice, F-95's prose edges, F-132's two parses, partial and re-established requirement states, the header against the newest amendment, estimates against `S-` lines); `check_report` (F-34, F-37 and F-88 fail loudly; F-32's hedged figures; per-block meters, F-103 and F-109; `added` and `reconstructed`, F-86); `check_scope` and `check_report` keyed to the current claim window (F-135, F-136); board state against task title (F-107); checkpoint tallies from parsed verdicts (A12) | 0.3.1 | yes |
 | 0.3.3 — the disposition ledger | one ledger for every open item — raised by an adversary, a worker, an auditor, an outgoing manager, or the client between writes — each a countable line with an owner and a decision or an expiry; report grammars that carry open items as lines (F-139); a check that fails any landing that leaves one without; question status in one home (F-63, F-64); the audit skill's output and `check_refs`' audit namespace made one contract (F-99, F-104, F-112); a place outside the writer lock for what the client says during a handoff (F-21) | 0.3.1 | yes |
@@ -243,7 +283,7 @@ benchmark files are in the tracked tree.
 | 0.3.12 — the liaison | **only if 0.3.0's probe passes** (L-2): the restarter, the relay, the escalation classification applied as a rule, the rotation log, and liaison tokens per rotation as its instrument ([`v3-liaison-and-roles`](../../v3-liaison-and-roles-2026-09-12.md) §6–§8) | 0.3.0's decision; 0.3.4, 0.3.5, 0.3.6 | conditional |
 | 0.3.13 — release 0.3.0 | version, self-check and controls; DESIGN and PROTOCOL brought level; the README's Known problems rows removed only where the fix has been shown working; the register's rows marked with the subcycle that closed each; a fresh `setup` on a throwaway Nitpick project | everything shipped | yes |
 | 0.3.14 — the third run | a cowsay clone written in Nitpick, in its own repository beside `pricelog` (L-10, L-11) — cycle 1 one animal and the most basic behaviour, `/devteam:iterate` adding animals and flags — planned from §8's model once 0.3.5 exists: a cycle that closes, the owner using what it built before iterating, a second iteration after unreviewed decisions exist, width 2, rotation at every checkpoint, the liaison if it was built, and one pinned compiler build throughout (L-12); then row 20's judgement | 0.3.13 | **yes — it is what the cycle is for** |
-| 0.3.15 — a toolchain no model knows | L-10's price, because no model has seen Nitpick: `setup` detects a Nitpick project and its toolchain; a compiler built from a pinned commit rather than taken from the compiler's working tree, recorded in the environment pin and bound into every sandbox through 0.3.7 (L-12); the language reference made a worker input — the compiler's own references at the pinned commit, with the user guides in `nitpick-docs` admitted only once every example in them has been compiled and run against that build, each failure a finding carried to the owner; every finding in a run tagged with its cause — the pipeline, the language or compiler, the model's knowledge of the language, or the product; a compiler defect recorded with a reproduction and never fixed mid-run (L-12) | 0.3.0, 0.3.3, 0.3.7 | yes, for this run — it is L-10's price |
+| 0.3.15 — a toolchain no model knows | L-10's price, because no model has seen Nitpick: `setup` detects a Nitpick project and its toolchain; a compiler built from a pinned commit rather than taken from the compiler's working tree, recorded in the environment pin and bound into every sandbox through 0.3.7 (L-12); the language reference made a worker input — the compiler's own `meta/specs/` at the pinned commit, with the user guides in `nitpick-docs` admitted only once every example in them has been compiled and run against that build, each failure a finding carried to the owner; every finding in a run tagged with its cause — the pipeline, the language or compiler, the model's knowledge of the language, or the product; a compiler defect recorded with a reproduction and never fixed mid-run (L-12) | 0.3.0, 0.3.3, 0.3.7 | yes, for this run — it is L-10's price |
 
 **Order.** 0.3.0 → 0.3.1 → 0.3.3 → 0.3.4 → 0.3.6 → 0.3.13 → 0.3.14 is the
 critical path. 0.3.2 follows 0.3.1 at any point before 0.3.13. 0.3.5 needs
@@ -411,9 +451,10 @@ evidence cited, and stand until the owner overrules one.
   (Recommended)"* over *"Fix it in the compiler as it comes up"*. The run uses
   one compiler, built from a pinned commit, for its whole length; a defect in it
   is recorded with a reproduction, and the run works around it or stops; the
-  compiler takes it up on its own schedule. *Why:* the compiler is changing
-  daily — step 1.5.8b landed commits on the day this was planned — so a run that
-  tracked it would measure two moving things at once, and fixing the compiler
+  compiler takes it up on its own schedule. *Why:* the compiler is under active
+  development — its current work was committed on two branches on the day this
+  was planned (§4.7) — so a run that tracked it would measure two moving things
+  at once, and fixing the compiler
   mid-run would interleave bug-fixing with the compiler's roadmap work, which
   the owner keeps apart. *Declined:* fixing as it comes up — faster for the run,
   and it moves the pin mid-run.
