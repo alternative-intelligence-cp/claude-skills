@@ -216,8 +216,8 @@ def covered(path, named):
 
 # --- the repository -------------------------------------------------------------
 
-def locate(opts):
-    start = os.path.abspath(opts["dir"] or os.getcwd())
+def locate(where):
+    start = os.path.abspath(where or os.getcwd())
     p = git(start, "rev-parse", "--show-toplevel", check=False)
     if p.returncode != 0 or not p.stdout.strip():
         raise CouldNotRun(f"not a git repository: {start}")
@@ -693,18 +693,26 @@ def render(doc):
     return out
 
 
-def main(argv):
-    as_json = "--json" in argv[1:argv.index("--")] if "--" in argv else "--json" in argv
+def commit(paths, message, cwd=None, pre_plan=False, dry_run=False, wait=120.0):
+    """The gate's one act, as data: build the candidate, judge it, and land it.
+
+    `paths` are named as `git commit -- <paths>` names them, relative to
+    `cwd`, the working directory when None. Returns the document `--json`
+    prints, whose `exit` is 0 committed (with `dry_run`, would commit) or 1
+    refused. Raises CouldNotRun when the gate cannot answer, and nothing was
+    committed then. `main` is this function behind the command line. A
+    command that commits for the manager calls it directly, so it gets what
+    the gate refused and what stands as data, and reports it whole (roadmap
+    0.3.4, L-4.1).
+    """
     doc = {"schema": result.SCHEMA, "gate": "commit", "refused": [], "allowed": [],
            "standing": {"findings": [], "not_evaluated": []}, "fixed": [],
            "working_state": [], "not_run": []}
     tmp = None
     try:
-        opts = parse(argv[1:])
-        message = message_text(opts)
-        top, common = locate(opts)
-        paths = named_paths(top, opts["dir"] or os.getcwd(), opts["paths"])
-        with held(common, opts["wait"]):
+        top, common = locate(cwd)
+        paths = named_paths(top, cwd or os.getcwd(), paths)
+        with held(common, wait):
             sweep(top)
             ref, old = head(top)
             if git(top, "cat-file", "-e", f"{old}:devteam", check=False).returncode != 0:
@@ -714,7 +722,7 @@ def main(argv):
             tmp = tempfile.mkdtemp(prefix=PREFIX)
             try:
                 commit, tree, cleaned = build(top, old, paths, message, tmp,
-                                              hooks=not opts["dry_run"])
+                                              hooks=not dry_run)
             except Refused as exc:
                 kind, where, detail = exc.args[0]
                 refusals = []
@@ -722,10 +730,10 @@ def main(argv):
                     {"class": kind, "where": where, "detail": detail})
                 add("hook-refused", where, f"the {where} hook refused the commit: {detail}")
                 doc.update(refused=refusals, exit=result.FINDINGS, head=old,
-                           result="would refuse" if opts["dry_run"] else "refused",
+                           result="would refuse" if dry_run else "refused",
                            line=f"gate: refused — the {where} hook refused it; nothing was "
                                 f"committed  [HEAD {old[:7]} unchanged]")
-                return finish(doc, as_json)
+                return doc
             subject = cleaned.split("\n", 1)[0]
             changed = sorted(set(paths) | {p for p in git(
                 top, "diff-tree", "-r", "--name-only", "--no-renames", "-z", old, commit
@@ -751,7 +759,7 @@ def main(argv):
                 git(top, "worktree", "remove", "--force", wt, check=False)
             base, cand, ws = Tally(base_runs), Tally(cand_runs), working_state(live)
             refusals, allowed, standing, parts, fixed = judge(
-                base, cand, ws, paths, opts["pre_plan"], statuses, flying, unread, changed, before)
+                base, cand, ws, paths, pre_plan, statuses, flying, unread, changed, before)
             doc.update(refused=refusals, allowed=allowed, fixed=fixed, working_state=ws,
                        not_run=not_run, standing={"findings": standing, "not_evaluated": parts},
                        runs=[{"check": r["check"], "task": r["task"], "at": r["at"],
@@ -768,16 +776,16 @@ def main(argv):
                     ("untracked-unnamed", "leaves {} untracked file(s) under devteam/ unnamed"))
                     if n[kind]]
                 doc.update(exit=result.FINDINGS,
-                           result="would refuse" if opts["dry_run"] else "refused",
-                           line=(f"gate: {'would refuse' if opts['dry_run'] else 'refused'} — the "
+                           result="would refuse" if dry_run else "refused",
+                           line=(f"gate: {'would refuse' if dry_run else 'refused'} — the "
                                  f"commit {' and '.join(said)}; nothing was committed  [HEAD "
                                  f"{old[:7]} and the index unchanged; {checked}]"))
-                return finish(doc, as_json)
-            if opts["dry_run"]:
+                return doc
+            if dry_run:
                 doc.update(exit=result.CLEAN, result="would commit",
                            line=f"gate: would commit {commit[:7]} — {subject}  [HEAD "
                                 f"{old[:7]}; {checked}]")
-                return finish(doc, as_json)
+                return doc
             refusal = land(top, ref, old, commit, subject, changed)
             if refusal and refusal[0] == "index":
                 doc["warnings"] = [f"the commit is made, and the index could not be brought "
@@ -792,7 +800,7 @@ def main(argv):
                 add("head-moved", where, detail)
                 doc.update(refused=late, exit=result.FINDINGS, result="refused",
                            line=f"gate: refused — HEAD moved; nothing was committed  [{checked}]")
-                return finish(doc, as_json)
+                return doc
             made = git(top, "rev-parse", "HEAD").stdout.strip()
             if (made != commit or git(top, "rev-parse", f"{made}^{{tree}}").stdout.strip() != tree
                     or git(top, "rev-parse", f"{made}^").stdout.strip() != old):
@@ -803,7 +811,19 @@ def main(argv):
                        line=f"gate: committed {made[:7]}"
                             f"{' on ' + ref.rsplit('/', 1)[-1] if ref else ''} — {subject}  "
                             f"[parent {old[:7]}; {checked}]")
-            return finish(doc, as_json)
+            return doc
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+def main(argv):
+    as_json = "--json" in argv[1:argv.index("--")] if "--" in argv else "--json" in argv
+    try:
+        opts = parse(argv[1:])
+        message = message_text(opts)
+        doc = commit(opts["paths"], message, cwd=opts["dir"], pre_plan=opts["pre_plan"],
+                     dry_run=opts["dry_run"], wait=opts["wait"])
     except CouldNotRun as exc:
         print(f"gate: could not run — {exc}", file=sys.stderr)
         if as_json:
@@ -812,9 +832,7 @@ def main(argv):
                       ensure_ascii=False)
             sys.stdout.write("\n")
         return result.COULD_NOT_RUN
-    finally:
-        if tmp:
-            shutil.rmtree(tmp, ignore_errors=True)
+    return finish(doc, as_json)
 
 
 def finish(doc, as_json):
