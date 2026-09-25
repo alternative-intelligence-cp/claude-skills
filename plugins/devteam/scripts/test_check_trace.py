@@ -548,7 +548,7 @@ CASES = [
     # that the grammar did not read. The case expects the part named, and a
     # finding only where the missed row really does cause one.
     #
-    # ZERO ROWS. These two were F-70's link rows until 0.3.2 read that form
+    # ZERO ROWS. These two were F-70's link rows before 0.3.2 read that form
     # (L-2.1); a link row is now read, so the rows the grammar still cannot
     # read are a row short of a cell and a row naming two tasks.
     ("zero-rows-a-tasks-table-whose-rows-are-all-short-a-cell",
@@ -1475,7 +1475,7 @@ ACCEPT_CASES = [
                               "- **Decision.** add it.\n- **Supersedes.** D-1\n")},
      [], 1, {"missing-field"}, set(), set()),
     # A PART ACCEPTED: a board row naming two tasks, which the grammar reads as
-    # neither. (It was F-70's link row until 0.3.2 read that form.)
+    # neither. (It was F-70's link row before 0.3.2 read that form.)
     ("an-accepted-part-exits-0-and-is-named",
      {"BOARD.md": BOARD.format(s1="—", s2="—").replace("| T-2 |", "| T-2 and T-3 |"),
       "DECISIONS.md": decisions("`check_trace` not evaluated: BOARD.md's task rows")},

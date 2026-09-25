@@ -519,7 +519,7 @@ CASES = [
      edit({"devteam/tasks/T-1.md": CLOSED_T1}), ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"],
      1, {"adds-finding"}, both(refused_by(adds_finding="board-drift"),
                                refused_by(adds_finding="one-sided-link"))),
-    # The plan commit on a board written as the template writes it. Until 0.3.2
+    # The plan commit on a board written as the template writes it. Before 0.3.2
     # this was refused for *BOARD.md's task rows*, and the plan skill told the
     # manager to accept the part by a decision (roadmap 0.3.1, §3.7).
     ("fp-a-plan-commit-on-a-template-shaped-board-lands-with-no-acceptance", UNPLANNED,

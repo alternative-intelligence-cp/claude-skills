@@ -313,7 +313,7 @@ record` section and compares what each claims against the tree (roadmap
 |---|---|---|
 | `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps |
 | `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
-| `check_report.py` | one `tasks/T-n.md`, HEAD's history — the board's in it, for the task's current claim — and the harness's `.run/locks/T-n.sandbox` line | the task's current report and each step's latest REPORT block ↔ the committed tree, and the commits each cites ↔ HEAD's history (§"The REPORT block") |
+| `check_report.py` | one `tasks/T-n.md`; the files its `Scope.` names, for stub markers; the charter's `Containment` row; HEAD's history — the board's in it, for the task's current claim, and each block's header line by `git blame` — and `git status`; and the harness's `.run/locks/T-n.sandbox` line, with the `meta/budget.json` and `meta/base.sha` of the sandbox it names | the task's current report ↔ its title; the task's current report and each step's latest REPORT block ↔ the committed tree, and the commits each cites ↔ HEAD's history; a step's block ↔ its own step's meter (§"The REPORT block") |
 | `check_scope.py` | `BOARD.md` and its history, `tasks/*.md`, HEAD's `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written: by each task's commits, and by commits naming no task since a running task's current claim |
 
 `check_trace`, `check_refs` and `check_scope` read **what git would show**
@@ -403,7 +403,12 @@ part, up to its dash. One acceptance, one line.
   `stale-acceptance`, so the count returns to zero and stays a signal
   (CONSOLIDATION §8a). So fixing an accepted finding means superseding the
   decision that accepted it, carrying over whatever else it accepted that
-  still stands.
+  still stands. A run that excludes a class by a declaration neither applies
+  nor judges an acceptance of it: `--pre-plan`'s `uncovered-requirement`, the
+  working-state classes under `--at-commit`, and a restart's previous close
+  (§"The REPORT block"). Such an acceptance is judged at the first run that
+  evaluates the class again, which may be another agent's commit — the new
+  supervisor's first report, after a restart (roadmap 0.3.2, §3.7).
 - **Withdrawn.** A decision named in another decision's `Supersedes.` line
   accepts nothing (P-23).
 - **Outside the grammar.** An `Accepts.` line or item outside this grammar

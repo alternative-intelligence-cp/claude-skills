@@ -241,7 +241,7 @@ def held(common, wait):
     every gate checkout it finds, which is safe only while no other gate is
     running. The history classes read the history of the checkout's own HEAD
     (roadmap 0.3.2, L-2.6), so no other gate's candidate is in what they read;
-    until 0.3.2 three of them read `git log --all`, which is every worktree's
+    before 0.3.2 three of them read `git log --all`, which is every worktree's
     HEAD, and the lock was also what kept a second gate's candidate out of it."""
     path = os.path.join(common, "devteam-gate.lock")
     try:
