@@ -17,8 +17,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py"  <project>
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_refs.py"   <project>
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_report.py" <project> T-n[.S-m]
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_scope.py"  <project> [T-n[.S-m]]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.py"       <project> [--pending]
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run_controls.py"          # prove the checks
 ```
+
+`ledger.py` is not a check: it prints the ledger, or with `--pending` the
+`Raised.` line each item without an entry needs, and it never exits 1.
+`check_trace` and `check_refs` judge the ledger.
 
 ## What a result means
 
@@ -166,6 +171,24 @@ rows there cannot say:
   its title, the harness meter or the tree.
 - **Run `check_report` before the verifier.** A malformed report is a
   re-dispatch, not a judgement call.
+- **The ledger's classes are the manager's alone to answer** —
+  `unledgered-item`, `unknown-source`, `expired-item`, `routed-out-of-scope`,
+  `fix-not-in-history`, `open-finding-at-close`, and `check_refs`'
+  `undispositioned-finding` — because only the manager writes `LEDGER.md`
+  (P-13, P-52). The answer goes in the commit that made the item due: the one
+  that moves a task's row off `CLAIMED`, files an audit or a checkpoint, or
+  withdraws a question. A supervisor or a worker that meets one reports it,
+  and writes no entry.
+  - For `unledgered-item`, copy the `Raised.` line `ledger.py . --pending`
+    prints; never type it. `unknown-source` is an entry whose `Raised.` names
+    nothing that exists, usually one typed by hand.
+  - For `fix-not-in-history`, name the commit on the host: promotion gives a
+    worker's commit a new hash (FORMATS §"The ledger").
+  - For `routed-out-of-scope`, route the item to a task whose `Scope.` covers
+    every path its `Needs.` names, or decide it another way.
+- **`question-on-board`**: carry into `QUESTIONS.md` anything the board's row
+  says that the question's own fields do not, and then remove the row. Removed
+  on sight, a row that held the only answer loses it (F-63).
 
 ## Before you trust a clean run
 

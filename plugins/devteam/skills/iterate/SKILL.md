@@ -36,7 +36,8 @@ written. Read, in this order:
    was left undone, and why?
 3. **`DECISIONS.md`** — every decision is **still binding** until superseded
 4. **`audits/`** — findings that were declined, not fixed. Those are the ones
-   that come back
+   that come back. What was decided about each is its entry in `LEDGER.md`,
+   read through `ledger.py .`: `declined (D-n)`, or still `open`
 5. **`RECORD.md`** — where the estimates were wrong, which findings recurred
 6. **`QUESTIONS.md`** — anything still `open`
 
@@ -56,8 +57,11 @@ observations are gold here** — the client has now done the thing the last cycl
 only predicted.
 
 **Which decisions do you want to revisit?** Show them, and **show the
-`proceeded-unreviewed` ones first** (P-27). Those were taken on the client's
-behalf under a timeout and this is the moment they were promised a look. Some
+`proceeded-unreviewed` ones first** (P-27): each question in `QUESTIONS.md`
+still reading `proceeded-unreviewed D-n`, never counted from the decisions'
+`Reviewed.` lines, which a later review does not edit. Those were taken on the
+client's behalf under a timeout and this is the moment they were promised a
+look. Some
 have since become expensive to reverse — say which, and say so plainly, because
 "we can still change this cheaply" and "this is now load-bearing" are different
 answers to the same question.

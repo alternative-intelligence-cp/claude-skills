@@ -304,6 +304,16 @@ Each carries **a recommendation, not a menu** (P-25): what to do, the evidence
 behind it, and what would make it wrong. You have the context; spend it once,
 here, so the manager and the client do not have to rebuild it.
 
+**Each goes in your report as a line, and the manager ledgers it.** A question
+for the client goes under `questions:`, one `- ` line for each question; a
+defect found and not fixed, or work the task could not reach, goes under
+`open:`. Each line is an item, and the manager gives it an entry in
+`LEDGER.md` in the commit that moves your task's row (P-52; FORMATS §"The
+ledger"). You never write the ledger: it is the manager's file (P-13). What
+you leave in prose has no line to count. pricelog's T-19 lost two of an
+auditor's six open items that way: one never reached the supervisor's
+questions, and one was relayed with no owner (F-139).
+
 ## 6. Closing the task
 
 - [ ] every step ticked, or struck with a reason
@@ -313,8 +323,11 @@ here, so the manager and the client do not have to rebuild it.
       — its output recorded verbatim in your report's `checks:`
 - [ ] every `R-n` in `REQUIREMENTS` actually discharged, with its acceptance
       criterion run — not "implemented", *discharged*, with evidence (P-5)
-- [ ] `AUDIT` triaged if one was given: every finding fixed, or declined with
-      a reason in the record
+- [ ] `AUDIT` triaged if one was given: each finding you fixed named in your
+      report with its commit. You decide none of them: every finding is an
+      item the manager ledgers from the answer you landed (P-13, P-52), so one
+      you did not fix is not repeated under `open:`, where it would be a
+      second item
 - [ ] `check_scope.py "$REPO" T-n` and `check_refs.py "$REPO"` clean
 - [ ] **no stub survives in the declared scope.** No `TODO`, `FIXME`, `XXX` or
       `raise NotImplementedError` in any file this task owns. A tests-first
@@ -364,6 +377,12 @@ reported and ended. Nobody else is in a position to know why you stopped.
 **This checklist previously covered only the paths that complete**, which is
 the ordinary shape of a checklist and the ordinary way a state ends up owned by
 nobody. The stopping paths are the ones where somebody is waiting.
+
+**What the stop leaves undecided goes in your report as lines**, as §5 says:
+each question under `questions:`, and each defect found and not fixed, or
+work not reached, under `open:`. The manager's stop commit is where every one
+of them gets its ledger entry, and the gate refuses that commit while one has
+none (P-52).
 
 **Keep your open sandboxes, do not close them, and name their ids in the
 report.** A stopped task's overlays hold the only copy of whatever the worker

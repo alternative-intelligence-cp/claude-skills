@@ -38,7 +38,8 @@ predictor of what an incoming one cannot work out. So do not ask for a summary.
 **Read the record first, then ask about the specific things you could not
 determine from it** — why a task was declined rather than closed, what a
 half-finished branch was for, which of two plausible readings of a note is
-right, what the client actually said as opposed to what was minuted.
+right. What the client said is not among them: step 2 reads it from the
+predecessor's transcript.
 
 ### Every question you have to ask is a defect in the record
 
@@ -130,7 +131,11 @@ successor, and the order below matters:
    `**Writer.**` line, and commit it through the gate (`run`'s opening says
    how): `board: writer <new id> (rotation from <old id>, C-n)`. Then
    `writer handoff: <old> → <new>` in `RECORD.md`, with step 2's minute of
-   the client's words fenced under it.
+   the client's words fenced under it. If the client asked for something, or
+   decided something, that no file holds yet, it is an item: give it a
+   ledger entry, `Raised.` `client <date>`, in this commit (P-52). No check
+   can tell you one is missing: the join counts items only from reports and
+   audits' answers, and the client's words are neither.
    **The id must be a real one** — a writer line holding an empty pair of
    backticks reads as neither yours nor anyone's and inverts the guard in both
    directions.
@@ -187,6 +192,9 @@ have not yet trampled it, and if it is not, nothing was lost by looking.
   them
 - `devteam/QUESTIONS.md` — anything `open` was waiting on the client, and may
   have been waiting for days
+- `devteam/LEDGER.md`, through `ledger.py .` — every item raised and what was
+  decided about it; one still `open` was waiting on somebody, and
+  `ledger.py . --pending` names each item that has no entry at all
 
 ## 3. Establish what the tree actually holds
 
@@ -246,7 +254,7 @@ a finished one or the reverse:
 | a finished task — title `DONE` | never verified; the verifier ran and FAILed, or never ran | `RECORD.md` has no `verify … PASS` line for it |
 | nothing in flight — no heartbeat | a supervisor that died **before** its first dispatch | the task file is dirty but no commit exists |
 | a task still working — heartbeat says `waiting on S-n` | a task that closed, whose heartbeat was never retired | the board and the task title say `DONE`; a heartbeat is retired to `closed <date>` at close, never deleted, so a live-looking one after a close is a lie told to this procedure |
-| a live claim | a task stopped for a question, whose title was never updated | `QUESTIONS.md` has an open item naming it (P-27b) |
+| a live claim | a task stopped for a question, whose title was never updated | `QUESTIONS.md` has an open question naming it (P-27b) |
 | a stale claim | a live worker under a completed supervisor | a live child in `ListAgents` (P-14) |
 | a stale claim, nothing live anywhere | a headless worker still writing its overlay | `ListAgents` **cannot see one at all**; the `.sandbox` file's pid can, and a live pid there means the claim is working (P-14b) |
 | the work was lost — `RUNNING`, clean tree, dead worker | done but never promoted | the `.sandbox` line names a root whose `upper/` is not empty; the commits are in the overlay, not the host |

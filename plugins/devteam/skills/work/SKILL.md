@@ -252,11 +252,12 @@ status: DONE (reconstructed: by the supervisor from the worker's commits; the wo
   checks first does not read as the worker's own word (F-86).
 
 **The short identifier prefixes are reserved, and you are not shown the file
-that says so.** `G-` `DM-` `R-` `T-` `S-` `D-` `Q-` `C-` are the project's, and
-`P-` is a protocol rule. **Anything you number yourself uses three or more
-letters** — `COR-1`, `SEC-2`, `PRB-3` — because the citation scanner matches
-`[A-Z]{1,2}-<digits>` anywhere in an artifact and cannot tell your numbering
-from a reference to the project's. A probe that labels its cases `C-1` collides
+that says so.** `G-` `DM-` `R-` `T-` `S-` `D-` `Q-` `C-` are the project's,
+`ITM-` is the ledger's, and `P-` is a protocol rule. **Anything you number
+yourself uses three or more letters, and never `ITM-`** — `COR-1`, `SEC-2`,
+`PRB-3` — because the citation scanner matches `[A-Z]{1,2}-<digits>`, and
+`ITM-<digits>`, anywhere in an artifact and cannot tell your numbering from a
+reference to the project's. A probe that labels its cases `C-1` collides
 with checkpoints; the finding describing that collision had to be reworded to
 stop it tripping the check it described.
 

@@ -14,12 +14,14 @@ stale claim you happen to notice. Say it is stale and let the loop recover it.
 ## Read, then report
 
 `BOARD.md` for the live picture · `QUESTIONS.md` for what waits on the client
-and what proceeded without them, which the board does not hold (P-26b) · the
+and what proceeded without them, which the board does not hold (P-26b) ·
+`LEDGER.md` for every item raised and what was decided about it (P-52) · the
 last entries of `RECORD.md` · task title lines for real states · `git log` for
 what actually landed.
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.py" .
 ```
 
 ## Report, in this order
@@ -43,7 +45,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
    evidence recorded**, out of the total. Not tasks closed; not a percentage
    of anything. A task closed without its acceptance criterion run has not
    discharged its requirement (P-5).
-6. **Blocked** — what, and on which named task or question.
+6. **Blocked** — what, and on which named task or question. Then every item
+   the ledger holds `open`, with the task or checkpoint it is due by: an
+   undecided item is waiting on someone as surely as a blocked task is, and
+   pricelog's gate audit left one with no owner for four days (F-99).
 7. **Cost** — spent against estimate, if the record has it.
 
 ## Be accurate rather than encouraging

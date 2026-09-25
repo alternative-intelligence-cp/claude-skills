@@ -438,6 +438,14 @@ one as `unledgered-item`, and the gate refuses the commit. While the row reads
 write the ledger (P-13); an item a *previous* claim raised is due whatever the
 row reads, so a restart's first commit does not wait for the next stop.
 
+**The advance also makes entries you already wrote fall due.** In the commit
+that closes T-n, rewrite each entry reading `routed T-n` as
+`fixed (<commit>)` or `declined (D-n)`, or route it on, and decide or re-date
+each `open (until T-n)`. No finding of an audit of T-n or of one of its steps
+may still read `open`, whatever its date (P-31). `check_trace` reports these
+as `expired-item` and `open-finding-at-close`, and the gate refuses the
+advance while one stands.
+
 **You retire the heartbeat, not the supervisor — and you rewrite it rather
 than delete it.** Deleting needs `rm`, which the permission grant withholds
 deliberately, and an earlier version of this instruction told the supervisor to
@@ -507,6 +515,15 @@ from outside. It is the checkpoint (L-8).
 
 So after a checkpoint is filed and committed, `ON-COURSE` or otherwise:
 
+0. **Ledger what only you know.** An item you raised yourself — a decision
+   you still owe, a defect you noticed, something the client asked for — that
+   no report, answer or question holds gets its entry now, `Raised.`
+   `manager <date>` or `client <date>` (P-52; FORMATS §"The ledger"), and is
+   committed before step 1. Your successor reads open items from the ledger,
+   not from you. **No check can enforce this one**: the join counts items
+   from the text where they were raised, and an item only you know has no
+   such text, so an entry you do not write is missing without a word.
+
 1. **Write `devteam/.run/session/handoff-ready`** — two lines, nothing else:
 
    ```
@@ -524,7 +541,9 @@ So after a checkpoint is filed and committed, `ON-COURSE` or otherwise:
    It says a rotation is in progress, who started it, and at which point;
    everything else your successor needs is generated when it reads rather
    than recorded when you write — the claims from `BOARD.md`, the open
-   sandboxes from `sandbox.py status`, the tree from the tree. A recorded
+   sandboxes from `sandbox.py status`, the open items from `ledger.py .`,
+   what the client said from your transcript (`resume` §0), the tree from
+   the tree. A recorded
    list of claims or sandboxes is wrong the moment either moves, and a stale
    list is worse than an absent one because it still looks current.
 
@@ -746,9 +765,13 @@ checkpoint while reversal is still cheap (P-27), read from that status: the
 board holds no question (P-26b). *Autonomy is bought by
 making the unreviewed set visible, not by pretending it is empty.*
 
+**When you withdraw a question**, every ledger entry reading `raised Q-n` for
+it falls due in that commit, as `expired-item`: in the same commit, route
+each one, decline it, or raise it again (P-52).
+
 **Send the batch** when every running task is stopped, when three questions in
-`QUESTIONS.md` read `open` (P-29b), or when the oldest unanswered item hits the
-window — whichever first.
+`QUESTIONS.md` read `open` (P-29b), or when the oldest open question's
+`Window.` passes — whichever first.
 **Send it on the channel the charter's `Client channel` row names** (P-9):
 `AskUserQuestion` for a terminal client when it fits four options, `SendMessage`
 for a session client, a message either way for anything longer. While waiting,

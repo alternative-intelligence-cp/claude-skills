@@ -249,6 +249,13 @@ be capable of failing, which is the same standard the checks are held to
 the gate, as every commit on the host is made (`run`'s opening says how), and
 add `checkpoint C-n <verdict>` to `RECORD.md`.
 
+**Filing C-n makes items due.** Every ledger entry reading `open (until C-m)`
+with m no greater than n falls due in the commit that files it, and
+`check_trace` reports each one still open as `expired-item`, so the gate
+refuses the filing. Before you file, run
+`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.py" .` and, in the filing
+commit, decide each such entry or give it a later date (P-52).
+
 **Never edit a filed checkpoint.** A checkpoint that could be revised in the
 light of later events is not evidence of anything — it is a description of
 what was believed after the fact. If it was wrong, the next one says so.
@@ -344,7 +351,8 @@ At delivery, the same procedure plus:
   and which has no question. Never count them from `proceeded-unreviewed`
   `Reviewed.` lines, which a later review does not edit
 - total cost against the original estimate
-- what is knowingly left undone, and why
+- what is knowingly left undone, and why: each ledger entry not reading
+  `fixed (…)`, read from `ledger.py .`, with its disposition
 
 Then the client chooses one of three, and they are different things:
 
