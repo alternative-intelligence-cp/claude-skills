@@ -134,6 +134,17 @@ T19_ANSWER = ("### S-3 — adversarial pass\n\nAUDIT T-19.S-3 (correctness)\n\n*
                 "END AUDIT T-19.S-3\n\n## Supervisor's closing report — NEEDS-DECISION\n")
 
 
+def block(ident, questions=" none", open_=" none", note=None):
+    """A REPORT block for `ident` in the DESIGN.md §6 grammar, its
+    `questions:` and `open:` values as given, each written from the colon on."""
+    role = "implementer" if "." in ident else "supervisor"
+    head = f"REPORT {role} {ident}" + (f" ({note})" if note else "")
+    return (f"\n{head}\nstatus: NEEDS-DECISION\nmodel: opus-5-5\nenv: fixture\n"
+            f"requirements: R-1\nscope: src/\ncommits:\n  - none\nchecks:\n  - none\n"
+            f"questions:{questions}\nopen:{open_}\nfindings-for-protocol: none\n"
+            f"budget: tokens=1 minutes=1\nnotes: none\n")
+
+
 def answer(scope="T-7", dimension="security", body="", end=None):
     """An answer in the grammar's form around `body`."""
     return (f"AUDIT {scope} ({dimension})\n\nThe verdict.\n\n{body}\n"
@@ -527,6 +538,11 @@ def main():
                 filed=True)
     # ...and the same text in a task file is not an audit's.
     answer_case("fp-a-task-file-that-opens-no-answer-is-not-a-filed-audit", text, [])
+    # A file in audits/ that offers neither an answer's line nor a finding --
+    # notes, say -- offers nothing the grammar reads: genuinely empty, and
+    # clean (roadmap 0.3.1, L-1.3), not an audit with its line missing.
+    answer_case("fp-a-file-in-audits-offering-no-finding-is-genuinely-empty",
+                "# Notes about T-1\n\n## Background\n\nProse only.\n", [], filed=True)
     text = answer(body="## SEC-1 — a\n")
     answer_case("fp-a-filed-audit-that-opens-its-answer-is-read-as-any-answer", text,
                 [("T-7", "security", "T-7", ["SEC-1"])], filed=True)
@@ -567,6 +583,229 @@ def main():
               and not any(r.endswith("README.md") for r, *_ in unread), f"{got!r}; {unread!r}")
     finally:
         shutil.rmtree(root, ignore_errors=True)
+
+    # --- the join: every item raised, and the entry naming it (L-3.5) -------
+    # Items are counted where they were raised, by the parse check_report
+    # judges a block with: only the judged block's items need an entry, and an
+    # entry may name any block's item for the id, so one made at an earlier
+    # stop still resolves after a later attempt supersedes its block.
+    def items_of(files):
+        """(found, each item as (raised, file, line, task, dated)) for a
+        scratch project holding `files` under devteam/."""
+        root = project(ledger="")
+        try:
+            devteam = os.path.join(root, "devteam")
+            for rel, body in files.items():
+                os.makedirs(os.path.dirname(os.path.join(devteam, rel)), exist_ok=True)
+                with open(os.path.join(devteam, rel), "w", encoding="utf-8") as fh:
+                    fh.write(body)
+            subprocess.run(["git", "-C", root, "init", "-q"], check=True)
+            found = mod.found_in(devteam)
+            return found, [(it.raised, it.file, it.line, it.task, it.dated) for it in found.items]
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    record = "# T-1 — x — NEEDS-DECISION (which)\n\n## Execution record\n"
+    found, got = items_of({"tasks/T-1.md": record
+                           + block("T-1.S-1", open_="\n  - the retry leaves two lines",
+                                   note="attempt 1")
+                           + block("T-1.S-1", open_="\n  - the retry leaves two lines\n"
+                                                    "  - the lock is never\n    released")
+                           + block("T-1", questions="\n  - Should the log survive a crash? | yes "
+                                                    "| REVERSIBLE\n  - none")
+                           + "\nREPORT auditor T-1.S-1\nquestions:\n  - an auditor's line is "
+                             "no report\n"
+                           + block("T-2", questions="\n  - a block for another task")})
+    check("an-item-is-each-dash-line-of-a-judged-blocks-questions-and-open",
+          [r for r, *_ in got] == ['T-1.S-1 open "the retry leaves two lines"',
+                                   'T-1.S-1 open "the lock is never released"',
+                                   'T-1 questions "Should the log survive a"'], repr(got))
+    check("an-item-is-dated-by-its-blocks-header-and-held-by-its-task",
+          all(g[3] == "T-1" and g[4] is not None for g in got)
+          and got[0][4] == got[1][4] != got[2][4], repr(got))
+    check("fp-a-superseded-attempts-items-are-namable-and-need-no-entry",
+          found.every[("T-1.S-1", "open")].count("the retry leaves two lines") == 2
+          and len([g for g in got if g[0].startswith("T-1.S-1")]) == 2, repr(found.every))
+    for name, questions, want in (
+            ("fp-none-is-no-item", " none", []),
+            ("fp-none-with-a-note-on-its-next-line-is-no-item", " none\n  (the client answered it)", []),
+            ("an-inline-value-is-one-item", " Should the log survive a crash?",
+             ['T-1 questions "Should the log survive a"']),
+            ("fp-a-dash-none-line-is-no-item", "\n  - none.", []),
+            ("an-items-continuation-lines-are-read-with-it",
+             "\n  - Should the log survive\n    a crash twice? | yes | REVERSIBLE",
+             ['T-1 questions "Should the log survive a"'])):
+        _, got = items_of({"tasks/T-1.md": record + block("T-1", questions=questions)})
+        check(name, [r for r, *_ in got] == want, repr(got))
+    # An item's opening words run on until no other item in its key begins so.
+    _, got = items_of({"tasks/T-1.md": record + block("T-1", questions=(
+        "\n  - Does the lock hold under a restart? | yes | REVERSIBLE"
+        "\n  - Does the lock hold under a crash? | yes | REVERSIBLE"
+        "\n  - Does the lock hold"))})
+    check("opening-words-run-on-until-no-other-item-in-the-key-begins-so",
+          [r for r, *_ in got] == ['T-1 questions "Does the lock hold under a restart?"',
+                                   'T-1 questions "Does the lock hold under a crash?"',
+                                   'T-1 questions "Does the lock hold"'], repr(got))
+    # An audit's findings: in a task file, named by the answer's scope; in
+    # audits/, by the file's path. The answer's task is the scope's.
+    _, got = items_of({
+        "tasks/T-3.md": "# T-3 — x — RUNNING\n\n## Execution record\n\n"
+                        + answer("T-3.S-1", "hygiene", "## HYG-1 — a\n\n## HYG-2 — b\n"),
+        "audits/T-7-security-2026-09-30.md": answer("T-9", "security", "## SEC-1 — a\n")})
+    check("an-audits-findings-are-items-named-by-scope-or-by-file",
+          sorted((r, t) for r, _f, _n, t, _d in got)
+          == [("T-3.S-1 HYG-1", "T-3"), ("T-3.S-1 HYG-2", "T-3"),
+              ("audits/T-7-security-2026-09-30.md SEC-1", None)], repr(got))
+
+    # `Raised.`'s four forms, and what is not one of them.
+    for name, value, want in (
+            ("raised-a-reports-item", 'T-19 questions "Does T-19\'s disclosed limit"',
+             ("report", ("T-19", "questions", "Does T-19's disclosed limit"))),
+            ("raised-a-steps-open-item", 'T-19.S-3 open "the lock is never released"',
+             ("report", ("T-19.S-3", "open", "the lock is never released"))),
+            ("raised-a-quote-inside-the-words-is-read-to-the-last", 'T-1 open "the "x" flag"',
+             ("report", ("T-1", "open", 'the "x" flag'))),
+            ("raised-a-finding-landed-in-a-task-file", "T-18.S-4 COR-3",
+             ("answer", ("T-18.S-4", "COR", "3"))),
+            ("raised-a-milestones-finding", "release SAF-2", ("answer", ("release", "SAF", "2"))),
+            ("raised-a-finding-filed", "audits/T-7-security-2026-09-30.md SEC-2",
+             ("filed", ("audits/T-7-security-2026-09-30.md", "SEC", "2"))),
+            ("raised-a-filed-path-backticked", "`audits/x.md` SEC-2",
+             ("filed", ("audits/x.md", "SEC", "2"))),
+            ("raised-the-clients-words", "client 2026-09-25", ("own", ("client", "2026-09-25"))),
+            ("raised-the-managers-own", "manager 2026-09-25", ("own", ("manager", "2026-09-25"))),
+            ("raised-findings-for-protocol-is-no-item", 'T-1 findings-for-protocol "x"', None),
+            ("raised-curly-quotes-are-not-the-form", "T-1 questions “Does it”", None),
+            ("raised-a-label-lowercase-is-not-the-form", "T-18.S-4 cor-3", None),
+            ("raised-a-label-of-no-dimension-is-not-the-form", "T-18.S-4 REV-3", None),
+            ("raised-a-date-unwritten-is-not-the-form", "client yesterday", None),
+            ("raised-an-auditors-label-alone-names-no-scope", "COR-3", None)):
+        check(name, mod.raised(value) == want, f"{value!r}: {mod.raised(value)!r}")
+
+    # Entries against items: one entry to one item, paired as a maximum
+    # matching; whitespace and dashes normalised.
+    def joined(files, ledger_text):
+        root = project(ledger="")
+        try:
+            devteam = os.path.join(root, "devteam")
+            for rel, body in files.items():
+                os.makedirs(os.path.dirname(os.path.join(devteam, rel)), exist_ok=True)
+                with open(os.path.join(devteam, rel), "w", encoding="utf-8") as fh:
+                    fh.write(body)
+            subprocess.run(["git", "-C", root, "init", "-q"], check=True)
+            found = mod.found_in(devteam)
+            listed, _ = mod.entries(ledger_text.split("\n"))
+            covered, verdicts = mod.join(listed, found)
+            return ({found.items[i].raised: e.ident for i, e in covered.items()},
+                    {e.ident: (what, detail) for e, what, detail in verdicts},
+                    [it.raised for i, it in enumerate(found.items) if i not in covered])
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    two = {"tasks/T-1.md": record + block("T-1.S-1", open_="\n  - the retry leaves two lines",
+                                          note="attempt 1")
+           + block("T-1.S-1", open_="\n  - the retry  leaves two lines\n  - the lock — held")}
+    cov, verd, left = joined(two, HEAD + entry(1, "open (until T-1)",
+                                               'T-1.S-1 open "the retry leaves two"')
+                             + entry(2, "open (until T-1)", 'T-1.S-1 open "the lock - held"'))
+    check("join-an-entry-covers-the-item-its-words-begin-whitespace-and-dashes-normalised",
+          cov == {'T-1.S-1 open "the retry leaves two lines"': "ITM-1",
+                  'T-1.S-1 open "the lock - held"': "ITM-2"} and not left, f"{cov!r} {left!r}")
+    cov, verd, left = joined(two, HEAD + entry(1, "open (until T-1)",
+                                               'T-1.S-1 open "the retry leaves two"'))
+    check("join-an-item-only-the-later-attempt-raises-needs-its-own-entry",
+          left == ['T-1.S-1 open "the lock - held"'] and verd["ITM-1"][0] == "covers",
+          f"{left!r} {verd!r}")
+    only1 = {"tasks/T-1.md": record + block("T-1.S-1", open_="\n  - an item attempt 2 dropped",
+                                            note="attempt 1")
+             + block("T-1.S-1", open_=" none")}
+    cov, verd, left = joined(only1, HEAD + entry(1, "declined (D-1)",
+                                                 'T-1.S-1 open "an item attempt 2"'))
+    check("fp-join-an-entry-naming-a-superseded-attempts-item-resolves",
+          verd["ITM-1"] == ("resolves", None) and not left, f"{verd!r} {left!r}")
+    same = {"tasks/T-1.md": record + block("T-1", questions=(
+        "\n  - Does the lock hold? Also after a restart?\n  - Does the lock hold?"))}
+    cov, verd, left = joined(same, HEAD + entry(1, "raised Q-1", 'T-1 questions "Does the lock hold?"')
+                             + entry(2, "raised Q-2", 'T-1 questions "Does the lock hold? Also"'))
+    check("join-entries-are-paired-with-items-as-a-maximum-matching",
+          not left and sorted(cov.values()) == ["ITM-1", "ITM-2"], f"{cov!r} {left!r}")
+    cov, verd, left = joined(same, HEAD + entry(1, "raised Q-1", 'T-1 questions "Does the lock hold?"'))
+    check("join-one-entry-covers-one-item-however-many-its-words-begin",
+          len(left) == 1 and len(cov) == 1, f"{cov!r} {left!r}")
+    audits = {"tasks/T-3.md": "# T-3 — x — RUNNING\n\n## Execution record\n\n"
+                              + answer("T-3.S-1", "hygiene", "## HYG-1 — a\n")
+                              + answer("T-3.S-1", "hygiene", "## HYG-1 — a second audit's\n"),
+              "audits/T-7-security-2026-09-30.md": answer("T-9", "security", "## SEC-1 — a\n")}
+    cov, verd, left = joined(audits, HEAD + entry(1, "open (until T-3)", "T-3.S-1 HYG-1")
+                             + entry(2, "open (until T-9)", "audits/T-7-security-2026-09-30.md SEC-1"))
+    check("join-two-audits-of-one-scope-each-need-an-entry-for-their-hyg-1",
+          left == ["T-3.S-1 HYG-1"] and cov == {"T-3.S-1 HYG-1": "ITM-1",
+                                                "audits/T-7-security-2026-09-30.md SEC-1": "ITM-2"},
+          f"{cov!r} {left!r}")
+    for name, raised_, want in (
+            ("join-unknown-words-no-block-begins-an-item-with", 'T-1 questions "no such words"',
+             'no REPORT block for T-1 has a `questions:` item beginning "no such words"'),
+            ("join-unknown-a-label-no-answer-of-the-scope-holds", "T-3.S-1 HYG-9",
+             "no audit answer of T-3.S-1 in a task file holds HYG-9"),
+            ("join-unknown-a-filed-audit-that-is-not-there", "audits/T-8-safety-2026-09-30.md SAF-1",
+             "audits/T-8-safety-2026-09-30.md is not in devteam/"),
+            ("join-unknown-a-label-the-filed-audit-does-not-hold",
+             "audits/T-7-security-2026-09-30.md SEC-4",
+             "audits/T-7-security-2026-09-30.md holds no finding SEC-4")):
+        cov, verd, left = joined({**same, **audits}, HEAD + entry(1, "declined (D-1)", raised_))
+        check(name, verd["ITM-1"] == ("unknown", want), repr(verd))
+    cov, verd, left = joined(same, HEAD + entry(1, "declined (D-1)", "manager 2026-09-25")
+                             + entry(2, "declined (D-1)", "T-1 questions Does the lock")
+                             + "### ITM-3 — no raised\n\n- **Disposition.** declined (D-1)\n")
+    check("join-the-managers-own-resolves-a-malformed-one-is-unread-a-missing-one-none",
+          verd["ITM-1"] == ("resolves", None) and verd["ITM-2"][0] == "unread"
+          and verd["ITM-3"] == ("none", None) and len(left) == 2, repr(verd))
+
+    # --- `ledger.py --pending` (roadmap 0.3.3, L-3.5) ------------------------
+    def pending(files, ledger_text=None, *args):
+        root = project(ledger=ledger_text)
+        try:
+            devteam = os.path.join(root, "devteam")
+            for rel, body in files.items():
+                os.makedirs(os.path.dirname(os.path.join(devteam, rel)), exist_ok=True)
+                with open(os.path.join(devteam, rel), "w", encoding="utf-8") as fh:
+                    fh.write(body)
+            subprocess.run(["git", "-C", root, "init", "-q"], check=True)
+            return run(root, "--pending", *args)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    t19 = record.replace("T-1 —", "T-19 —") + block("T-19", questions=(
+        "\n  - Does T-19's disclosed limit hold for a relative path? | yes | REVERSIBLE"
+        "\n  - Should the lock wait? | no | REVERSIBLE"))
+    out = pending({"tasks/T-19.md": t19},
+                  HEAD + entry(1, "raised Q-1", 'T-19 questions "Should the lock wait"'))
+    at = line_of(t19, "Does T-19")
+    check("pending-prints-the-raised-line-for-each-item-no-entry-covers",
+          out.returncode == 0 and out.stdout == (
+              "pending: clean  [2 items, 1 pending]\n"
+              f"  tasks/T-19.md:{at}: - **Raised.** T-19 questions \"Does T-19's disclosed limit hold\"\n"),
+          out.stdout + out.stderr)
+    out = pending({"tasks/T-19.md": t19})
+    check("fp-pending-with-no-ledger-every-item-is-pending-and-that-is-the-answer",
+          out.returncode == 0 and "[2 items, 2 pending]" in out.stdout, out.stdout + out.stderr)
+    out = pending({"tasks/T-19.md": T19_LANDED.replace("### S-3", "# T-19 — x — RUNNING\n\n### S-3")})
+    check("pending-names-an-answer-it-could-not-read-as-not-evaluated",
+          out.returncode == 3 and "not evaluated: tasks/T-19.md's audit findings" in out.stdout,
+          out.stdout + out.stderr)
+    out = pending({"tasks/T-19.md": t19}, HEAD + entry(1, "raised Q-1", "T-19 questions Should"))
+    check("pending-names-a-raised-it-could-not-read-as-not-evaluated",
+          out.returncode == 3 and "not evaluated: ITM-1's Raised." in out.stdout
+          and "[2 items, 2 pending]" in out.stdout, out.stdout + out.stderr)
+    out = pending({"tasks/T-19.md": t19}, None, "--json")
+    try:
+        doc = json.loads(out.stdout)
+        r = doc["results"][0]
+        ok = (r["counts"] == {"items": 2, "pending": 2} and len(r["notes"]) == 2
+              and r["notes"][0]["text"].startswith("- **Raised.** T-19 questions"))
+    except (ValueError, KeyError, IndexError):
+        ok = False
+    check("pending-json-carries-each-raised-line", ok, out.stdout + out.stderr)
 
     total = passed + failed
     print(f"\nledger control: {passed} passed, {failed} failed, {total} cases "

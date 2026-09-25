@@ -413,10 +413,30 @@ Then by status:
 | Status | Do |
 |---|---|
 | `DONE` | verifier PASS → close, release the scope, **rewrite `devteam/.run/locks/<TASK>.heartbeat` to a terminal line** — `closed <date>, verified PASS` — re-check what that unblocks. FAIL → re-dispatch, the FAIL verbatim in `NOTES:` |
-| `READY-TO-AUDIT` | verifier PASS → dispatch the auditors; file their reports under `devteam/audits/`; re-dispatch the supervisor with `AUDIT:` naming them (P-31) |
+| `READY-TO-AUDIT` | verifier PASS → dispatch the auditors; file each one's answer, verbatim, as `devteam/audits/<scope>-<dimension>-<date>.md`, **with an entry in `LEDGER.md` for each of its findings, in the same commit** — the commit that adds the file is refused without them; re-dispatch the supervisor with `AUDIT:` naming them (P-31) |
 | `BLOCKED` | a dispatch error you can fix — a missing input, a claim mismatch, a tree state — fix it and re-dispatch. Otherwise the task stops and its question goes to the table |
 | `NEEDS-DECISION` | the task stops; the question and its recommendation go to the table |
 | `RED` | the task stops. **Never a retry** (P-20); the failing check goes to the table |
+
+**Every item the task raised gets its entry in the commit that moves its row**
+(P-52). The advance that closes the task and the stop that blocks it both move
+the board row off `CLAIMED`, and from that commit each item its reports raised
+— every `questions:` and `open:` item of a judged block, and every finding of
+an audit's answer landed in its file — is due an entry in `LEDGER.md`. So
+before that commit, run:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.py" . --pending
+```
+
+Each line it prints is where an item's text is, and the `Raised.` line its
+entry needs. Write an entry for every one — `### ITM-n — <one line>`, that
+`Raised.` line, a `Needs.` when you route it, and its `Disposition.` — and
+commit the ledger with the row. `check_trace` reports an item left without
+one as `unledgered-item`, and the gate refuses the commit. While the row reads
+`CLAIMED` the items are pending, because the supervisor landing them may not
+write the ledger (P-13); an item a *previous* claim raised is due whatever the
+row reads, so a restart's first commit does not wait for the next stop.
 
 **You retire the heartbeat, not the supervisor — and you rewrite it rather
 than delete it.** Deleting needs `rm`, which the permission grant withholds

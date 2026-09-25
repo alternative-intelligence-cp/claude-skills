@@ -124,25 +124,24 @@ L-2.10).
 | `F-` | a finding against the pipeline or the project | `RECORD.md`, as `- **F-n** — <one line>` |
 | `P-` | a protocol rule | the plugin's `PROTOCOL.md` — **external**, cited here, never declared here |
 | `ITM-` | an item raised, with its disposition | `LEDGER.md`, as `### ITM-n — <one line>`, and nowhere else (§"The ledger") |
-| `COR-` | a correctness audit finding | `audits/*.md`, as `## COR-n — <title>` |
-| `SEC-` | a security audit finding | `audits/*.md`, as `## SEC-n — <title>` |
-| `HYG-` | a hygiene audit finding | `audits/*.md`, as `## HYG-n — <title>` |
-| `REV-` | a review finding | `audits/*.md`, as `## REV-n — <title>` |
-| `CNV-` | a project-family convention | outside any project; cited from the decision that adopts or declines it |
+| `CNV-` | a project-family convention | outside any project — **external**, cited from the decision that adopts or declines it, never declared here |
+| `SAF-` `COR-` `SEC-` `HYG-` | an audit's own labels for its findings, by dimension | nowhere: **not project identifiers**. Each is local to the audit's text, numbered from 1 in each audit (§"An audit's answer"); the finding's id is its ledger entry's `ITM-n` |
 
-**The six three-letter prefixes above are CHECKED, and no others are.**
-`check_refs` resolves them in both directions exactly as it does `D-n`, and
-`check_plugin`'s `namespace-drift` diffs this table against the scanner's own
-sets so the two cannot part company. **Every other three-letter prefix is still
-ignored**, deliberately and by name: the scanner reads `[A-Z]{1,3}` and then
-discards anything whose prefix is not reserved, which is why `UTF-8` — 639
-occurrences in one project's record — is not a citation.
+**`ITM-` is the one three-letter prefix `check_refs` checks.** It resolves
+`ITM-n` in both directions exactly as it does `D-n`, and `CNV-` it reads as
+external, as it reads `P-`. `check_plugin`'s `namespace-drift` diffs this table
+against the scanner's own sets so the two cannot part company. **Every other
+three-letter prefix is ignored**, deliberately and by name: the scanner reads
+`[A-Z]{1,3}` and then discards anything whose prefix is not reserved, which is
+why `UTF-8` — 639 occurrences in one project's record — is not a citation, and
+why an auditor's `COR-3` is not one either.
 
 **The rule: anything else that numbers something uses a prefix of three or
-more letters.** `COR-1`, `SEC-5`, `HYG-3` for audit findings by dimension;
-`REV-2` for a review finding; `CNV-1` for a project-family convention, which
-lives outside any project and is cited from a decision that adopts or declines
-it. Never a new one- or two-letter prefix.
+more letters.** `COR-1`, `SEC-5`, `HYG-3`, `SAF-2` for an audit's findings by
+dimension; `CNV-1` for a project-family convention, which lives outside any
+project and is cited from a decision that adopts or declines it. Never a new
+one- or two-letter prefix. `REV-` is no longer reserved: a review numbers
+nothing and files nothing in `audits/` (roadmap 0.3.3, L-3.1).
 
 **Why, mechanically.** The citation scanner matches `[A-Z]{1,2}-<digits>`
 anywhere in an artifact. A two-letter identifier is therefore *indistinguishable
@@ -159,12 +158,23 @@ scanner was widened, it reported **thirteen dangling citations** — including
 and `SEC-2` cited from `DECISIONS.md`. Every one had been invisible for the
 whole of cycle 0.1.
 
-**What watches the namespace now, and what still does not.** `cited-undefined`
-and `duplicate-id` apply to these six as they do to `D-n`. `defined-uncited`
-deliberately does **not**: a finding nobody cites is the ordinary state of one
-still `Disposition. open`. In its place is `undispositioned-finding` — a
-finding whose `Disposition.` is `open` or missing, and a ledger entry whose
-`Disposition.` is missing or reads `open` with no date (§"The ledger").
+**Superseded on 2026-09-25 (roadmap 0.3.3, L-3.3, the owner's answer of
+2026-09-24): the audit labels left the checked set, and the ledger watches
+what the widening watched.** Resolving them had its own cost, measured on
+`pricelog`: T-18's step audit, landed without headings, cited its own `COR-1`
+to `COR-10` with nothing declaring them (seven `cited-undefined`, F-112), and
+two audits each numbering from 1 would each have declared `COR-1`. So an
+auditor's `COR-3` is a label inside its own text, and every item raised has one
+id, its ledger entry's `ITM-n`, whose `Raised.` names the label. The reason
+for the widening — findings cited and declared nowhere — is answered by
+counting every audit's findings where they are: each one with no entry naming
+it is `unledgered-item` (§"The ledger").
+
+**What watches the namespace now.** `cited-undefined` and `duplicate-id`
+apply to `ITM-` as they do to `D-n`. `defined-uncited` deliberately does
+**not**: an item nobody cites is the ordinary state of one being decided. In
+its place is `undispositioned-finding`, a ledger entry whose `Disposition.` is
+missing or reads `open` with no date (§"The ledger").
 
 **And the citation is not an escape from the disposition, which is the part
 that took a measurement to get right.** The obvious rule is *"cited, **or**
@@ -172,7 +182,8 @@ dispositioned"*. Measured over a real project it reports **zero**, against five
 findings that carry no `Disposition.` line at all — because they are mentioned
 in `RECORD.md`, `QUESTIONS.md` and the charter. **Mention is not disposition.**
 A finding logged in the record and never routed is exactly the case the field
-was added for, so a citation cannot excuse a missing one.
+was added for, so a citation cannot excuse a missing one — nor, in the ledger,
+a missing entry.
 
 Treat a namespace exemption as a debt rather than a solution, and say what is
 covering it.
@@ -299,6 +310,48 @@ answers of 2026-09-25, L-3.12):
   `check_report` applies to a hash a report cites (§"What each check reads").
   A commit on another branch, or a worker's commit before promotion rewrote
   it, has not landed.
+
+**Every item raised has an entry, once it is due** (roadmap 0.3.3, L-3.5).
+`check_trace` counts every item where its text is — each item under a judged
+REPORT block's `questions:` and `open:`, read by the parse `check_report`
+judges the block with, and each finding of an audit's answer — and matches
+each entry's `Raised.` against them, one entry to one item:
+
+- **An item no entry names: `unledgered-item`**, once it is due. A filed
+  audit's findings are due from the commit that adds the file, whatever any
+  board row reads, so the manager files an audit with its entries in one
+  commit. A task's items are due once its board row does not read `CLAIMED`.
+  While it does, they are the current claim's, pending: the supervisor lands
+  them and may not write the ledger (P-13), and the manager writes their
+  entries in the commit that moves the row — its advance, or its stop
+  `BLOCKED on Q-n`. An item landed **before** the task's current claim began
+  is a previous claim's, and is due whatever the row reads: the claim is the
+  label the row carries, anchored at the first commit whose in-flight table
+  carries it on the task's row, and an item is dated by its block's header or
+  its answer's `AUDIT` line. A project with items and no `LEDGER.md` reports
+  each as unledgered.
+- **An entry naming nothing: `unknown-source`.** A report's words no block for
+  that id begins an item with — superseded attempts included, so an entry
+  made at an earlier stop still resolves — or an audit's label no answer of
+  that scope, or of that file, holds; and an entry with no `Raised.`. A task
+  or a step no file declares is `check_refs`' `cited-undefined`.
+- **An audit's finding still open at its task's close:
+  `open-finding-at-close`** (P-31). An entry covering a finding of an audit of
+  T-n, or of one of its steps, is decided by T-n's close — its title `DONE` or
+  `ACCEPTED` and its row not `CLAIMED` — whatever its `until` says. The task
+  is the answer's scope, read from its `AUDIT` line.
+
+The words are matched with whitespace and dashes normalised, as a prefix of
+the item's text read whole. Where two items in one block's key begin with the
+words an entry quotes, each entry covers one of them, and each needs its own.
+`scripts/ledger.py <project> --pending` prints, for every item no entry
+covers, its file and line and the `Raised.` line to write, so the manager
+copies it rather than types it:
+
+```
+pending: clean  [2 items, 1 pending]
+  tasks/T-19.md:16: - **Raised.** T-19 questions "Does T-19's disclosed limit hold"
+```
 
 ---
 
@@ -481,8 +534,10 @@ its scope and its findings, and names by line what it could not read:
 - a heading that looks like a finding and does not parse, or that repeats a
   number.
 
-`check_report` reads the shape of the two lines from it, and ends a block at
-either.
+`check_trace` names each such line in the part `<file>'s audit findings`. The
+shape of the two lines is `scripts/report.py`'s, beside the REPORT block's
+parse, because a block ends at either; the ledger and `check_report` both read
+it from there.
 
 ---
 
@@ -490,8 +545,8 @@ either.
 
 | Check | Reads | Diffs |
 |---|---|---|
-| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/`; `LEDGER.md`, with the `QUESTIONS.md` statuses and `checkpoints/` titles its dispositions name, and HEAD's history for each fix | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps; each ledger entry's disposition ↔ what it names — its date, its task's scope, HEAD's history (§"The ledger") |
-| `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks; each status value ↔ its vocabulary; each audit finding's disposition ↔ not `open`, and each ledger entry's ↔ decided, or open with a date, whose checkpoint is not a citation (§"The ledger") |
+| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/`; `LEDGER.md`, with the `QUESTIONS.md` statuses and `checkpoints/` titles its dispositions name, and HEAD's history for each fix; and, for a task whose row reads `CLAIMED`, the board at each commit, to anchor its current claim, and each of its items' lines by `git blame` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps; each item raised ↔ the ledger entry naming it, and each entry's `Raised.` ↔ what exists; each ledger entry's disposition ↔ what it names — its date, its task's scope, HEAD's history, and an audited task's close (§"The ledger") |
+| `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks; each status value ↔ its vocabulary; each ledger entry's disposition ↔ decided, or open with a date, whose checkpoint is not a citation (§"The ledger"). An audit's own labels are not citations (§"The namespace") |
 | `check_report.py` | one `tasks/T-n.md`; the files its `Scope.` names, for stub markers; the charter's `Containment` row; HEAD's history — the board's in it, for the task's current claim, and each block's header line by `git blame` — and `git status`; and the harness's `.run/locks/T-n.sandbox` line, with the `meta/budget.json` and `meta/base.sha` of the sandbox it names | the task's current report ↔ its title; the task's current report and each step's latest REPORT block ↔ the committed tree, and the commits each cites ↔ HEAD's history; a step's block ↔ its own step's meter (§"The REPORT block") |
 | `check_scope.py` | `BOARD.md` and its history, `tasks/*.md`, HEAD's `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written: by each task's commits, and by commits naming no task since a running task's current claim |
 
@@ -555,7 +610,7 @@ part, up to its dash. One acceptance, one line.
 - **Reviewed.** unreviewed
 - **Accepts.**
   - `check_trace` `missing-field` `tasks/T-1.md` — T-1 has no **Discharges.**
-  - `check_refs` not evaluated: audits/x.md's findings
+  - `check_trace` not evaluated: audits/x.md's audit findings
 ```
 
 - **No line number.** The anchor's line is left out, and so is any line number

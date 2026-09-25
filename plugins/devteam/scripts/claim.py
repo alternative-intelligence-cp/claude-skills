@@ -136,13 +136,17 @@ def boards(repo):
     return out
 
 
-def current(repo, running):
-    """For `running`, {T-n: (its task file, its title's status)} of the tasks
-    whose title reads RUNNING: {T-n: (label, the claim's commit, None)}, or
-    {T-n: (label or None, None, why nothing anchors it)}."""
-    labels = {t: label(status) for t, (_rel, status) in running.items()}
+def began(repo, wanted):
+    """For `wanted`, {T-n: a claim label}: {T-n: the first commit in HEAD's
+    history whose board carries that label in its in-flight table on T-n's
+    row}, for each label some commit carries.
+
+    `current` reads the label from a RUNNING title. check_trace reads it from
+    the board's own row, `CLAIMED <label>`, which the claim still holds after
+    its supervisor has closed or stopped and the title no longer carries the
+    label: an item raised under the current claim is not due until the row
+    leaves CLAIMED (roadmap 0.3.3, L-3.5)."""
     found = {}
-    wanted = {t: lab for t, lab in labels.items() if lab}
     if wanted:
         for sha, lines in boards(repo):
             rows, _unparsed = in_flight_rows(lines)
@@ -151,6 +155,15 @@ def current(repo, running):
                     found[tid] = sha
             if len(found) == len(wanted):
                 break
+    return found
+
+
+def current(repo, running):
+    """For `running`, {T-n: (its task file, its title's status)} of the tasks
+    whose title reads RUNNING: {T-n: (label, the claim's commit, None)}, or
+    {T-n: (label or None, None, why nothing anchors it)}."""
+    labels = {t: label(status) for t, (_rel, status) in running.items()}
+    found = began(repo, {t: lab for t, lab in labels.items() if lab})
     out = {}
     for t, (rel, status) in running.items():
         lab = labels[t]

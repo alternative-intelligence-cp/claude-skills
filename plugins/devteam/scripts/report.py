@@ -103,9 +103,11 @@ def is_answer_line(line):
 
 # One block: the 0-based line of its header, what the header says, its fields
 # (each a list: a key's inline value, then its indented continuation lines),
-# each key's line, and the line the field parse stopped at, or None when it
-# ran to the block's end (roadmap 0.3.1, L-1.3).
-Block = collections.namedtuple("Block", "start role task step note fields at stop")
+# each key's line, the line the field parse stopped at, or None when it ran to
+# the block's end (roadmap 0.3.1, L-1.3), and the 0-based line of each value in
+# each field's list, so an item under `questions:` or `open:` is named at its
+# own line (roadmap 0.3.3, L-3.5).
+Block = collections.namedtuple("Block", "start role task step note fields at stop where")
 
 
 def ends_block(line):
@@ -119,7 +121,7 @@ def ends_block(line):
 def parse_block(lines, i):
     """The block whose header is `lines[i]`."""
     m = HEADER.match(lines[i])
-    fields, key, at, stop = {}, None, {}, None
+    fields, key, at, stop, where = {}, None, {}, None, {}
     j = i + 1
     while j < len(lines):
         line = lines[j]
@@ -140,15 +142,17 @@ def parse_block(lines, i):
             key = (k or OPEN_KEY.match(line)).group(1)
             value = k.group(2) if k else CLOSE_KEY.search(lines[closed]).group(1)
             fields[key] = [value] if value else []
+            where[key] = [closed if closed is not None else j] if value else []
             at[key] = j
             j = closed if closed is not None else j
         elif key is not None and line.startswith((" ", "\t")) and line.strip():
             fields[key].append(line.strip())
+            where[key].append(j)
         elif line.strip():
             stop = j
             break
         j += 1
-    return Block(i, m.group(1), m.group(2), m.group(3), m.group(4), fields, at, stop)
+    return Block(i, m.group(1), m.group(2), m.group(3), m.group(4), fields, at, stop, where)
 
 
 def blocks(lines):

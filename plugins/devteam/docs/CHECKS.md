@@ -53,14 +53,16 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 29 classes
+## `check_trace.py` — 31 classes
 
 Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`, `BOARD.md`, `audits/`, and
 `LEDGER.md` with the `QUESTIONS.md` statuses and `checkpoints/` titles its
 dispositions name, tracked or untracked and not ignored; `DECISIONS.md`'s
-acceptances; and HEAD's history, for a ledger entry's fix. Diffs goals ↔
-requirements ↔ tasks ↔ acceptance criteria, and each item's disposition ↔ what
-it names.
+acceptances; and HEAD's history, for a ledger entry's fix, for the board at
+each commit, to anchor a task's current claim, and for each item's line by
+`git blame`, to date it against that claim. Diffs goals ↔ requirements ↔ tasks
+↔ acceptance criteria, each item raised ↔ the ledger entry naming it, and each
+item's disposition ↔ what it names.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
@@ -88,7 +90,9 @@ it names.
 | `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_trace` finding or part ↔ what this run reported, less any class a declaration excluded | `enforces` |
 | `estimate-step-mismatch` | P-41 — estimates come from a stated model; `FORMATS.md` §"Identifier declarations", the estimate | a `PLANNED` task's `Estimate.` `model=<n>x…` ↔ the step lines under its `## Steps`, struck ones included, a step named twice counted once. Compared only while the title reads `PLANNED`: the model counts the steps as planned, and its rounds rate prices each step a supervisor adds once the task runs (roadmap 0.3.2, L-2.10, the owner's answer of 2026-09-24). No `## Steps` is compared with nothing | `enforces` |
 | `bad-kind` | `FORMATS.md` §"Status vocabularies", task `Kind.` | the declared `Kind.` ↔ the closed set `implementation · probe · spike · chore` | `enforces` |
-| `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values, read whole, open when the first word is `open` ↔ the audited task's title status | `enforces` |
+| `open-finding-at-close` | P-31 — the audit precedes the close | each `LEDGER.md` entry covering a finding of an audit's answer, read through `ledger.py` ↔ the task the answer's `AUDIT` line names as its scope: an entry still `open`, whatever its `until`, once that task's title reads `DONE` or `ACCEPTED` and its board row does not read `CLAIMED` (roadmap 0.3.3, L-3.5, L-3.12). Such an entry is this finding and not also `expired-item`. The audit file's name, and its `Disposition.` lines, are no longer read | `enforces` |
+| `unledgered-item` | P-52 — an item raised is ledgered | each item raised ↔ a `LEDGER.md` entry whose `Raised.` names it, one entry to one item, read through `ledger.py`: every item under a judged REPORT block's `questions:` and `open:`, read by the parse `check_report` judges the block with (`report.py`), and every finding of an audit's answer (roadmap 0.3.3, L-3.5). A filed audit's findings are due from the commit that adds the file. A task's items are due once its board row does not read `CLAIMED`, and while it does, only those landed before its current claim began: the row's label, anchored where the in-flight table first carries it (`claim.py`), each item dated by its block's header or its answer's `AUDIT` line, by `git blame`. A claim no commit anchors holds its task's items, named as the part `T-n's items before its current claim`; an answer line the grammar cannot read is the part `<file>'s audit findings` | `enforces` |
+| `unknown-source` | P-52 — an entry names where its item's text is | each `LEDGER.md` entry's `Raised.` ↔ what exists: a report's words ↔ the items of every block for that id, superseded attempts' too, whitespace and dashes normalised; an audit's label ↔ the answers of that scope in a task file, or the answers of that file in `audits/`. An entry with no `Raised.` is the finding. A task or step no file declares is `check_refs`' `cited-undefined`, and a `Raised.` that does not parse as one of its four forms is the part `ITM-n's Raised.` | `enforces` |
 | `expired-item` | P-52 — an item raised has a decision, or a date by which one is due | each `LEDGER.md` entry's `Disposition.`, read through `ledger.py` ↔ what it names. `open (until T-n)` and `routed T-n` ↔ T-n's title and board row: due once the title reads `DONE` or `ACCEPTED` and the row does not read `CLAIMED`, so the supervisor's close lands and the manager's advance decides the item (roadmap 0.3.3, L-3.12, the owner's answer of 2026-09-25). `open (until C-n)` ↔ the checkpoints filed, each read by `check_refs`' own title declaration in a file it reads as a checkpoint: due once one numbered n or higher is filed, so a skipped number still falls due. `raised Q-n` ↔ Q-n's `Status.`: due once it reads `withdrawn` | `enforces` |
 | `routed-out-of-scope` | P-52; P-10 — a worker writes only inside its declared scope | a `routed T-n` entry's `Needs.` — a path list, read by the parse `Scope.` is, its first `Needs.` standing — ↔ T-n's `Scope.`, by the containment `unreachable-acceptance` applies (P-34). An entry with no `Needs.`, or one naming no path, is the finding. An entry of the list that is not a bare path, or a `Needs.` named and not written as the field, is a part not evaluated, `ITM-n's Needs.` | `enforces` |
 | `fix-not-in-history` | P-52; P-5 — discharged by evidence, never assertion | each commit a `fixed (<commit>)` entry names ↔ HEAD's history, by `result.in_history`: the ancestry test `check_report`'s `unknown-commit` applies to a hash a report cites (roadmap 0.3.2, L-2.6) | `enforces` |
@@ -102,7 +106,7 @@ leaks.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
-| `cited-undefined` | P-22 | identifiers cited ↔ identifiers declared. A ledger entry's `open (until C-n)` names a checkpoint not yet filed, so its `C-n` is a date and not a citation, and `check_trace`'s `expired-item` judges it (roadmap 0.3.3, L-3.12); the same checkpoint cited anywhere else is a citation | `enforces` |
+| `cited-undefined` | P-22 | identifiers cited ↔ identifiers declared. A ledger entry's `open (until C-n)` names a checkpoint not yet filed, so its `C-n` is a date and not a citation, and `check_trace`'s `expired-item` judges it (roadmap 0.3.3, L-3.12); the same checkpoint cited anywhere else is a citation. An audit's own labels, `SAF-n`, `COR-n`, `SEC-n` and `HYG-n`, are not identifiers and are not resolved (roadmap 0.3.3, L-3.3), and `CNV-n` is external, as `P-n` is (L-3.12) | `enforces` |
 | `defined-uncited` | P-22 — *and a decision declared must be cited* | decisions declared ↔ decisions cited | `enforces` |
 | `duplicate-id` | `FORMATS.md` §"Identifier declarations" — one declaration per identifier | declaration sites ↔ each other | `enforces` |
 | `broken-link` | `FORMATS.md` §"What each check reads" | relative link targets ↔ files on disk | `enforces` |
@@ -110,7 +114,7 @@ leaks.
 | `leak` | P-47 — a tracked artifact contains only what a reader can see, and no credential | tracked file content ↔ the absolute-path and credential patterns | `enforces` |
 | `control-character` | P-47 | file bytes ↔ the printable set, outside tab and newline | `enforces` |
 | `untracked-file` | `FORMATS.md` §"What each check reads" — a check reads every file git would show, and names each one no commit holds (roadmap 0.3.1, L-1.4) | the files the check reads ↔ git's index | `enforces` |
-| `undispositioned-finding` | CONSOLIDATION 7; `FORMATS.md` §"The namespace" — an exemption is a debt, and something must watch it; P-52 — an item has a decision or a date by which one is due | an audit finding's `Disposition.`, read whole ↔ the set of dispositions that are not `open`. `open` is the value's first word (`ledger.is_open`), so a note after it leaves the finding open. And each `LEDGER.md` entry's `Disposition.`, read through `ledger.py` ↔ present, and not `open` without `(until T-n)` or `(until C-n)` (`FORMATS.md` §"The ledger") | `enforces` |
+| `undispositioned-finding` | CONSOLIDATION 7 — mention is not disposition; P-52 — an item has a decision or a date by which one is due | each `LEDGER.md` entry's `Disposition.`, read through `ledger.py` ↔ present, and not `open` without `(until T-n)` or `(until C-n)` (`FORMATS.md` §"The ledger"). A value whose first word is `open` and that the vocabulary does not read is this class; any other value outside it is `bad-status`. An audit file's own `Disposition.` lines are no longer read: an audit's findings are the ledger's items, and `check_trace`'s `unledgered-item` counts each where it is (roadmap 0.3.3, L-3.1, L-3.3) | `enforces` |
 | `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of a `check_refs` finding or part ↔ what this run reported | `enforces` |
 | `unparseable-acceptance` | P-51; `FORMATS.md` §"Accepted findings" — an `Accepts.` line outside the grammar accepts nothing, and is reported | each line of `DECISIONS.md` naming `Accepts.`, and each item under one ↔ the acceptance grammar, including the decision's `Reviewed.` line | `enforces` |
 

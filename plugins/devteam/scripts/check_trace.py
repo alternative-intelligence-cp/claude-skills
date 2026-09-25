@@ -24,7 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
-import ledger  # noqa: E402 -- the ledger's grammar, and the first-word `open` test
+import ledger  # noqa: E402 -- the ledger's grammar, and the join of items to entries (roadmap 0.3.3, L-3.5)
 import check_refs  # noqa: E402 -- a checkpoint's declaration, one home (P-34)
 import claim   # noqa: E402 -- a task's current claim, and the in-flight table's reader (L-2.5)
 
@@ -159,7 +159,6 @@ TASK_ISH = re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])")
 SECTION_ROW = re.compile(r"^(?:[-*+]\s|\d+[.)]\s|\|(?!\s*:?-{3,}))")
 PROTECTED_ISH = re.compile(r"^\|\s*[*`_]*\s*protected[\s_-]*paths\b", re.I)
 BOARD_ROW_ISH = re.compile(r"^\|\s*(?:\[|\*\*|\*|`)*\s*T-\d+\b")
-AUDIT_HEADING_ISH = re.compile(r"^#{2,3}\s+(?:finding\s+\d+\b|\d+\.\s|[A-Z]{1,5}-\d+\b)", re.I)
 
 # A value the interview has not filled in yet. Reported as its own finding
 # rather than silently treated as present -- a placeholder that passes a check
@@ -764,6 +763,23 @@ def filed_checkpoints(devteam, every):
             if m and m.group(1) == "C":
                 out.add(int(m.group(2)))
     return out
+
+def declared_steps(lines):
+    """The steps a task file declares, `S-n`, read as check_refs declares one
+    -- its checklist line or its table row, fenced lines skipped -- so that a
+    `Raised.` naming a step no file declares is left to check_refs'
+    `cited-undefined`, and not judged twice (P-34)."""
+    out, fenced = set(), False
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        m = None if fenced else (check_refs.STEP_DECLARATION.match(line)
+                                 or check_refs.TABLE_STEP.match(line))
+        if m:
+            out.add(f"S-{m.group(2)}")
+    return out
+
 
 def check(devteam):
     findings = []
@@ -1532,76 +1548,10 @@ def check(devteam):
         if colour[t] == WHITE:
             walk(t, [t])
 
-    # --- open-finding-at-close (CONSOLIDATION 7, 0.2.6) ---------------------
-    # An audit finding still `Disposition. open` when the task it audited has
-    # closed. THE MEASURED GAP: two audits produced fifteen findings, three
-    # became client questions, one entered a task brief, and eleven were never
-    # dispositioned -- filed in a report nothing pointed at again. P-31 puts the
-    # audit BEFORE the close, so a task that closed over an open finding closed
-    # over evidence it had itself commissioned.
-    #
-    # Two declared lists: the audit file's `Disposition.` values against the
-    # task's own title status. The task id comes from the FILENAME, which the
-    # audit skill already fixes as `T-n-<dimension>-<date>.md`, so nothing is
-    # read out of prose.
-    audits_dir = os.path.join(devteam, "audits")
+    # A TASK HAS CLOSED when its title reads DONE or ACCEPTED; its close is
+    # due, for the ledger, when its board row also leaves CLAIMED (below).
     closed = lambda t: (t in tasks and (tasks[t][2].split() or [""])[0].strip().upper()
                         in ("DONE", "ACCEPTED"))
-    if os.path.isdir(audits_dir):
-        for name in sorted(os.path.basename(p) for p in every if p.startswith("audits/")):
-            m = AUDIT_FILE.match(name)
-            if not m:
-                # A file NAMING a closed task in another form, and holding
-                # findings, cannot be tied to that task, so whether they are
-                # open is never asked (L-1.3). Nothing is inferred from the
-                # name; the file is named as not evaluated. pricelog's step
-                # audit, `pricelog-T-18-S-4-2026-09-17.md`, is one.
-                named = re.search(r"\bT-(\d+)\b", name)
-                if name.endswith(".md") and named and closed(f"T-{named.group(1)}"):
-                    with open(os.path.join(audits_dir, name), encoding="utf-8",
-                              errors="replace") as fh:
-                        headings = sum(1 for line in fh if AUDIT_HEADING_ISH.match(line))
-                    if headings:
-                        gaps.append((f"audits/{name}", f"names T-{named.group(1)} and holds "
-                                     f"{headings} finding heading(s), but is not named "
-                                     "`T-n-<dimension>-<date>.md`, so open-finding-at-close "
-                                     "cannot tie them to the task"))
-                continue
-            tid = f"T-{m.group(1)}"
-            if not closed(tid):
-                continue
-            phase = (tasks[tid][2].split() or [""])[0].strip().upper()
-            rel_a = os.path.join("audits", name)
-            with open(os.path.join(audits_dir, name), encoding="utf-8", errors="replace") as fh:
-                audit = fh.read().split("\n")
-            offered = [n for n, line in enumerate(audit, 1) if AUDIT_HEADING_ISH.match(line)]
-            missed = [n for n in offered if not AUDIT_HEADING.match(audit[n - 1])]
-            if missed:
-                gaps.append((f"{rel_a}'s findings", result.unparsed(
-                    [(rel_a, n) for n in missed], len(offered), "finding headings",
-                    "`## <COR|SEC|HYG|REV|CNV>-n — <title>`",
-                    "open-finding-at-close cannot see whether they are open")))
-            current, n_at, disposed = None, 0, False
-            for n, line in enumerate(audit, 1):
-                h = AUDIT_HEADING.match(line)
-                if h:
-                    if current and not disposed:
-                        add("open-finding-at-close", f"{rel_a}:{n_at}",
-                            f"{current} is still open and {tid} is {phase} — "
-                            f"P-31 puts the audit before the close, so this "
-                            f"task closed over a finding it commissioned")
-                    current, n_at, disposed = f"{h.group(1)}-{h.group(2)}", n, False
-                    continue
-                # Read whole, as check_refs reads the same field (roadmap
-                # 0.3.2, L-2.3): a line break inside it changes nothing.
-                d = AUDIT_DISPOSITION.match(line)
-                if d and current and not ledger.is_open(result.joined(audit, n - 1, d.group(1))):
-                    disposed = True
-            if current and not disposed:
-                add("open-finding-at-close", f"{rel_a}:{n_at}",
-                    f"{current} is still open and {tid} is {phase} — P-31 puts "
-                    f"the audit before the close, so this task closed over a "
-                    f"finding it commissioned")
 
     # --- the ledger's dispositions against the tree (roadmap 0.3.3, L-3.2) --
     # AN ITEM HAS A DECISION, OR A DATE BY WHICH ONE IS DUE (P-52). check_refs
@@ -1642,14 +1592,152 @@ def check(devteam):
     # A value naming a task, a question or a decision that does not exist is
     # check_refs' `cited-undefined`, and is not judged again here.
     items, ledger_unread = ledger.entries(read(devteam, ledger.PATH))
+    # The board row's state, for the window and for a task's close: a task
+    # whose row reads CLAIMED holds its claim, and the label is the claim's.
+    claimed = {tid: s for tid, s, _ in rows if s.split()[:1] == ["CLAIMED"]}
+    gone = lambda t: closed(t) and t not in claimed
+    found = ledger.found_in(devteam)
+    covered, verdicts = ledger.join(items, found)
+
+    # --- open-finding-at-close, read from the ledger (P-31; roadmap 0.3.3,
+    # L-3.2, L-3.5). An audit finding still undecided when the task it audited
+    # has closed. THE MEASURED GAP: two audits produced fifteen findings, three
+    # became client questions, one entered a task brief, and eleven were never
+    # dispositioned -- filed in a report nothing pointed at again. P-31 puts
+    # the audit BEFORE the close, so a task that closed over an open finding
+    # closed over evidence it had itself commissioned.
+    #
+    # The finding's task is its answer's scope, read from the answer's AUDIT
+    # line, never from a file's name: T-18's step audit was named
+    # `pricelog-T-18-S-4-2026-09-17.md`, and the name test this replaced
+    # could not tie it to its task (0.3.1 §3.2). The disposition is the
+    # ledger entry's: an entry covering an audit's finding, still `open`
+    # whatever its `until` says, when the audited task's close is due -- its
+    # title DONE or ACCEPTED and its row no longer CLAIMED, as an item due by
+    # a task falls due (L-3.12). It is this finding alone, and not also
+    # `expired-item`: one fault, one report.
+    held_by = {(e.ident, e.line): found.items[i] for i, e in covered.items()}
+    p31 = set()
+    for e, what, _ in verdicts:
+        it = held_by.get((e.ident, e.line))
+        if what != "covers" or it.kind == "report" or not it.audited:
+            continue
+        got = e.parsed()
+        if got and got[0] == "open" and gone(it.audited):
+            p31.add((e.ident, e.line))
+            add("open-finding-at-close", f"{ledger.PATH}:{e.fields['Disposition'][0]}",
+                f"{e.ident}, {it.raised}, is still `{' '.join(e.value('Disposition').split())}` "
+                f"and {it.audited} is {tasks[it.audited][2].split()[0]} — P-31 puts the audit "
+                f"before the close, so this task closed over a finding it commissioned")
+
+    # --- unledgered-item and unknown-source (P-52; roadmap 0.3.3, L-3.5) ---
+    # EVERY ITEM RAISED HAS AN ENTRY, ONCE IT IS DUE. pricelog's T-19 stopped
+    # with seven open items under its auditor's answer, and the manager's stop
+    # filed questions for five: two items, a charter decision among them,
+    # reached no owner (F-139). An audit finding sat four days with no owner
+    # (F-99). So an item no entry covers is `unledgered-item`, as soon as it is
+    # due:
+    #  * a filed audit's findings from the commit that adds the file, whatever
+    #    any row reads -- the manager files an audit with its entries;
+    #  * a task's items once its board row does not read CLAIMED. While it
+    #    does, they are the current claim's, pending: the supervisor lands them
+    #    and may not write the ledger (P-13), and the manager writes their
+    #    entries in the commit that moves the row, its advance or its stop.
+    #    That is F-19's window again, and L-2.2's reason;
+    #  * except an item landed before the task's CURRENT claim began, which a
+    #    previous claim raised: it was due at that claim's stop, and is due
+    #    whatever the row reads now (roadmap 0.3.2, L-2.7). The claim is the
+    #    row's label, anchored where the in-flight table first carries it
+    #    (claim.py), and an item is dated by its block's header line, or its
+    #    answer's AUDIT line, by blame, as check_report dates a close.
+    # A board this cannot read shows no claim, so its items are due: the
+    # gate's allowance fails closed the same way.
+    #
+    # AN ENTRY NAMES WHAT EXISTS. One whose `Raised.` names nothing -- a
+    # report's words no block for that id begins an item with, an audit's
+    # label no answer of that scope holds -- is `unknown-source`. A task or a
+    # step no file declares is check_refs' `cited-undefined`, and is not
+    # judged again here; nor is an audit's label in a file whose answers could
+    # not all be read, which is named as a part below.
+    repo = os.path.dirname(devteam)
+    labels = {t: s.split()[1] for t, s in claimed.items() if len(s.split()) > 1}
+    anchors = claim.began(repo, labels)
+    unanchored = {}
+    for i, it in enumerate(found.items):
+        if i in covered:
+            continue
+        if it.task is not None and it.task in claimed:
+            anchor = anchors.get(it.task)
+            if anchor is None:
+                unanchored.setdefault(it.task, claimed[it.task])
+                continue
+            if result.landed(repo, f"devteam/{it.file}", it.dated, anchor) is not True:
+                continue
+        if it.kind == "report":
+            what = (f"{it.group[1]}'s `{it.group[2]}:` item "
+                    f"\"{' '.join(it.text.split(' ')[:ledger.LEAST_WORDS])}\"")
+        elif it.kind == "answer":
+            what = f"{it.group[2]} of the audit of {it.group[1]}"
+        else:
+            what = f"{it.group[2]} of {it.file}"
+        add("unledgered-item", f"{it.file}:{it.line}",
+            f"{what} has no ledger entry naming it: an item raised is ledgered (P-52). "
+            "`ledger.py --pending` prints the `Raised.` line its entry needs")
+    for task, state in sorted(unanchored.items()):
+        gaps.append((f"{task}'s items before its current claim",
+                     f"its board row reads {state!r}, and no commit in HEAD's history carries "
+                     f"{'that label' if task in labels else 'a label'} in its in-flight table on "
+                     f"{task}'s row, so whether an item was raised under a previous claim could "
+                     "not be told: its items are held as the current claim's"))
+    gaps += ledger.answer_gaps(found.unread)
+    unread_files = {rel for rel, _n, _what in found.unread}
+    task_files = {rel for rel in found.files if rel.startswith("tasks/")}
+    steps_of = {}
+    for e, what, detail in verdicts:
+        if what == "unread":
+            gaps.append((f"{e.ident}'s Raised.", f"{ledger.PATH}:{detail} does not parse as one "
+                         f"of `Raised.`'s forms — {ledger.FORMS} — so {e.ident} covers no item"))
+            continue
+        if what == "none":
+            mine = {n for n, _ in e.block}
+            named = [n for n, field, _w in ledger_unread if field == "Raised" and n in mine]
+            if named:
+                gaps.append((f"{e.ident}'s Raised.", f"{ledger.PATH}:{named[0]} names the field "
+                             "and does not parse as `- **Raised.** <where>`, so "
+                             f"{e.ident} covers no item"))
+            else:
+                add("unknown-source", f"{ledger.PATH}:{e.line}",
+                    f"{e.ident} has no `Raised.`, so it names no item: an entry names where "
+                    f"its item's text is — {ledger.FORMS} (P-52)")
+            continue
+        if what != "unknown":
+            continue
+        form, g = ledger.raised(e.value("Raised"))
+        subject = g[0] if form in ("report", "answer") else None
+        if subject and re.match(r"T-\d+", subject):
+            tid, _, step = subject.partition(".")
+            rel = f"tasks/{tid}.md"
+            if rel not in task_files:
+                continue                  # check_refs: cited-undefined
+            if step:
+                if rel not in steps_of:
+                    steps_of[rel] = declared_steps(read(devteam, rel))
+                if step not in steps_of[rel]:
+                    continue              # check_refs: cited-undefined
+            if form == "answer" and rel in unread_files:
+                continue                  # named as a part
+        if form == "filed" and g[0] in unread_files:
+            continue                      # named as a part
+        add("unknown-source", f"{ledger.PATH}:{e.fields['Raised'][0]}",
+            f"{e.ident}'s `Raised.` names `{' '.join(e.value('Raised').split())}`, and "
+            f"{detail}: an entry names where its item's text is (P-52)")
+
     if items:
-        claimed = {tid for tid, s, _ in rows if s.split()[:1] == ["CLAIMED"]}
-        gone = lambda t: closed(t) and t not in claimed
         filed = filed_checkpoints(devteam, every)
         asked = question_statuses(devteam)
         for e in items:
             got = e.parsed()
-            if got is None:
+            if got is None or (e.ident, e.line) in p31:
                 continue
             kind, named = got
             at = f"{ledger.PATH}:{e.fields['Disposition'][0]}"
@@ -1734,7 +1822,7 @@ def check(devteam):
     for ident, (where, fields, _) in sorted(tasks.items(), key=number):
         gaps += field_gaps(ident, where, fields)
 
-    return findings, gaps, len(goals), len(reqs), len(tasks)
+    return findings, gaps, len(goals), len(reqs), len(tasks), len(found.items)
 
 
 # F-19'S WINDOW, AS THIS CHECK REPORTS IT (roadmap 0.3.1, L-1.5): a task whose
@@ -1755,12 +1843,6 @@ CLOSED_LINK = re.compile(r"^(T-\d+) is DONE and discharges (R-\d+), but \2's sta
 # commit adds, and for no other. The gate reads the requirement back from this.
 UNCOVERED = re.compile(r"^(R-\d+) is not discharged by any task$")
 
-AUDIT_FILE = re.compile(r"^T-(\d+)-[a-z]+-\d{4}-\d{2}-\d{2}\.md$")
-AUDIT_HEADING = re.compile(r"^#{2,3}\s+(COR|SEC|HYG|REV|CNV)-(\d+)\s*[\u2014\u2013-]")
-AUDIT_DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
-# Whether it is open is ledger.is_open, the value's first word read whole, as
-# check_refs reads the same field (roadmap 0.3.2, L-2.3). It was a copy of
-# check_refs' regex, and has one home now (roadmap 0.3.3, L-3.2).
 
 
 def resolve(target):
@@ -1832,7 +1914,7 @@ def main(argv):
         got = check(devteam)
         if got is None:
             return result.could_not_run("check_trace", f"not a git repository: {devteam}", as_json)
-        findings, gaps, ng, nr, nt = got
+        findings, gaps, ng, nr, nt, ni = got
         res = result.Result("check_trace", os.path.relpath(devteam, os.getcwd()), width=22)
         if pre_plan:
             held = [f for f in findings if f[0] == "uncovered-requirement"]
@@ -1853,6 +1935,9 @@ def main(argv):
         res.count(ng, "goals")
         res.count(nr, "requirements")
         res.count(nt, "tasks")
+        # The items the ledger's join counted, so a line that says clean says
+        # over how many (roadmap 0.3.3, L-3.5).
+        res.count(ni, "items")
         res.clean_note = "traced end to end"
         results.append(res)
     return result.emit(results, as_json)

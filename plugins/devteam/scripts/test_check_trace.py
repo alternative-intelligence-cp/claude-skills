@@ -268,9 +268,11 @@ T3_RENEWS = """# T-3 — fix what T-1 shipped — DONE (2026-09-24)
 LEDGER_HEAD = "# The ledger\n\nProse about the ledger.\n\n---\n\n"
 
 
-def itm(n, disposition, needs=""):
-    """One ledger entry, raised by the manager, with `needs` written as given."""
-    return (f"### ITM-{n} — item {n}\n\n- **Raised.** manager 2026-09-25\n{needs}"
+def itm(n, disposition, needs="", raised="manager 2026-09-25"):
+    """One ledger entry, raised as `raised` names -- the manager's own, unless
+    said -- with `needs` written as given."""
+    head = f"- **Raised.** {raised}\n" if raised is not None else ""
+    return (f"### ITM-{n} — item {n}\n\n{head}{needs}"
             f"- **Disposition.** {disposition}\n\n")
 
 
@@ -307,6 +309,41 @@ T18 = """# T-18 — the failure paths — PLANNED
 - **Verify.** `make test`
 - **Estimate.** tokens=100 minutes=5
 """
+# --- where items come from (roadmap 0.3.3, L-3.4, L-3.5) ------------------
+RECORD_HEAD = "\n## Execution record\n"
+
+
+def reported(ident, questions=" none", open_=" none", note=None):
+    """A REPORT block for `ident`, its `questions:` and `open:` as given."""
+    role = "implementer" if "." in ident else "supervisor"
+    head = f"REPORT {role} {ident}" + (f" ({note})" if note else "")
+    return (f"\n{head}\nstatus: NEEDS-DECISION\nmodel: opus-5-5\nenv: fixture\n"
+            f"requirements: R-1\nscope: src/\ncommits:\n  - none\nchecks:\n  - none\n"
+            f"questions:{questions}\nopen:{open_}\nfindings-for-protocol: none\n"
+            f"budget: tokens=1 minutes=1\nnotes: none\n")
+
+
+def answered(scope, dimension, *labels):
+    """An audit's answer in the grammar's form, one finding per label."""
+    return (f"\nAUDIT {scope} ({dimension})\n\nThe verdict.\n\n"
+            + "".join(f"## {label} — finding {label}\n\n- **Needs.** a decision\n\n"
+                      for label in labels)
+            + f"END AUDIT {scope}\n")
+
+
+Q1 = "\n  - Should the log survive a crash? | yes | REVERSIBLE"
+O1 = "\n  - the retry leaves two lines"
+RAISED_Q1 = 'T-1 questions "Should the log survive a"'
+RAISED_O1 = 'T-1 open "the retry leaves two lines"'
+# T-1 stopped by its supervisor on a question, raising one question and one
+# open item, and the manager's stop: its row reads BLOCKED on Q-1.
+T1_STOP_ITEMS = T1_STOPPED + RECORD_HEAD + reported("T-1", questions=Q1, open_=O1)
+BLOCKED = {"BOARD.md": BOARD.format(s1="BLOCKED on Q-1", s2="—"), "tasks/T-1.md": T1_STOP_ITEMS}
+BOTH_LEDGERED = ledger(itm(1, "raised Q-1", raised=RAISED_Q1),
+                       itm(2, "open (until T-1)", raised=RAISED_O1))
+# F-139's shape: seven findings under a step's answer.
+SEVEN = answered("T-1.S-3", "correctness", *[f"COR-{n}" for n in range(1, 8)])
+
 # T-1 closed by its supervisor, its claim still held: the board reads CLAIMED
 # with an in-flight row, as it does until the manager's advance (L-2.2).
 HELD = {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight("T-1"),
@@ -529,72 +566,78 @@ CASES = [
      {"CHARTER.md": CHARTER.replace("| Protected paths | fixture |",
                                     "| Protected paths | `dist/` — the build output, <more> |")},
      {"unparseable-protected-path"}),
-    # --- open-finding-at-close (0.2.6) ------------------------------------
-    ("open-finding-at-close",
+    # --- open-finding-at-close, read from the ledger (P-31; roadmap 0.3.3,
+    # L-3.5). THESE CASES USED TO READ AN AUDIT FILE'S `Disposition.` LINES,
+    # and to tie the file to its task by its name, `T-n-<dimension>-<date>.md`.
+    # Both retired at 0.3.3's step 3.4: a finding's disposition is its ledger
+    # entry's, and its task is its answer's scope, read from the AUDIT line.
+    # So a file in audits/ that opens no answer -- the fixture these cases
+    # used -- is a part not evaluated, its finding counted and tied to no task,
+    # and due an entry like any other.
+    ("unledgered-item-a-filed-audit-with-no-audit-line-counts-its-finding-and-is-named",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
       "REQUIREMENTS.md": REQS_R1_DONE,
       "audits/T-1-correctness-2026-09-04.md": AUDIT_OPEN,
       "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     {"unledgered-item"}, [], None, {"audits/T-1-correctness-2026-09-04.md's audit findings"},
+     ("COR-1 of audits/T-1-correctness-2026-09-04.md has no ledger entry",
+      "so the file's findings are tied to no task")),
+    # An audit finding of a task, still open in the ledger when the task
+    # closes: the finding, whatever its `until` says -- C-9 is not filed.
+    ("open-finding-at-close-an-audit-finding-open-when-its-task-closes",
+     {**ADVANCED, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "LEDGER.md": ledger(itm(1, "open (until C-9)", raised="T-1.S-1 COR-1"))},
+     {"open-finding-at-close"}, [], None, set(),
+     ("ITM-1, T-1.S-1 COR-1, is still `open (until C-9)` and T-1 is DONE — P-31",)),
+    # ...one fault, one report: an entry due by the audited task's own close
+    # is this finding, and not also expired-item.
+    ("open-finding-at-close-alone-for-an-entry-open-until-its-own-task",
+     {**ADVANCED, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "LEDGER.md": ledger(itm(1, "open (until T-1)", raised="T-1.S-1 COR-1"))},
      {"open-finding-at-close"}),
-    ("open-finding-at-close-no-disposition-line",
-     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
-      "REQUIREMENTS.md": REQS_R1_DONE,
-      "audits/T-1-correctness-2026-09-04.md":
-          AUDIT_OPEN.replace("- **Disposition.** open\n", ""),
-      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+    # ...and a filed audit is tied to the task its AUDIT line names, whatever
+    # the file is called: pricelog's step audit was
+    # `pricelog-T-18-S-4-2026-09-17.md`, which the name test could not tie.
+    ("open-finding-at-close-a-filed-audit-tied-by-its-audit-line-whatever-its-name",
+     {**ADVANCED, "audits/notes-about-T-1.md": answered("T-1", "security", "SEC-1"),
+      "LEDGER.md": ledger(itm(1, "open (until C-9)", raised="audits/notes-about-T-1.md SEC-1"))},
      {"open-finding-at-close"}),
-
-    # A DISPOSITION IS READ WHOLE, and `open` is its first word (roadmap 0.3.2,
-    # L-2.3), as check_refs reads the same field: a note after `open` on the
-    # next line leaves the finding open.
-    ("open-finding-at-close-an-open-disposition-with-a-note-on-its-next-line",
-     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
-      "REQUIREMENTS.md": REQS_R1_DONE,
-      "audits/T-1-correctness-2026-09-04.md":
-          AUDIT_OPEN.replace("- **Disposition.** open", "- **Disposition.** open\n  until T-2 lands"),
-      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+    # A safety audit's label is `SAF`, counted like any other (L-3.3): the
+    # corpus's safety audit wrote `## Finding 1 (HIGH)`, which nothing counted.
+    ("open-finding-at-close-a-safety-audits-saf-n-is-counted",
+     {**ADVANCED, "audits/T-1-safety-2026-09-04.md": answered("T-1", "safety", "SAF-1"),
+      "LEDGER.md": ledger(itm(1, "open (until C-9)",
+                              raised="audits/T-1-safety-2026-09-04.md SAF-1"))},
      {"open-finding-at-close"}),
 
     # --- FALSE-POSITIVE TWINS ---------------------------------------------
-    # `open` is a word, not a prefix: a disposition beginning `opened` is
-    # decided. The test is ledger.is_open, one home for both checks (roadmap
-    # 0.3.3, L-3.2), and this is check_trace's own twin of it.
-    ("fp-open-finding-at-close-a-disposition-beginning-opened-is-decided",
-     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
-      "REQUIREMENTS.md": REQS_R1_DONE,
-      "audits/T-1-correctness-2026-09-04.md":
-          AUDIT_OPEN.replace("- **Disposition.** open", "- **Disposition.** opened as Q-1"),
-      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+    # The same finding while the supervisor's close holds the claim: its row
+    # still reads CLAIMED, and the close is the manager's to make.
+    ("fp-p31-the-same-finding-while-its-supervisors-close-holds-the-claim",
+     {**HELD, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "LEDGER.md": ledger(itm(1, "open (until C-9)", raised="T-1.S-1 COR-1"))},
      set()),
     # A finding that WAS routed is the ordinary case and must stay silent.
-    ("fp-routed-finding-at-close-is-clean",
-     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
-      "REQUIREMENTS.md": REQS_R1_DONE,
-      "audits/T-1-correctness-2026-09-04.md": AUDIT_ROUTED,
-      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+    ("fp-p31-an-audit-finding-routed-at-its-tasks-close-is-decided",
+     {**ADVANCED, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "LEDGER.md": ledger(itm(1, "routed T-2", needs("README.md"), raised="T-1.S-1 COR-1"))},
      set()),
     # AN OPEN FINDING ON AN OPEN TASK IS NOT A DEFECT. It is the normal state
     # between the audit and the close, and reporting it would make the check
     # fire on every project mid-audit -- the false positive that gets a check
     # disabled (P-35).
-    ("fp-open-finding-while-the-task-is-still-open",
-     {"audits/T-1-correctness-2026-09-04.md": AUDIT_OPEN},
+    ("fp-p31-an-audit-finding-open-while-its-task-runs",
+     {"tasks/T-1.md": T1_RUNNING + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "REQUIREMENTS.md": REQS_R1_RUNNING,
+      "LEDGER.md": ledger(itm(1, "open (until C-9)", raised="T-1.S-1 COR-1"))},
      set()),
-    # The task id is read from the FILENAME, which the audit skill fixes as
-    # `T-n-<dimension>-<date>.md`. A file that does not match is tied to no
-    # task, so nothing is inferred from its name and no finding is raised.
-    #
-    # THIS CASE USED TO SAY "IGNORED" AND EXPECT CLEAN, and that was the
-    # defect roadmap 0.3.1 exists to end: the file holds an open finding about
-    # a closed task, and the check said clean without having asked whether it
-    # was open. It is now a part not evaluated, named (L-1.3). pricelog's step
-    # audit is this shape exactly.
-    ("audit-filename-outside-the-grammar-is-not-evaluated",
-     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
-      "REQUIREMENTS.md": REQS_R1_DONE,
-      "audits/notes-about-T-1.md": AUDIT_OPEN,
-      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
-     set(), [], None, {"audits/notes-about-T-1.md"}),
+    # A milestone's audit is tied to no task, so no close decides it: its
+    # date does (expired-item).
+    ("fp-p31-a-milestones-audit-is-tied-to-no-task",
+     {**ADVANCED, "audits/release-hygiene-2026-09-30.md": answered("release", "hygiene", "HYG-1"),
+      "LEDGER.md": ledger(itm(1, "open (until C-9)",
+                              raised="audits/release-hygiene-2026-09-30.md HYG-1"))},
+     set()),
     # ...and a file in audits/ naming a closed task and holding NO finding
     # heading offers nothing, so it stays quiet.
     ("fp-audit-notes-with-no-finding-heading-offer-nothing",
@@ -728,6 +771,105 @@ CASES = [
      {"QUESTIONS.md": ("untracked", question(28, "withdrawn")),
       "LEDGER.md": ledger(itm(1, "raised Q-28"))},
      {"untracked-file", "expired-item"}, [], None, set(), ("QUESTIONS.md",)),
+    # --- every item raised has an entry (roadmap 0.3.3, L-3.5) -----------
+    # F-139, THE HEADLINE. T-19 stopped with seven open items under its
+    # auditor's answer, and its manager's stop filed questions for five: two
+    # items, a charter decision among them, reached no owner. The stop's
+    # commit, with entries for five of seven, is refused naming the two.
+    ("unledgered-item-f139-a-stop-ledgering-five-of-seven-names-the-two",
+     {**BLOCKED, "tasks/T-1.md": T1_STOPPED + RECORD_HEAD + SEVEN,
+      "LEDGER.md": ledger(*[itm(n, "open (until T-1)", raised=f"T-1.S-3 COR-{n}")
+                            for n in range(1, 6)])},
+     {"unledgered-item"}, [], None, set(),
+     ("2 finding(s)", "COR-6 of the audit of T-1.S-3 has no ledger entry naming it",
+      "COR-7 of the audit of T-1.S-3")),
+    ("fp-f139-the-same-stop-with-all-seven-ledgered",
+     {**BLOCKED, "tasks/T-1.md": T1_STOPPED + RECORD_HEAD + SEVEN,
+      "LEDGER.md": ledger(*[itm(n, "open (until T-1)", raised=f"T-1.S-3 COR-{n}")
+                            for n in range(1, 8)])},
+     set()),
+    # A report's items: a question and an open item, due once the row has
+    # left CLAIMED, and covered by the entries naming them.
+    ("unledgered-item-a-stops-question-and-open-item-without-entries",
+     {**BLOCKED}, {"unledgered-item"}, [], None, set(),
+     ("2 finding(s)", "T-1's `questions:` item \"Should the log survive a\"",
+      "T-1's `open:` item \"the retry leaves two lines\"")),
+    ("fp-a-stops-question-and-open-item-with-their-entries", {**BLOCKED, "LEDGER.md": BOTH_LEDGERED},
+     set()),
+    # A project with items and no LEDGER.md: each is unledgered. The check
+    # looked at every item and found no entry, which is a finding.
+    ("unledgered-item-items-and-no-ledger-at-all", {**BLOCKED, "LEDGER.md": None},
+     {"unledgered-item"}, [], None, set(), ("2 finding(s)",)),
+    # A SUPERSEDED ATTEMPT: an entry naming attempt 1's item still resolves
+    # after attempt 2 lands, and an item only attempt 2 raises is due.
+    ("unledgered-item-an-item-only-the-later-attempt-raises",
+     {**BLOCKED, "tasks/T-1.md": T1_STOPPED + RECORD_HEAD
+      + reported("T-1.S-1", open_=O1, note="attempt 1")
+      + reported("T-1.S-1", open_=O1 + "\n  - the lock is never released"),
+      "LEDGER.md": ledger(itm(1, "open (until T-1)", raised='T-1.S-1 open "the retry leaves"'))},
+     {"unledgered-item"}, [], None, set(),
+     ("1 finding(s)", "T-1.S-1's `open:` item \"the lock is never released\"")),
+    # T-1 declares S-1, so the entry is judged here and not left to check_refs.
+    ("fp-an-entry-naming-a-superseded-attempts-item-resolves",
+     {**BLOCKED, "tasks/T-1.md": T1_STOPPED + "\n## Steps\n\n" + steps(1)[0] + "\n" + RECORD_HEAD
+      + reported("T-1.S-1", open_=O1, note="attempt 1") + reported("T-1.S-1"),
+      "LEDGER.md": ledger(itm(1, "declined (D-1)", raised='T-1.S-1 open "the retry leaves"'))},
+     set()),
+    # FILED AUDITS: due from the commit that adds the file, whatever any row
+    # reads -- here T-1's reads CLAIMED, and the audit is T-1's.
+    ("unledgered-item-a-filed-audits-finding-is-due-whatever-any-row-reads",
+     {**HELD, "audits/T-1-security-2026-09-30.md": answered("T-1", "security", "SEC-1")},
+     {"unledgered-item"}, [], None, set(),
+     ("SEC-1 of audits/T-1-security-2026-09-30.md has no ledger entry",)),
+    ("fp-a-filed-audit-with-its-entry",
+     {**HELD, "audits/T-1-security-2026-09-30.md": answered("T-1", "security", "SEC-1"),
+      "LEDGER.md": ledger(itm(1, "open (until C-9)",
+                              raised="audits/T-1-security-2026-09-30.md SEC-1"))},
+     set()),
+    # UNKNOWN-SOURCE: an entry names what exists.
+    ("unknown-source-words-no-block-for-the-id-begins-an-item-with",
+     {**BLOCKED, "LEDGER.md": BOTH_LEDGERED
+      + itm(3, "declined (D-1)", raised='T-1 questions "no such words"')},
+     {"unknown-source"}, [], None, set(),
+     ('ITM-3\'s `Raised.` names `T-1 questions "no such words"`, and no REPORT block for '
+      'T-1 has a `questions:` item beginning "no such words"',)),
+    # T-1 declares S-3 here: a step no file declares is check_refs' alone.
+    ("unknown-source-a-label-no-answer-of-the-scope-holds",
+     {**BLOCKED, "tasks/T-1.md": T1_STOPPED + "\n## Steps\n\n" + "\n".join(steps(3)) + "\n"
+      + RECORD_HEAD + SEVEN,
+      "LEDGER.md": ledger(*[itm(n, "open (until T-1)", raised=f"T-1.S-3 COR-{n}")
+                            for n in range(1, 9)])},
+     {"unknown-source"}, [], None, set(), ("no audit answer of T-1.S-3 in a task file holds COR-8",)),
+    ("unknown-source-an-entry-with-no-raised",
+     {**BLOCKED, "LEDGER.md": BOTH_LEDGERED + itm(3, "declined (D-1)", raised=None)},
+     {"unknown-source"}, [], None, set(), ("ITM-3 has no `Raised.`, so it names no item",)),
+    # A task or a step no file declares is check_refs' `cited-undefined`, and
+    # is not judged twice; the manager's own item names nothing to find.
+    ("fp-unknown-source-a-step-no-file-declares-is-left-to-check-refs",
+     {**BLOCKED, "LEDGER.md": BOTH_LEDGERED
+      + itm(3, "declined (D-1)", raised='T-1.S-9 questions "anything"')},
+     set()),
+    ("fp-unknown-source-a-task-no-file-declares-is-left-to-check-refs",
+     {**BLOCKED, "LEDGER.md": BOTH_LEDGERED + itm(3, "declined (D-1)", raised='T-9 questions "x"')},
+     set()),
+    ("fp-the-managers-own-and-the-clients-words-name-nothing-to-find",
+     {**BLOCKED, "LEDGER.md": BOTH_LEDGERED + itm(3, "declined (D-1)")
+      + itm(4, "declined (D-1)", raised="client 2026-09-25")},
+     set()),
+    # A `Raised.` the grammar cannot read is named, never guessed at.
+    ("a-raised-that-does-not-parse-is-not-evaluated",
+     {**BLOCKED, "LEDGER.md": BOTH_LEDGERED
+      + itm(3, "declined (D-1)", raised="T-1 questions Should the log")},
+     set(), [], None, {"ITM-3's Raised."}),
+    ("a-raised-named-and-not-written-is-not-evaluated",
+     {**BLOCKED, "LEDGER.md": BOTH_LEDGERED + itm(3, "declined (D-1)", raised=None).replace(
+         "- **Disposition.**", "- **Raised:** manager 2026-09-25\n- **Disposition.**")},
+     set(), [], None, {"ITM-3's Raised."}),
+    # AN ANSWER THE GRAMMAR CANNOT READ is named by its line: T-19's, fenced.
+    ("an-answer-inside-a-fence-is-not-evaluated",
+     {**BLOCKED, "tasks/T-1.md": T1_STOPPED + RECORD_HEAD + "\n```" + SEVEN + "```\n"},
+     set(), [], None, {"tasks/T-1.md's audit findings"}),
+
     # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
     # Each of these used to report CLEAN, and each is a row the source offered
     # that the grammar did not read. The case expects the part named, and a
@@ -786,12 +928,16 @@ CASES = [
      {"CHARTER.md": CHARTER_AMENDED.replace("  - DM-2 — holds", "  - DM-2 holds")},
      {"amendment-omits-condition"}, [], None, {"Version 2's Re-affirmed. list"},
      ("re-affirms 17 of 18 — omits DM-2",)),
-    ("audit-heading-outside-the-namespace",
+    # AN AUDIT'S ANSWER THE GRAMMAR CANNOT READ is named by its line (roadmap
+    # 0.3.3, L-3.4). This case used to name a file whose heading was outside
+    # the audit namespace; `SAF` is a label now, so the heading is counted,
+    # and what is named is the missing AUDIT line.
+    ("partial-read-a-filed-audit-with-no-audit-line-its-saf-n-counted",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
       "REQUIREMENTS.md": REQS_R1_DONE,
       "audits/T-1-safety-2026-09-04.md": AUDIT_OPEN.replace("COR-1", "SAF-1"),
       "BOARD.md": BOARD.format(s1="DONE", s2="—")},
-     set(), [], None, {"audits/T-1-safety-2026-09-04.md's findings"}),
+     {"unledgered-item"}, [], None, {"audits/T-1-safety-2026-09-04.md's audit findings"}),
     # MISSING SOURCES. A project always has these files, so a missing one is
     # not an empty source: nothing was there to read.
     ("missing-board-is-not-an-empty-board",
@@ -1971,6 +2117,90 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- the window (roadmap 0.3.3, L-3.5) -----------------------------------
+    # A TASK'S ITEMS ARE PENDING WHILE ITS ROW READS CLAIMED, and due in the
+    # commit that moves the row. An item landed before the task's CURRENT
+    # claim began is a previous claim's, due whatever the row reads. Each
+    # case is a history, commit by commit, because a claim is dated by the
+    # first commit whose in-flight table carries its label, and an item by
+    # the commit that wrote its block's header. The check runs at the last.
+    def chronicle(root, commits):
+        dt = os.path.join(root, "devteam")
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, env=env)
+        git("init", "-q", "-b", "main")
+        for subject, files in commits:
+            for rel, body in files.items():
+                path = os.path.join(dt, rel)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(body)
+            git("add", "-A")
+            git("commit", "-qm", subject)
+        return dt
+
+    def claimed_by(label):
+        row = f"CLAIMED {label}"
+        return (BOARD.format(s1=row, s2="—") + flight("T-1").replace("T1-a-1200", label))
+
+    setup = ("setup", {**FIXTURE, "BOARD.md": BOARD.format(s1="—", s2="—")})
+    claim_a = ("board: claim T-1", {"BOARD.md": claimed_by("T1-a-1200"), "tasks/T-1.md": T1_RUNNING,
+                                    "REQUIREMENTS.md": REQS_R1_RUNNING})
+    stop = ("T-1: stop", {"tasks/T-1.md": T1_STOP_ITEMS})
+    blocked = ("board: T-1 blocked on Q-1", {"BOARD.md": BOARD.format(s1="BLOCKED on Q-1", s2="—")})
+    blocked_ledgered = ("board: T-1 blocked on Q-1, its items ledgered",
+                        {"BOARD.md": BOARD.format(s1="BLOCKED on Q-1", s2="—"),
+                         "LEDGER.md": BOTH_LEDGERED})
+    claim_b = ("board: re-claim T-1", {"BOARD.md": claimed_by("T1-b-1300")})
+    again = ("T-1: the restart's first report", {"tasks/T-1.md": T1_STOP_ITEMS + reported(
+        "T-1.S-1", open_="\n  - a defect the restart found")})
+    windows = [
+        ("fp-window-a-supervisors-stop-while-its-row-reads-claimed-is-pending",
+         [setup, claim_a, stop], set(), set(), ()),
+        ("unledgered-item-window-the-managers-stop-moving-the-row-without-entries",
+         [setup, claim_a, stop, blocked], {"unledgered-item"}, set(), ("2 finding(s)",)),
+        ("fp-window-the-managers-stop-with-the-entries",
+         [setup, claim_a, stop, blocked_ledgered], set(), set(), ()),
+        # A PREVIOUS CLAIM'S ITEMS: a restart whose earlier stop left them
+        # without entries fires under the new CLAIMED row.
+        ("unledgered-item-a-previous-claims-items-fire-under-the-new-claimed-row",
+         [setup, claim_a, stop, blocked, claim_b], {"unledgered-item"}, set(), ("2 finding(s)",)),
+        # ...while the new claim's own item is pending, the old ones ledgered.
+        ("fp-a-new-claims-own-item-is-pending-under-its-claimed-row",
+         [setup, claim_a, stop, blocked_ledgered, claim_b, again], set(), set(), ()),
+        # A claim no commit anchors holds its task's items, and says so.
+        ("a-claim-no-commit-anchors-holds-its-items-and-is-named",
+         [setup, ("board: claim T-1", {"BOARD.md": claimed_by("T1-a-1200").replace(
+             "CLAIMED T1-a-1200", "CLAIMED T1-x-9999"), "tasks/T-1.md": T1_RUNNING,
+             "REQUIREMENTS.md": REQS_R1_RUNNING}), stop],
+         set(), {"T-1's items before its current claim"}, ()),
+    ]
+    for name, commits, expected, want_gaps, must in windows:
+        root = tempfile.mkdtemp(prefix="devteam-trace-window-")
+        try:
+            dt = chronicle(root, commits)
+            proc = subprocess.run([sys.executable, CHECK, dt], capture_output=True, text=True)
+            got = set(re.findall(FINDING_LINE, proc.stdout, re.M))
+            got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            want_exit = 1 if expected else (3 if want_gaps else 0)
+            unsaid = [w for w in must if w not in proc.stdout]
+            if got == expected and got_gaps == want_gaps and proc.returncode == want_exit and not unsaid:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected {sorted(expected) or 'clean'} not evaluated "
+                      f"{sorted(want_gaps) or 'none'} exit {want_exit}")
+                print(f"        got      {sorted(got) or 'clean'} not evaluated "
+                      f"{sorted(got_gaps) or 'none'} exit {proc.returncode}")
+                for w in unsaid:
+                    print(f"        missing  {w!r}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n")[:8]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     for name, overrides, extra, want_exit, expected, want_acc, want_gaps in ACCEPT_CASES:
         root = tempfile.mkdtemp(prefix="devteam-trace-accept-")
         try:
@@ -2030,7 +2260,7 @@ def main():
     # in that list, and a hand-maintained total that disagrees with the number
     # of cases executed is the exact defect docs/CHECKS.md exists to stop.
     total = passed + failed
-    fp = sum(1 for c in CASES + ACCEPT_CASES + history
+    fp = sum(1 for c in CASES + ACCEPT_CASES + history + windows
              if c[0].startswith("fp-") or c[0] == "clean") + 1
     print(f"\ncheck_trace control: {passed} passed, {failed} failed, "
           f"{total} cases ({fp} of them false-positive controls, "

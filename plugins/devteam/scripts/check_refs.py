@@ -45,30 +45,36 @@ SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 # checks cannot disagree about which checkpoints exist (roadmap 0.3.3, L-3.12).
 TITLE_DECLARATION = re.compile(r"^#\s+(T|C)-(\d+)\s*" + DASH)
 
+# A step inside a task, by its checklist line. check_trace reads a task's
+# declared steps by this and TABLE_STEP too, so that a ledger entry naming a
+# step no file declares is this check's `cited-undefined` alone (P-34).
+STEP_DECLARATION = re.compile(r"^-\s+\[[ x~]\]\s+\*\*(S)-(\d+)\*\*")
+
 DECLARATIONS = (
     re.compile(r"^###\s+(R|D|Q)-(\d+)\s*" + DASH),          # REQUIREMENTS/DECISIONS/QUESTIONS
     re.compile(r"^-\s+\*\*(G|DM|F)-(\d+)\*\*\s*" + DASH),    # goals, done-means, findings
     TITLE_DECLARATION,                                       # a task or checkpoint title
-    re.compile(r"^-\s+\[[ x~]\]\s+\*\*(S)-(\d+)\*\*"),       # a step inside a task
-    # An audit finding, declared by a heading in devteam/audits/*.md. The
-    # HEADING form is canonical because it is what the audits carrying
-    # `Disposition.` already use and it matches the idiom R/D/Q and T/C use.
-    # The audit SKILL prescribed `- **COR-6.** <one line>`, a form no audit
-    # has ever written; that is corrected rather than the tree.
-    re.compile(r"^#{2,3}\s+(COR|SEC|HYG|REV|CNV)-(\d+)\s*" + DASH),
+    STEP_DECLARATION,                                        # a step inside a task
 )
 
-# The audit namespace. Three-letter prefixes were chosen BECAUSE the scanner
-# could not mistake them for citations -- which is the same fact as the scanner
-# being unable to check them, so the namespace had no citation integrity in
-# either direction. 0.2.6 reserves these five and watches them. Nothing
-# three-letter beyond this set is resolved; everything else is still ignored.
-AUDIT = {"COR", "SEC", "HYG", "REV", "CNV"}
+# AN AUDIT'S LABELS ARE ITS OWN, AND ARE NOT RESOLVED (roadmap 0.3.3, L-3.3,
+# the owner's answer of 2026-09-24). 0.2.6 reserved `COR-`, `SEC-`, `HYG-`,
+# `REV-` and `CNV-` and resolved them in both directions, because findings were
+# cited from other files and declared nowhere. That had a cost the ledger
+# measured: T-18's audit, landed without headings, cited its own COR-1 to
+# COR-10 with nothing declaring them (F-112's seven `cited-undefined`), and two
+# audits numbering from 1 would each declare COR-1. An item's id is now its
+# ledger entry's `ITM-n`, and an auditor's `COR-3` is a label inside its own
+# text, which this check does not resolve, as it does not resolve `UTF-8`.
+# What the widening watched, the ledger watches: every audit's findings are
+# counted where they are, and each needs an entry (check_trace,
+# `unledgered-item`).
+#
 # `ITM-n` is an item's one id, declared by its heading in LEDGER.md and nowhere
-# else (roadmap 0.3.3, L-3.3), from ledger.HEADING. Like an audit finding it is
-# not in MUST_BE_CITED: an item nobody cites is the ordinary state of one being
-# decided, and its disposition is what is judged.
-KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F", "ITM"} | AUDIT
+# else, from ledger.HEADING. It is not in MUST_BE_CITED: an item nobody cites
+# is the ordinary state of one being decided, and its disposition is what is
+# judged.
+KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F", "ITM"}
 TASK_FILE = re.compile(r"(^|/)tasks/[^/]+\.md$")
 # `T-4.S-2` -- the only form that names which task's step it means.
 QUALIFIED_STEP = re.compile(r"\bT-(\d+)(?:'s)?[.\s]\s*(?=S-)S-(\d+)\b")
@@ -110,7 +116,14 @@ QUAL_TAIL = re.compile(r"\bT-\d+(?:'s)?[.\s]\s*$")
 CHECK_OUTPUT = re.compile(r"`[a-z][a-z-]{3,}\s+\S+:\d+[^`]*`")
 # Prefixes that live outside devteam/ and are never declared here. `P-n` is a
 # protocol rule; citing one is correct and must not be reported as undefined.
-EXTERNAL = {"P"}
+# `CNV-n` is a project-family convention, which lives outside any project and
+# is cited from the decision that adopts or declines it: the `onboard` skill
+# records each one that way, and resolving `CNV-` against this project's
+# declarations made every such decision `cited-undefined` (roadmap 0.3.3,
+# L-3.12, the owner's answer of 2026-09-25). A mistyped `CNV-` id is no longer
+# caught; resolving it against the conventions directory would make the answer
+# depend on the machine the check runs on.
+EXTERNAL = {"P", "CNV"}
 # Only decisions are required to be cited. A task or question that nothing
 # else references is ordinary; an uncited DECISION is the valuable finding.
 MUST_BE_CITED = {"D"}
@@ -129,8 +142,8 @@ ARTIFACTS = re.compile(
     r"|^tasks/T-\d+\.md$"
     r"|^checkpoints/C-\d+[^/]*\.md$"
     r"|^research/(?!README\.md$)[^/]+\.md$"
-    # Audit reports were outside the identifier grammar entirely, which is why
-    # a COR-n could be declared and nothing ever resolved it.
+    # An audit's report is an artifact: the identifiers its text cites are
+    # resolved like any other's, though its own labels are not (L-3.3).
     r"|^audits/(?!README\.md$)[^/]+\.md$"
 )
 
@@ -292,11 +305,6 @@ class CouldNotRun(Exception):
 # `--at-commit` excludes (result.AT_COMMIT; roadmap 0.3.1, L-1.5).
 WORKING_STATE = ("untracked-file",)
 
-DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
-# Whether an audit file's disposition is open is ledger.is_open: the value's
-# first word, read whole (roadmap 0.3.2, L-2.3). It was a regex copied here
-# and into check_trace, and it has one home now (roadmap 0.3.3, L-3.2).
-
 # --- what each file OFFERS (roadmap 0.3.1, L-1.3) --------------------------
 # The grammar above says what parses. These say what was WRITTEN in each
 # shape, however it is punctuated, so a row the grammar misses is counted and
@@ -312,18 +320,12 @@ DECLARED_IN = {
     "D": re.compile(r"^DECISIONS\.md$"), "Q": re.compile(r"^QUESTIONS\.md$"),
     "T": re.compile(r"^tasks/"), "S": re.compile(r"^tasks/"),
     "C": re.compile(r"^checkpoints/"), "ITM": re.compile(r"^LEDGER\.md$"),
-    **{p: re.compile(r"^audits/") for p in AUDIT},
 }
 DECLARATION_ISH = (
     re.compile(r"^#{1,6}\s*([A-Z]{1,3})-?\s*(\d+)\b(?![.'’])"),
     re.compile(r"^-\s+\*\*\s*([A-Z]{1,3})-(\d+)\b"),
     re.compile(r"^-\s+\[[ x~]\]\s+\**\s*(S)-?(\d+)\b"),
 )
-# An audit's findings, in any of the forms pricelog's four gate audits used:
-# `## Finding 1 (…) —`, `### 1. …`, `## F-1 — HIGH —`. None is in the
-# namespace `undispositioned-finding` reads, so none was ever seen (register
-# A6, F-99), and the check said clean.
-AUDIT_FINDING_ISH = re.compile(r"^#{2,3}\s+(?:finding\s+\d+\b|\d+\.\s|[A-Z]{1,5}-\d+\b)", re.I)
 
 
 def named_field(name):
@@ -339,16 +341,13 @@ VOCAB_ISH = {
     "task-title": re.compile(r"^#\s*T-?\s*\d+\b(?![.'’])"),
     "checkpoint-verdict": re.compile(r"^#\s*C-?\s*\d+\b(?![.'’])"),
 }
-DISPOSITION_ISH = named_field("Disposition")
 
 
 def scan(files, base, untracked=frozenset(), quoted=frozenset()):
     declared, cited, findings = {}, {}, []
     step_cited = {}
-    # ident -> (file:line, disposition-text-or-None) for audit findings only.
-    audit_findings = {}
     # What the files offered, for the parts not evaluated (L-1.3).
-    offered = {"declarations": [], "audit": {}, "vocab": {}, "dispositions": {}, "ledger": []}
+    offered = {"declarations": [], "vocab": {}, "ledger": []}
 
     for path in files:
         rel = os.path.relpath(path, base)
@@ -396,7 +395,6 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
 
         is_artifact = bool(ARTIFACTS.match(rel.replace(os.sep, "/")))
         in_fence = False
-        current_audit = None
         for n, line in enumerate(lines, 1):
             if line.lstrip().startswith("```"):
                 in_fence = not in_fence
@@ -417,19 +415,6 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
                 if not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(path), target))):
                     findings.append(("broken-link", rel, n, target))
 
-            if is_artifact and current_audit:
-                md = DISPOSITION.match(line)
-                # Read whole, across its continuation lines (roadmap 0.3.2,
-                # L-2.3), as check_trace reads the same field.
-                if md and audit_findings.get(current_audit, (None, None))[1] is None:
-                    audit_findings[current_audit] = (
-                        audit_findings[current_audit][0],
-                        result.joined(lines, n - 1, md.group(1)))
-                # A disposition this check reads, written so it cannot be read:
-                # the field named, and not parsed as one.
-                if DISPOSITION_ISH.match(line) and not md:
-                    offered["dispositions"].setdefault(rel, []).append(n)
-
             if not is_artifact:
                 continue
 
@@ -441,9 +426,6 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
                     if mo.group(1) in DECLARED_IN and DECLARED_IN[mo.group(1)].search(relp):
                         offered["declarations"].append((mo.group(1), mo.group(2), rel, n))
                     break
-            if relp.startswith("audits/") and AUDIT_FINDING_ISH.match(line):
-                offered["audit"].setdefault(rel, []).append(
-                    (n, bool(DECLARATIONS[4].match(line))))
             for name, scope, field, _valid in VOCAB:
                 if scope.search(rel) and VOCAB_ISH[name].match(line):
                     state = "unparsed" if not field.match(line) else None
@@ -500,11 +482,6 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
                     decl = f"{m.group(1)}-{m.group(2)}"
 
             if decl:
-                # An audit finding opens a block: the `Disposition.` line that
-                # follows belongs to it, until the next finding heading.
-                if decl.split("-")[0] in AUDIT:
-                    current_audit = decl
-                    audit_findings.setdefault(decl, (f"{rel}:{n}", None))
                 # Steps are numbered per task, so they are keyed by their file.
                 key = f"{rel}:{decl}" if decl.startswith("S-") else decl
                 if key in declared:
@@ -583,6 +560,14 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
         # an owner there", which the first-word test read as decided; in the
         # ledger that wording is outside the vocabulary, and is `bad-status`,
         # as every other closed field's value outside its set is.
+        #
+        # MENTION IS NOT DISPOSITION (CONSOLIDATION 7; 0.2.6). Two audits
+        # produced fifteen findings and eleven were never dispositioned, every
+        # one mentioned in the record, so a rule letting a citation excuse a
+        # missing disposition scored zero on them. So an entry is judged by
+        # its disposition alone, and an audit's findings are counted where
+        # they are, not by whether anything cites them (check_trace's
+        # `unledgered-item`).
         if is_artifact and rel.replace(os.sep, "/") == ledger.PATH:
             listed, unread = ledger.entries(lines)
             offered["ledger"] += [(n, what) for n, field, what in unread
@@ -657,42 +642,6 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
             findings.append(("defined-uncited", f, int(n),
                              f"{ident} is declared but nothing cites it"))
 
-    # `defined-uncited` IS WRONG FOR AN AUDIT FINDING, which is why audit
-    # prefixes are not in MUST_BE_CITED. A finding nobody cites is the normal
-    # state of one still under `Disposition. open` -- it has been filed and not
-    # yet routed, which is a stage, not a defect.
-    #
-    # The real gap is the other one, and it was measured: two audits produced
-    # fifteen findings, three became client questions, one entered a task
-    # brief, and ELEVEN were never dispositioned. A "declared here, cited
-    # nowhere" rule reports ZERO on that project, because all eleven were
-    # mentioned -- the manager had logged them in the record. MENTION IS NOT
-    # DISPOSITION, and the difference is invisible in a citation graph.
-    #
-    # THE RULE IS DISPOSITION ALONE, AND THE CITATION HALF IS DELIBERATELY NOT
-    # AN ESCAPE. 0.2.6 planned it as "cited OR dispositioned" and measured both
-    # over the fixture corpus:
-    #
-    #     cited OR non-open Disposition  ->  0 findings
-    #     non-open Disposition alone     ->  5 findings, every one real
-    #
-    # The corpus has sixteen findings with no `Disposition.` line at all, and
-    # the planned rule reported NONE of them -- because they are cited, in
-    # RECORD.md, QUESTIONS.md and CHARTER.md. That is the same defect
-    # CONSOLIDATION item 7 measured and warned about in the same paragraph:
-    # all eleven undispositioned findings on that project WERE mentioned, and
-    # a citation-based rule scored zero. Letting a citation excuse a missing
-    # disposition rebuilds the hole the field exists to close.
-    for ident, (where, disp) in sorted(audit_findings.items()):
-        if disp is not None and not ledger.is_open(disp):
-            continue
-        f, n = where.rsplit(":", 1)
-        why = ("carries no **Disposition.** line at all" if disp is None
-               else "is still **Disposition.** open")
-        findings.append(("undispositioned-finding", f, int(n),
-                         f"{ident} {why} and nothing cites it — filed is not "
-                         f"routed; disposition is `routed T-n`, `raised Q-n` "
-                         f"or `declined (D-n)`"))
     return findings, gaps_from(offered, declared), (len(files), len(declared), len(cited))
 
 
@@ -715,24 +664,12 @@ def gaps_from(offered, declared):
             "a declaration (templates/FORMATS.md)",
             "what they name is declared nowhere, and cited-undefined and "
             "defined-uncited ran without it")))
-    for rel, rows in sorted(offered["audit"].items()):
-        missed = [(rel, n) for n, ok in rows if not ok]
-        if missed:
-            gaps.append((f"{rel}'s findings", result.unparsed(
-                missed, len(rows), "finding headings",
-                "`## <COR|SEC|HYG|REV|CNV>-n — <title>`",
-                "undispositioned-finding cannot see them")))
     for (rel, name), rows in sorted(offered["vocab"].items()):
         bad = [(rel, n) for n, state in rows if state == "unparsed"]
         if bad:
             gaps.append((f"{rel}'s {name}", result.unparsed(
                 bad, len(rows), "fields", f"the {name} field's grammar")
                 + ", so bad-status did not judge them"))
-    for rel, rows in sorted(offered["dispositions"].items()):
-        gaps.append((f"{rel}'s dispositions", f"{len(rows)} `Disposition.` field(s) do not "
-                     "parse as `- **Disposition.** <value>`, so undispositioned-finding "
-                     f"read a finding's disposition as absent "
-                     f"({result.anchors([(rel, n) for n in rows])})"))
     # The ledger's own reader says why each line was not read: a field named
     # and not written as one reads as absent, and a second one in an entry
     # leaves the first standing.

@@ -185,6 +185,34 @@ ADVANCE_T1 = {
     "devteam/BOARD.md": board(rows=("| `T-1` | make it work | R-1 | none | `src/` | DONE |",
                                     "| `T-2` | tidy the docs | none | none | `docs/` | — |"))}
 ADVANCE_ARGS = ["-m", "advance T-1", "--", "devteam/REQUIREMENTS.md", "devteam/BOARD.md"]
+# ITEMS RAISED UNDER A CLAIM (roadmap 0.3.3, L-3.5): the supervisor's stop
+# lands a report with a question and an open item while the row reads
+# CLAIMED; the manager's stop moves the row to BLOCKED on Q-2, and writes the
+# entries in that commit or is refused.
+ITEMS_T1 = task(1, "make it work", "NEEDS-DECISION (which way the docs go)", T1_FIELDS,
+                report("NEEDS-DECISION", "  - HEAD T-1: stop").replace(
+                    "questions: none\nopen: none\n",
+                    "questions:\n  - Which way do the docs go? | this way | REVERSIBLE\n"
+                    "open:\n  - the retry leaves two lines\n"))
+STOPPED_WITH_ITEMS = CLAIMED + [("T-1: stop",
+                                 {"devteam/tasks/T-1.md": ITEMS_T1})]
+MANAGER_STOP = {
+    "devteam/BOARD.md": board(rows=("| `T-1` | make it work | R-1 | none | `src/` | BLOCKED on Q-2 |",
+                                    "| `T-2` | tidy the docs | none | none | `docs/` | — |")),
+    "devteam/QUESTIONS.md": QUESTIONS + ("\n### Q-2 — which way do the docs go?\n\n"
+                                         "- **Class.** REVERSIBLE\n- **Status.** open\n")}
+STOP_ARGS = ["-m", "board: T-1 blocked on Q-2", "--", "devteam/BOARD.md", "devteam/QUESTIONS.md"]
+ENTRIES_T1 = ("# The ledger\n\n### ITM-1 — which way the docs go\n\n"
+              "- **Raised.** T-1 questions \"Which way do the docs go?\"\n"
+              "- **Disposition.** raised Q-2\n\n### ITM-2 — the retry leaves two lines\n\n"
+              "- **Raised.** T-1 open \"the retry leaves two lines\"\n"
+              "- **Disposition.** open (until T-1)\n")
+AUDIT_T1 = ("AUDIT T-1 (security)\n\nThe verdict.\n\n## SEC-1 — the input is not bounded\n\n"
+            "- **Needs.** a decision\n\nEND AUDIT T-1\n")
+AUDIT_ARGS = ["-m", "audits: T-1's security audit", "--", "devteam/audits/T-1-security-2026-09-04.md"]
+ENTRY_SEC1 = ("# The ledger\n\n### ITM-1 — the input is not bounded\n\n"
+              "- **Raised.** audits/T-1-security-2026-09-04.md SEC-1\n"
+              "- **Disposition.** open (until T-1)\n")
 # A SUPERVISOR'S STOP (roadmap 0.3.2, L-2.2): its title and report land with
 # CLAIMED still on the board, which the manager moves afterwards.
 STOPPED_T1 = task(1, "make it work", "NEEDS-DECISION (which way the docs go)", T1_FIELDS,
@@ -525,6 +553,29 @@ CASES = [
      edit({**ADVANCE_T1, "devteam/LEDGER.md": LEDGER_DUE.replace("open (until T-1)",
                                                                  "declined (D-1)")}),
      ADVANCE_ARGS + ["devteam/LEDGER.md"], 0, set(), committed(["devteam/LEDGER.md"])),
+
+    # --- items raised under a claim (roadmap 0.3.3, L-3.5) ---------------
+    # The window is check_trace's rule, and the gate is unchanged: a task's
+    # items are pending while its row reads CLAIMED, and due in the commit
+    # that moves the row. A filed audit's findings are due in the commit that
+    # adds it.
+    ("fp-l35-a-supervisors-stop-landing-a-question-and-an-open-item-while-claimed", CLAIMED,
+     edit({"devteam/tasks/T-1.md": ITEMS_T1}),
+     ["-m", "T-1: stop", "--", "devteam/tasks/T-1.md"], 0, set(), committed(["devteam/tasks/T-1.md"])),
+    ("l35-the-managers-stop-without-the-entries-is-refused", STOPPED_WITH_ITEMS,
+     edit(MANAGER_STOP), STOP_ARGS, 1, {"adds-finding"},
+     both(refused_by(adds_finding="T-1's `questions:` item \"Which way do the docs\""),
+          refused_by(adds_finding="T-1's `open:` item \"the retry leaves two lines\""))),
+    ("fp-l35-the-managers-stop-with-the-entries-lands", STOPPED_WITH_ITEMS,
+     edit({**MANAGER_STOP, "devteam/LEDGER.md": ENTRIES_T1}),
+     STOP_ARGS + ["devteam/LEDGER.md"], 0, set(), committed(["devteam/LEDGER.md"])),
+    ("l35-the-manager-filing-an-audit-without-its-entries-is-refused", CLAIMED,
+     edit({"devteam/audits/T-1-security-2026-09-04.md": AUDIT_T1}), AUDIT_ARGS, 1, {"adds-finding"},
+     refused_by(adds_finding="SEC-1 of audits/T-1-security-2026-09-04.md has no ledger entry")),
+    ("fp-l35-the-manager-filing-an-audit-with-its-entries-lands", CLAIMED,
+     edit({"devteam/audits/T-1-security-2026-09-04.md": AUDIT_T1, "devteam/LEDGER.md": ENTRY_SEC1}),
+     AUDIT_ARGS + ["devteam/LEDGER.md"], 0, set(),
+     committed(["devteam/audits/T-1-security-2026-09-04.md", "devteam/LEDGER.md"])),
 
     # --- the board's rows, read at the gate (roadmap 0.3.2, L-2.1, L-2.2) ---
     # Once board-drift reads the rows, a supervisor's own close or stop meets

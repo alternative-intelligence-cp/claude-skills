@@ -27,12 +27,20 @@ that moves the row, or that files the checkpoint.
 `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.py <project>` prints every
 entry's disposition, and the counts by value.
 
+**Every item raised needs its entry once it is due**, and `check_trace` reports
+one without as `unledgered-item`: a filed audit's findings from the commit that
+files it, and a task's items once its row leaves `CLAIMED` — in the advance or
+the stop that moves it. An entry whose `Raised.` names nothing that exists is
+`unknown-source`. `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.py <project>
+--pending` prints, for every item no entry names yet, where its text is and the
+`Raised.` line to write.
+
 ---
 
 <!-- example:begin -->
 ### ITM-1 — <the item, in one line>
 
-- **Raised.** <where its text is — `T-n questions "<its opening words>"`, `T-n.S-m COR-n`, `audits/<file> SEC-n`, or `manager <YYYY-MM-DD>`>
+- **Raised.** <where its text is — `T-n questions "<its opening words>"`, `T-n.S-m COR-n`, `audits/<file> SEC-n`, `client <YYYY-MM-DD>` or `manager <YYYY-MM-DD>`>
 - **Needs.**
   - <each path the item needs changed: required when it is routed>
 - **Disposition.** open (until C-1)

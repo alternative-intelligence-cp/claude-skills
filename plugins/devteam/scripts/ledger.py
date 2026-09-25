@@ -43,9 +43,11 @@ What this module holds, and who reads it:
   * the vocabulary, which check_refs judges each disposition against
     (`bad-status`, and `undispositioned-finding` for one that is missing or
     open with no date);
-  * the first-word `open` test, which check_refs and check_trace apply to an
-    audit file's own `Disposition.` lines. It was a regex copied into both
-    checks (0.3.2 §3.2's joint), and it retires with those lines at step 3.4;
+  * the first-word `open` test, which check_refs applies to a ledger value
+    outside the vocabulary, to tell one that says it is open from one that
+    is merely wrong. It was a regex copied into both checks for an audit
+    file's own `Disposition.` lines (0.3.2 §3.2's joint); those lines are no
+    longer read (roadmap 0.3.3 §3.4), and this reader stayed;
   * an audit's answer, which is where an audit's findings come from: the
     heading each finding is, read into the answer's scope and its findings
     wherever the answer lands, in a task file or in `audits/` (FORMATS §"An
@@ -54,7 +56,7 @@ What this module holds, and who reads it:
     because a REPORT block ends at either, and this module reads them from
     there (roadmap 0.3.3 §3.4).
 
-    python3 ledger.py <project> [--json]
+    python3 ledger.py <project> [--pending] [--json]
 
 prints each entry's disposition and the counts by value. An entry it cannot
 read -- a heading in the entry's position that does not parse, a field named
@@ -63,7 +65,17 @@ vocabulary -- is named by its line as not evaluated, because its disposition
 was not counted (roadmap 0.3.1, L-1.3). No LEDGER.md at all is not evaluated
 too: nothing was read. Exit 0 clean, 2 could not run, 3 not evaluated -- the
 contract is result.py's (roadmap 0.3.1, L-1.1). It reports no finding, so it
-never exits 1: check_refs judges the ledger, and this prints it.
+never exits 1: check_refs and check_trace judge the ledger, and this prints it.
+
+With `--pending` it prints instead, for every item raised that no entry
+covers, the `Raised.` line its entry needs, after the file and line where its
+text is (roadmap 0.3.3, L-3.5): the manager copies it rather than types it.
+
+THE JOIN IS HERE TOO: every item a project raises -- each item under a judged
+REPORT block's `questions:` and `open:`, and each finding of an audit's
+answer -- read where it was raised, and matched against the entries'
+`Raised.` lines, one entry to one item. check_trace reads the same join for
+`unledgered-item`, `unknown-source` and `open-finding-at-close`.
 
 Its control is test_ledger.py.
 """
@@ -75,7 +87,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import report  # noqa: E402 -- the REPORT block, and an answer's two lines (roadmap 0.3.3 §3.4)
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
-USAGE = "usage: ledger.py <project> [--json]"
+USAGE = "usage: ledger.py <project> [--pending] [--json]"
 PATH = "LEDGER.md"
 DASH = r"[—–-]"
 FENCE = re.compile(r"^\s*(?:```|~~~)")
@@ -234,8 +246,9 @@ def answers(lines, filed=False):
     answer that is never closed is not read, because what follows it in a
     task file is the task's own text. `filed` says the lines are a file in
     `audits/`, which is the auditor's whole message: one that offers no
-    AUDIT or END AUDIT line at all is read as one answer with no scope, its
-    findings counted and tied to no task, and the missing line is named.
+    AUDIT or END AUDIT line at all, and does offer a finding or a heading
+    that looks like one, is read as one answer with no scope, its findings
+    counted and tied to no task, and the missing line is named.
     Outside an answer, a task file's own headings -- `## S-4 — …`, `### S-2`
     -- are never an audit's.
     """
@@ -291,11 +304,14 @@ def answers(lines, filed=False):
         unread.append((current[0] + 1, f"the answer opened here has no `END AUDIT {current[1]}` "
                                        "after it, so its findings are not counted"))
     if filed and not events and not unread:
+        # A file that offers no finding either -- notes, say -- offers nothing
+        # the grammar reads, and is genuinely empty (roadmap 0.3.1, L-1.3).
         answer = Answer(None, None, None)
         _findings(lines, inside, 0, len(lines), answer, set(report.LABELS.values()), unread)
-        out.append(answer)
-        unread.append((1, f"no line opens an answer as {report.OPENING}, so the file's findings "
-                          "are tied to no task"))
+        if answer.findings or unread:
+            out.append(answer)
+            unread.append((1, f"no line opens an answer as {report.OPENING}, so the file's "
+                              "findings are tied to no task"))
     unread.sort()
     return out, unread
 
@@ -330,6 +346,274 @@ def answers_in(devteam):
         found += [(rel, a) for a in got]
         unread += [(rel, n, what) for n, what in missed]
     return found, unread
+
+
+# --- the join: every item raised, and the entry that names it ---------------
+# (FORMATS §"The ledger"; roadmap 0.3.3, L-3.5)
+#
+# AN ITEM IS FOUND WHERE IT WAS RAISED, AND ITS ENTRY NAMES WHERE. pricelog's
+# T-19 stopped with seven open items under its auditor's answer, and its
+# manager filed questions for five: two items -- a charter decision on a
+# user's interrupt among them -- reached no owner, and nothing counted them
+# (F-139). So every item is counted from where its text is: each item under a
+# judged REPORT block's `questions:` and `open:`, read with the parse
+# check_report judges the block with (report.py; P-34), and each finding of an
+# audit's answer, in a task file or in `audits/`. An entry covers the item its
+# `Raised.` names, one entry to one item, and an item no entry covers is
+# pending: `ledger.py --pending` prints the `Raised.` line to write for it, and
+# check_trace reports it once it is due (`unledgered-item`).
+#
+# A report's item is named by its block's id, its key and its opening words,
+# matched with whitespace and dashes normalised, against every block for that
+# id, so an entry made at an earlier stop still resolves after a later attempt
+# supersedes the block it named. Only the judged block's items need an entry.
+
+KEYS = ("questions", "open")
+TASK_FILE = re.compile(r"^tasks/(T-\d+)\.md$")
+DASHES = re.compile(r"[—–-]+")
+# `none` is an answer (DESIGN.md §6), and so is `- none`: neither is an item.
+NONE = re.compile(r"^none\b", re.I)
+NO_ITEM = re.compile(r"^none\.?$", re.I)
+_LABEL = "(" + "|".join(report.LABELS.values()) + r")-(\d+)"
+# `Raised.`'s four forms (FORMATS §"The ledger"). A path may be backticked, as
+# pricelog's manager backticked every path it wrote.
+RAISED = (
+    ("report", re.compile(r'^(T-\d+(?:\.S-\d+)?)\s+(' + "|".join(KEYS) + r')\s+"(.+)"$')),
+    ("filed", re.compile(r"^`?(audits/[^`\s]+\.md)`?\s+" + _LABEL + r"$")),
+    ("answer", re.compile(r"^" + report.SCOPE + r"\s+" + _LABEL + r"$")),
+    ("own", re.compile(r"^(client|manager)\s+(\d{4}-\d{2}-\d{2})$")),
+)
+FORMS = ('`<T-n or T-n.S-m> <questions or open> "<the item\'s opening words>"`, '
+         "`<scope> <LABEL>-n` for an audit landed in a task file, "
+         "`audits/<file>.md <LABEL>-n` for one filed, or `client <date>` or `manager <date>`")
+# The fewest opening words `--pending` prints, before it adds more to tell an
+# item from another in its block's key.
+LEAST_WORDS = 5
+
+
+def words(text):
+    """Text as `Raised.` matches it: whitespace and dashes normalised (L-3.5)."""
+    return " ".join(DASHES.sub("-", text).split())
+
+
+class Item:
+    """One item raised.
+
+    `kind` is `report`, `answer` (a finding of an audit landed in a task file)
+    or `filed` (one in `audits/`). `file` and `line` are where its text is;
+    `task` is the task whose file holds it, whose board row the window reads,
+    or None for a filed audit, which is due from the commit that adds it; and
+    `dated` is the line that dates it against a claim -- its block's header,
+    or its answer's AUDIT line. `group` is what an entry must name to cover
+    it, `text` a report item's words, `raised` the `Raised.` value that names
+    it, and `audited` the task an audit's finding is of, for P-31."""
+
+    def __init__(self, kind, file, line, task, dated, group, raised, text=None, audited=None):
+        self.kind, self.file, self.line, self.task, self.dated = kind, file, line, task, dated
+        self.group, self.raised, self.text, self.audited = group, raised, text, audited
+
+
+def key_items(vals, where):
+    """[(0-based line, text)] of the items in one key's values: each `- ` line
+    with the lines that continue it; or, when there is none, the value read
+    whole, unless it is `none`."""
+    starts = [k for k, v in enumerate(vals) if v.startswith("- ")]
+    if not starts:
+        whole = " ".join(vals).strip()
+        return [] if not whole or NONE.match(whole) else [(where[0], whole)]
+    out = []
+    for i, k in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(vals)
+        text = " ".join([vals[k][2:].strip()] + vals[k + 1:end]).strip()
+        if text and not NO_ITEM.match(text):
+            out.append((where[k], text))
+    return out
+
+
+def opening(text, others):
+    """The opening words `--pending` prints for an item: LEAST_WORDS of them,
+    or more until no other item in its block's key begins with them."""
+    ws = words(text).split(" ")
+    rest = [words(o) for o in others]
+    for n in range(min(LEAST_WORDS, len(ws)), len(ws) + 1):
+        pre = " ".join(ws[:n])
+        if not any(o.startswith(pre) for o in rest):
+            return pre
+    return " ".join(ws)
+
+
+class Found:
+    """What a project's task files and `audits/` raise: `items`, each needing
+    an entry; `every`, each item of every block by (id, key), superseded
+    attempts' too, which an entry may name; `answers`, every audit answer read;
+    `unread`, each answer line the grammar could not read, as (file, line,
+    what); and `files`, the files read."""
+
+    def __init__(self):
+        self.items, self.every, self.answers, self.unread, self.files = [], {}, [], [], set()
+
+
+def found_in(devteam):
+    """Every item a project raises, as a Found, or None outside a repository."""
+    got = answers_in(devteam)
+    listing = result.listed(devteam, "tasks/*.md", "audits/*.md")
+    if got is None or listing is None:
+        return None
+    out = Found()
+    out.answers, out.unread = got
+    out.files = {rel for rel in listing[0] if SOURCES.match(rel)}
+    for rel in sorted(out.files):
+        m = TASK_FILE.match(rel)
+        if not m:
+            continue
+        try:
+            with open(os.path.join(devteam, rel), encoding="utf-8", errors="replace") as fh:
+                lines = fh.read().split("\n")
+        except OSError:
+            continue                      # answers_in has named it
+        tid = m.group(1)
+        # The task's own blocks, as check_report reads them for the task: a
+        # block naming another task is that task's report, landed here, and
+        # check_report names it `wrong-task`.
+        mine = [b for b in report.blocks(lines) if b.task == tid]
+        for b in mine:
+            ident = f"{b.task}.{b.step}" if b.step else b.task
+            for key in KEYS:
+                out.every.setdefault((ident, key), []).extend(
+                    words(t) for _, t in key_items(b.fields.get(key) or [], b.where.get(key) or []))
+        for b in report.judged(mine, tid)[0]:
+            ident = f"{b.task}.{b.step}" if b.step else b.task
+            for key in KEYS:
+                got_items = key_items(b.fields.get(key) or [], b.where.get(key) or [])
+                texts = [t for _, t in got_items]
+                for k, (n, text) in enumerate(got_items):
+                    out.items.append(Item(
+                        "report", rel, n + 1, tid, b.start + 1, ("report", ident, key),
+                        f'{ident} {key} "{opening(text, texts[:k] + texts[k + 1:])}"',
+                        text=words(text)))
+    for rel, a in out.answers:
+        m = TASK_FILE.match(rel)
+        for f in a.findings:
+            if m:
+                out.items.append(Item("answer", rel, f.line, m.group(1), a.line,
+                                      ("answer", a.scope, f.ident), f"{a.scope} {f.ident}",
+                                      audited=a.task))
+            else:
+                out.items.append(Item("filed", rel, f.line, None, None,
+                                      ("filed", rel, f.ident), f"{rel} {f.ident}",
+                                      audited=a.task))
+    return out
+
+
+def answer_gaps(unread):
+    """[(part, reason)]: one part per file whose audit answers the grammar
+    could not all read, naming each line and why -- check_trace's parts, and
+    `--pending`'s, in one wording."""
+    by = {}
+    for rel, n, what in unread:
+        by.setdefault(rel, []).append((n, what))
+    return [(f"{rel}'s audit findings",
+             f"{len(rows)} line(s) of an audit's answer the grammar does not read — "
+             + "; ".join(f"{rel}:{n}, {what}" for n, what in sorted(rows))
+             + " (FORMATS §\"An audit's answer\")")
+            for rel, rows in sorted(by.items())]
+
+
+def raised(value):
+    """(form, the groups of its pattern) for a `Raised.` value, or None."""
+    v = " ".join(value.split())
+    for form, pat in RAISED:
+        m = pat.match(v)
+        if m:
+            return form, m.groups()
+    return None
+
+
+def join(listed, found):
+    """Which entry covers which item, and what each entry's `Raised.` names.
+
+    Returns ({item index: the Entry covering it}, [(Entry, what, detail)]),
+    where `what` is `covers`, `resolves` (it names an item that exists, and
+    covers none: a superseded attempt's, say, or the manager's own), `unknown`
+    (it names nothing that exists, and `detail` says what is missing),
+    `unread` (its `Raised.` does not parse, and `detail` is its line), or
+    `none` (it has no `Raised.`).
+
+    One entry covers one item, and one item needs one entry. Within the items
+    an entry could name -- a report item beginning with its words, an audit's
+    finding of its scope and label -- entries are paired with items as a
+    maximum matching, so that entries naming words two items begin with, or
+    two audits of one scope that each hold `COR-1`, are covered by as many
+    entries as there are items, and none is left over by the order they were
+    read in.
+    """
+    groups = {}
+    for i, it in enumerate(found.items):
+        groups.setdefault(it.group, []).append(i)
+    verdicts, want = [], {}
+    for e in listed:
+        got = e.fields.get("Raised")
+        if got is None:
+            verdicts.append((e, "none", None))
+            continue
+        r = raised(got[1])
+        if r is None:
+            verdicts.append((e, "unread", got[0]))
+            continue
+        form, g = r
+        if form == "own":
+            verdicts.append((e, "resolves", None))
+            continue
+        if form == "report":
+            ident, key, said = g
+            said = words(said)
+            group = ("report", ident, key)
+            cands = [i for i in groups.get(group, []) if found.items[i].text.startswith(said)]
+            exists = bool(cands) or any(t.startswith(said) for t in found.every.get((ident, key), []))
+            missing = (f"no REPORT block for {ident} has a `{key}:` item beginning "
+                       f"\"{said}\"")
+        elif form == "filed":
+            path, label, num = g
+            group = ("filed", path, f"{label}-{num}")
+            cands = list(groups.get(group, []))
+            exists = bool(cands)
+            missing = (f"{path} is not in devteam/" if path not in found.files
+                       else f"{path} holds no finding {label}-{num}")
+        else:
+            scope, label, num = g
+            group = ("answer", scope, f"{label}-{num}")
+            cands = list(groups.get(group, []))
+            exists = bool(cands)
+            missing = f"no audit answer of {scope} in a task file holds {label}-{num}"
+        want[e.ident, e.line] = cands
+        verdicts.append((e, "match" if exists else "unknown", None if exists else missing))
+    # Pair entries with items (Kuhn's augmenting paths): each entry tries the
+    # items it could name, taking one already taken only if its holder can
+    # move to another.
+    owner = {}
+
+    def place(key, seen):
+        for i in want[key]:
+            if i in seen:
+                continue
+            seen.add(i)
+            if i not in owner or place(owner[i], seen):
+                owner[i] = key
+                return True
+        return False
+
+    for e, what, _ in verdicts:
+        if what == "match":
+            place((e.ident, e.line), set())
+    by_key = {(e.ident, e.line): e for e, _, _ in verdicts}
+    covered = {i: by_key[key] for i, key in owner.items()}
+    holding = set(owner.values())
+    out = []
+    for e, what, detail in verdicts:
+        if what == "match":
+            what = "covers" if (e.ident, e.line) in holding else "resolves"
+        out.append((e, what, detail))
+    return covered, out
 
 
 def disposition(value):
@@ -432,15 +716,54 @@ def count(listed):
     return got
 
 
+def pending(devteam, as_json):
+    """`--pending`: the `Raised.` line to write for every item no entry
+    covers, whether it is due yet or not -- the manager runs it before the
+    commit that moves a row, when the current claim's items are about to fall
+    due -- each after the file and line where its text is (roadmap 0.3.3,
+    L-3.5). An item's entry is written by hand until 0.3.4's `land`. A line
+    this could not read, in an answer or in a `Raised.`, is named as not
+    evaluated, because an item it hides is missing from the list."""
+    found = found_in(devteam)
+    if found is None:
+        return result.could_not_run("ledger", "not a git repository", as_json)
+    res = result.Result("ledger", "pending")
+    listed = []
+    try:
+        with open(os.path.join(devteam, PATH), "rb") as fh:
+            listed = entries(fh.read().decode("utf-8").split("\n"))[0]
+    except FileNotFoundError:
+        pass                      # no ledger: every item is pending, and that is the answer
+    except (OSError, UnicodeDecodeError) as exc:
+        res.gap(PATH, f"LEDGER.md cannot be read ({exc}), so no entry was matched")
+    covered, verdicts = join(listed, found)
+    for part, reason in answer_gaps(found.unread):
+        res.gap(part, reason)
+    for e, what, detail in verdicts:
+        if what == "unread":
+            res.gap(f"{e.ident}'s Raised.", f"{PATH}:{detail} does not parse as one of "
+                    f"`Raised.`'s forms — {FORMS} — so {e.ident} covers no item")
+    waiting = sorted((it.file, it.line, it.raised) for i, it in enumerate(found.items)
+                     if i not in covered)
+    res.count(len(found.items), "items")
+    res.count(len(waiting), "pending")
+    for rel, n, text in waiting:
+        res.note(f"{rel}:{n}", f"- **Raised.** {text}")
+    return result.emit([res], as_json)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     as_json, argv = result.flag(argv, "--json")
+    only_pending, argv = result.flag(argv, "--pending")
     if len(argv) != 1:
         return result.could_not_run("ledger", USAGE, as_json)
     project = os.path.realpath(argv[0])
     devteam = project if os.path.basename(project) == "devteam" else os.path.join(project, "devteam")
     if not os.path.isdir(devteam):
         return result.could_not_run("ledger", "not a devteam project", as_json)
+    if only_pending:
+        return pending(devteam, as_json)
     res = result.Result("ledger", PATH)
     listed = []
     try:

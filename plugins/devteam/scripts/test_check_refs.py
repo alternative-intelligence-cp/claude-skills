@@ -214,21 +214,31 @@ CASES = [
      [("tracked", "notes.md", "# Notes\r\n\r\nOrdinary CRLF text.\r\n")],
      set()),
 
-    # --- the audit namespace (0.2.6) -------------------------------------
-    ("undispositioned-finding-no-line",
+    # --- the audit namespace (0.2.6), switched off (roadmap 0.3.3, L-3.3) --
+    # 0.2.6 resolved `COR-`, `SEC-`, `HYG-` and `REV-` in both directions and
+    # judged an audit file's `Disposition.` lines. At 0.3.3's step 3.4 an
+    # audit's labels became its own, and a finding's disposition its ledger
+    # entry's: check_trace counts every audit's findings where they are, and
+    # each needs an entry (`unledgered-item`). THESE FOUR CASES ASSERTED THE
+    # OLD READING, and now pin the switch: whoever turns the reading back on
+    # changes them knowingly.
+    ("fp-switch-an-audit-files-finding-with-no-disposition-is-not-read-here",
      [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_NONE)],
-     {"undispositioned-finding"}),
-    ("undispositioned-finding-still-open",
+     set()),
+    ("fp-switch-an-audit-files-open-disposition-is-not-read-here",
      [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_OPEN)],
-     {"undispositioned-finding"}),
-    ("cited-undefined-audit-finding",
-     [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_ROUTED),
-      append("CHARTER.md", "\nThis rests on COR-99.\n")],
-     {"cited-undefined"}),
-    ("duplicate-id-audit-finding",
-     [("tracked", "audits/T-1-security-2026-09-04.md",
-       AUDIT_ROUTED + "\n## SEC-1 — declared twice\n\n- **Disposition.** routed T-1\n")],
-     {"duplicate-id"}),
+     set()),
+    # THE LABELS (the plan's planted case): a task file citing COR-3 with no
+    # audit anywhere is silent, where it was `cited-undefined`...
+    ("fp-labels-a-cor-n-cited-from-a-task-file-with-no-audit-anywhere",
+     [append("tasks/T-1.md", "\nThe auditor's COR-3 is fixed here.\n")],
+     set()),
+    # ...and two audits each holding `## COR-1` are two findings, neither a
+    # `duplicate-id`: each audit numbers from 1.
+    ("fp-labels-two-audits-each-holding-cor-1-are-not-duplicate-ids",
+     [("tracked", "audits/T-1-correctness-2026-09-04.md", AUDIT_ROUTED.replace("SEC-1", "COR-1")),
+      ("tracked", "audits/T-2-correctness-2026-09-05.md", AUDIT_ROUTED.replace("SEC-1", "COR-1"))],
+     set()),
 
     # --- FALSE-POSITIVE CONTROLS for the namespace ------------------------
     ("fp-audit-finding-routed-is-clean",
@@ -248,9 +258,11 @@ CASES = [
     # Disposition line at all -- because every one was mentioned in RECORD.md.
     # Mention is not disposition (CONSOLIDATION 7). If the citation half is
     # ever restored as an escape, this case fails.
-    ("undispositioned-even-though-cited",
-     [("tracked", "audits/T-1-security-2026-09-04.md", AUDIT_OPEN),
-      append("RECORD.md", "\nThe audit raised SEC-1 and we discussed it.\n")],
+    # It was pinned on an audit file's `Disposition.` line, and is pinned on
+    # the ledger's since those lines are no longer read (roadmap 0.3.3 §3.4).
+    ("undispositioned-even-though-cited-a-ledger-entry-reading-open",
+     [ledger(ledger_entry(1, "open")),
+      append("RECORD.md", "\nThe audit raised ITM-1 and we discussed it.\n")],
      {"undispositioned-finding"}),
     # EVERY OTHER THREE-LETTER PREFIX IS STILL IGNORED, deliberately and by
     # name. The scanner reads [A-Z]{1,3} and then discards anything whose
@@ -596,13 +608,13 @@ S-1 is the only step.
     ("cited-undefined-an-until-task-no-file-declares-is-still-a-citation",
      [ledger(ledger_entry(1, "open (until T-9)"))], {"cited-undefined"}, set(),
      "T-9 is cited but never declared"),
-    # CNV- IS UNCHANGED (roadmap 0.3.3, L-3.3). A convention is declared
-    # outside any project, and a citation of one declared nowhere was
-    # `cited-undefined` before this subcycle and still is -- recorded under
-    # 0.3.3's Findings for the owner, and pinned here so that whoever changes
-    # it changes this case knowingly.
-    ("cnv-unchanged-a-convention-declared-nowhere-is-still-cited-undefined",
-     [append("DECISIONS.md", "- CNV-1 is adopted here.\n")], {"cited-undefined"}),
+    # CNV- IS EXTERNAL, AS P- IS (roadmap 0.3.3, L-3.12, the owner's answer
+    # of 2026-09-25). A convention lives outside any project and is cited from
+    # the decision that adopts or declines it, which the `onboard` skill
+    # writes. This case pinned it `cited-undefined` until the switch, so that
+    # whoever changed it changed the case knowingly.
+    ("fp-cnv-a-convention-cited-from-a-decision-is-external",
+     [append("DECISIONS.md", "- CNV-1 is adopted here.\n")], set()),
 
     # --- untracked files (roadmap 0.3.1, L-1.4) ----------------------------
     # THIS CASE USED TO BE `fp-untracked-file-is-not-scanned`, and asserted
@@ -634,19 +646,15 @@ S-1 is the only step.
     # A fourth element names the parts expected NOT EVALUATED. Each case here
     # used to report clean.
     #
-    # ZERO ROWS: an audit whose every finding is outside the namespace --
-    # pricelog's four gate audits, which `undispositioned-finding` never saw
-    # (register A6, F-99).
-    ("zero-rows-an-audit-in-no-finding-namespace",
+    # An audit's finding headings are the ledger's to read since 0.3.3's step
+    # 3.4: pricelog's four gate audits, whose `## Finding 1 (HIGH)` headings
+    # this named as not evaluated here (register A6, F-99), are named by
+    # check_trace, in the part `<file>'s audit findings`.
+    ("fp-switch-an-audits-finding-headings-are-check-traces-to-name",
      [("tracked", "audits/T-1-safety-2026-09-04.md",
        "# T-1 safety audit\n\n## Finding 1 (HIGH) — the log can be truncated\n\nProse.\n\n"
        "## Finding 2 (LOW) — a message is vague\n\nProse.\n")],
-     set(), {"audits/T-1-safety-2026-09-04.md's findings"}),
-    # A PARTIAL READ: one finding outside the namespace among one inside it.
-    ("partial-read-one-audit-finding-outside-the-namespace",
-     [("tracked", "audits/T-1-security-2026-09-04.md",
-       AUDIT_ROUTED + "\n## SAF-2 — a second finding, another prefix\n\nProse.\n")],
-     set(), {"audits/T-1-security-2026-09-04.md's findings"}),
+     set()),
     # A declaration written wrong declares nothing, so its own line reads as a
     # citation of what it failed to declare -- the finding, and the old
     # behaviour. The gap names the line that caused it.
@@ -671,13 +679,6 @@ S-1 is the only step.
     ("fp-continued-a-question-status-is-read-whole",
      [replace("QUESTIONS.md", "- **Status.** open", "- **Status.** answered\n  D-1")],
      set()),
-    # A DISPOSITION IS READ WHOLE, and `open` is its first word, so a note
-    # after `open` on the next line leaves the finding open. Read whole with an
-    # exact match, the note would have made it read as dispositioned.
-    ("continued-an-open-disposition-with-a-note-is-still-open",
-     [("tracked", "audits/T-1-security-2026-09-04.md",
-       AUDIT_OPEN.replace("- **Disposition.** open", "- **Disposition.** open\n  until the review"))],
-     {"undispositioned-finding"}),
     ("fp-continued-a-routed-disposition-is-read-whole",
      [("tracked", "audits/T-1-security-2026-09-04.md",
        AUDIT_ROUTED.replace("routed T-1", "routed T-1\n  after the review"))],
@@ -687,11 +688,6 @@ S-1 is the only step.
      [("tracked", "audits/T-1-security-2026-09-04.md",
        AUDIT_ROUTED.replace("routed T-1", "opened as Q-1"))],
      set()),
-    # A disposition NAMED and not parsed is still not evaluated.
-    ("partial-read-a-disposition-named-with-a-colon",
-     [("tracked", "audits/T-1-security-2026-09-04.md",
-       AUDIT_ROUTED.replace("- **Disposition.** routed T-1", "- **Disposition**: routed T-1"))],
-     {"undispositioned-finding"}, {"audits/T-1-security-2026-09-04.md's dispositions"}),
     # ...and what must stay CLEAN.
     #
     # A GENUINELY EMPTY SOURCE: an audit with no finding, only its method.
@@ -780,11 +776,13 @@ ACCEPT_CASES = [
      0, set(), {("D-1", "cited-undefined")}),
     ("fp-a-malformed-acceptance-cites-nothing-either",
      [accepts(A_T99.replace("`check_refs` ", "check_refs "))], 1, {"unparseable-acceptance"}, set()),
+    # The part accepted was an audit file's findings until 0.3.3's step 3.4
+    # moved that part to check_trace; a status named with a colon is a part
+    # this check still names.
     ("an-accepted-part-exits-0-and-is-named",
-     [("tracked", "audits/T-1-safety-2026-09-04.md",
-       "# T-1 safety audit\n\n## Finding 1 (HIGH) — the log can be truncated\n\nProse.\n"),
-      accepts("`check_refs` not evaluated: audits/T-1-safety-2026-09-04.md's findings")],
-     0, set(), {("D-1", "audits/T-1-safety-2026-09-04.md's findings")}),
+     [replace("QUESTIONS.md", "- **Status.** open", "- **Status**: open"),
+      accepts("`check_refs` not evaluated: QUESTIONS.md's question-status")],
+     0, set(), {("D-1", "QUESTIONS.md's question-status")}),
     ("fp-an-acceptance-of-another-check-is-neither-applied-nor-stale-here",
      [accepts("`check_trace` `missing-field` `tasks/T-1.md` — T-1 has no **Verify.**")],
      0, set(), set()),
