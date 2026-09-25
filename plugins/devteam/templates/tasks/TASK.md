@@ -66,6 +66,7 @@ step.>
 
 ## Execution record
 
-<Appended as work happens: what was done, what was found, what it cost. The
-REPORT block is always the **last** entry (P-16), and `check_report.py` parses
-it.>
+<Appended as work happens: what was done, what was found, what it cost. Each
+REPORT block is appended as it lands, the latest last (P-16). `check_report.py`
+judges the task's latest task-level block and each step's latest block
+(FORMATS §"The REPORT block").>

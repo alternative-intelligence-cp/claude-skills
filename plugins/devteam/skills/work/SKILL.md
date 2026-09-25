@@ -214,9 +214,33 @@ finding about self-reporting, not corrected**, and it is expected rather than
 shameful: the first worker ever metered here wrote `tokens=3000` against a
 measured `309639`, honestly, because a process cannot see its own counter. What
 is *not* fine is inventing a figure that looks precise. If you do not know,
-give your best estimate and say in `notes:` that it is one. The `model:` line
-is the one to be careful with, because it is compared exactly — write the id
-your system prompt names and nothing else.
+give your best estimate and mark it with `~`, as below: it is read, compared at
+the same tolerance, and a mismatch says you marked it (F-32). The `model:`
+line is the one to be careful with, because it is compared exactly — write the
+id your system prompt names and nothing else.
+
+**Four more forms the parser reads**, one copyable example of each (FORMATS
+§"The REPORT block"). Anything else written where these go is a finding or a
+line the check names as not read, never silently accepted:
+
+```
+REPORT implementer T-6.S-4 (ATTEMPT 2, correcting attempt 1's FAILED verification)
+checks (run inside the sandbox, before promotion):
+budget: tokens=~150000 minutes=~22
+status: DONE (reconstructed: by the supervisor from the worker's commits; the worker died)
+```
+
+- **A re-dispatched attempt may annotate its header**, in parentheses and on
+  the header's own line. The check judges each step's latest block, so
+  attempt 1's block is superseded and not judged, with the annotation or
+  without it: the note is for the reader.
+- **A key may carry a note before its colon.** It may continue onto indented
+  lines, and closes with `):`.
+- **`~` marks a figure you could not read**, which is every figure you give
+  for yourself.
+- **`reconstructed` is never yours to write.** It is how a supervisor lands a
+  report for a worker whose process died, so that the field a hurried reader
+  checks first does not read as the worker's own word (F-86).
 
 **The short identifier prefixes are reserved, and you are not shown the file
 that says so.** `G-` `DM-` `R-` `T-` `S-` `D-` `Q-` `C-` are the project's, and

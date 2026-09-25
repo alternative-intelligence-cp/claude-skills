@@ -82,6 +82,7 @@ class Result:
         self.excluded = []      # (part, declaration)
         self.accepted = []      # finding dicts, each with `by`: the D-n that accepts it
         self.accepted_gaps = [] # (part, reason, advisory, by)
+        self.notes = []         # (label, text): what was read, neither found nor missed
         self.counts = []        # (n, label): the denominators, in order
         self.clean_note = ""    # said after the denominators, only when clean
         self.blocking_only = False
@@ -111,6 +112,13 @@ class Result:
             self.exclude(cls, declaration)
         self.findings = [f for f in self.findings if f["class"] not in classes]
         self.gaps = [g for g in self.gaps if g[0] not in classes]
+
+    def note(self, label, text):
+        """A fact about what was read that is neither a finding nor a part not
+        evaluated: a report that says it was reconstructed, which check_report
+        names on the line (roadmap 0.3.2, L-2.8). In --json too, so the two
+        renderings still cannot disagree."""
+        self.notes.append((label, text))
 
     def count(self, n, label):
         self.counts.append((n, label))
@@ -213,6 +221,8 @@ class Result:
             out.append(f"  not evaluated: {part} — {reason}{mark}")
         for part, declaration in self.excluded:
             out.append(f"  excluded: {part} — by {declaration}")
+        for label, text in self.notes:
+            out.append(f"  {label}: {text}")
         for f in sorted(self.accepted, key=order):
             out.append(f"  accepted by {f['by']}: {f['class']} {at(f)}  {f['detail']}".rstrip())
         for part, reason, _advisory, by in self.accepted_gaps:
@@ -230,6 +240,7 @@ class Result:
             "not_evaluated": [{"part": p, "reason": r, "advisory": a}
                               for p, r, a in self.gaps],
             "excluded": [{"part": p, "by": d} for p, d in self.excluded],
+            "notes": [{"label": l, "text": t} for l, t in self.notes],
             "accepted": self.accepted,
             "accepted_not_evaluated": [{"part": p, "reason": r, "advisory": a, "by": b}
                                        for p, r, a, b in self.accepted_gaps],
@@ -279,9 +290,10 @@ def could_not_run(check, message, as_json):
 #
 # READ WHOLE SINCE 0.3.2 (L-2.3). `check_trace`, `check_refs` and `check_scope`
 # read a field across its continuation lines, through `joined`, so a wrapped
-# field is no longer a part not evaluated there. `check_report` still reads a
-# REPORT block's `status:` from its first line and names one that continues,
-# through `wrapped`, until its grammar is rebuilt (roadmap 0.3.2, §3.5).
+# field is no longer a part not evaluated there; nor is a REPORT block's
+# `status:` in `check_report`, which joins its own list-valued fields (roadmap
+# 0.3.2, §3.5). `wrapped` names the one wrapped read left, check_plugin's
+# `skills:` field in an agent's frontmatter.
 
 _BLOCK_START = re.compile(r"^(?:[-*+]\s|\d+[.)]\s|#|\||>|```|~~~)")
 

@@ -110,24 +110,27 @@ leaks.
 
 ## `check_report.py` — 14 classes
 
-Reads one `tasks/T-n.md` plus `git`, and `DECISIONS.md`'s acceptances. Diffs the
-REPORT block ↔ the committed tree.
+Reads one `tasks/T-n.md` plus `git`, the harness's `.sandbox` line, and
+`DECISIONS.md`'s acceptances. Judges the task's latest task-level block and each
+step's latest block, and diffs each ↔ the committed tree; an earlier block for the
+same id is a superseded attempt, and is not judged (roadmap 0.3.2, L-2.7; F-37).
+Each finding names its block, and is anchored at its header.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
 | `no-file` | P-16 — a report has one shape, in two places | the task id reported ↔ `tasks/` | `enforces` |
 | `no-report` | P-16 | the task file ↔ the required `## Execution record` REPORT block | `enforces` |
 | `wrong-task` | P-16 | the block's task id ↔ the file it is committed in | `enforces` |
-| `missing-field` | `FORMATS.md` §"The REPORT block" | the block's keys ↔ the required key set | `enforces` |
-| `bad-report-status` | `FORMATS.md` §"Status vocabularies", REPORT `status:` | the reported status ↔ the closed set of five | `enforces` |
-| `status-mismatch` | P-34 — facts have one home | the block's `status:` ↔ the task title's status | `enforces` |
+| `missing-field` | `FORMATS.md` §"The REPORT block" | the block's keys ↔ the required key set. A key may carry an annotation, `checks (<why>):`, and is read as its key (roadmap 0.3.2, L-2.7; F-88) | `enforces` |
+| `bad-report-status` | `FORMATS.md` §"Status vocabularies", REPORT `status:` | the reported status, read whole ↔ the closed set of five, which may carry one qualifier, `(reconstructed: <by whom, and why>)` (roadmap 0.3.2, L-2.8; F-86) | `enforces` |
+| `status-mismatch` | P-34 — facts have one home | the task's current report's `status:` ↔ the task title's status. A task-level block already in the file when the claim its `RUNNING` title names began is the previous claim's, and is compared with nothing of the current run: not the title, the meter or the tree (roadmap 0.3.2, L-2.7; F-136) | `enforces` |
 | `unknown-commit` | P-5 — discharged by evidence, never assertion | each commit under `commits:` ↔ HEAD's history: a hash names an ancestor of HEAD, not merely an object, and a subject is one a commit in HEAD's history has. At the gate HEAD is the commit being judged, so another branch's commits, a promotion's leftovers under `refs/devteam/sandbox/` and a refused gate candidate resolve nothing (roadmap 0.3.2, L-2.6) | `enforces` |
 | `head-subject` | P-16 | the subjects in HEAD's history ↔ one beginning with the task this report closes (roadmap 0.3.2, L-2.6) | `enforces` |
-| `dirty-tree` | P-44 — promotion is gated; P-5 | `git status --porcelain` ↔ empty, on a closing status | `enforces` |
-| `unfinished-scope` | P-5 | TODO/FIXME/XXX/`NotImplementedError` inside `Scope.` ↔ empty, on a closing status | `enforces` |
+| `dirty-tree` | P-44 — promotion is gated; P-5 | `git status --porcelain` ↔ empty, on the task's current report's closing status | `enforces` |
+| `unfinished-scope` | P-5 | TODO/FIXME/XXX/`NotImplementedError` inside `Scope.` ↔ empty, on the task's current report's closing status | `enforces` |
 | `no-evidence` | P-5 — a requirement is discharged by evidence, never by assertion | a closing status ↔ the presence of `checks:` lines | `enforces` |
-| `budget-mismatch` | P-41 — budget is tracked per task, estimates from a stated model | the report's `tokens:`/`minutes:` ↔ the harness's metered figures | `enforces` (**advisory**) |
-| `model-mismatch` | P-40 — model choice is bounded by the charter and recorded | the report's `model:` ↔ the model the harness actually ran | `enforces` (**blocking**) |
+| `budget-mismatch` | P-41 — budget is tracked per task, estimates from a stated model | a step's block's `tokens=`/`minutes=` ↔ the meter the `.sandbox` line names for that step; `~N` is read as N, marked approximate, at the same tolerance (roadmap 0.3.2, L-2.8; F-32). A task-level block is a supervisor's, which the harness never meters, and is excluded by name; a step whose block that meter does not belong to — another step's (F-103), or a later attempt's, whose sandbox opened with the block already in the file — is not evaluated, and named (L-2.7) | `enforces` (**advisory**) |
+| `model-mismatch` | P-40 — model choice is bounded by the charter and recorded | a step's block's `model:` ↔ the model the harness ran for that step, on the same terms: a supervisor's task-level block is never compared with its last worker's meter (F-109) | `enforces` (**blocking**) |
 | `stale-acceptance` | P-51 — an accepted finding is a decision, and an acceptance whose finding no longer fires is itself a finding, so the count returns to zero; `FORMATS.md` §"Accepted findings" (CONSOLIDATION 8a) | each acceptance of this task's findings ↔ what a run for the task reported. A run for another task, or for a step, covers none | `enforces` |
 
 **The advisory/blocking split is itself a rule, and 0.2.4 measured why.** A

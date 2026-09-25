@@ -125,36 +125,6 @@ number (P-51). The grammar is FORMATS §"Accepted findings", and the
 - **`unparseable-acceptance`** means an `Accepts.` line is outside the
   grammar, so it accepts nothing. Fix the line.
 
-## Until 0.3.2: one refusal that is not a defect
-
-The corpus replay found shapes the checks could not yet read correctly
-(roadmap 0.3.1, §3.5). One still makes the gate refuse a correct commit, and
-0.3.2 fixes the check:
-
-- **`check_report` `status-mismatch` on a restart.** A task restarted under a
-  new claim label still has its previous close as its latest task-level
-  report, and that report's DONE is compared with the new RUNNING title
-  (F-136; roadmap 0.3.2, L-2.7).
-
-**No decision can accept it.** The finding is added by the new supervisor's
-own commit, the one that sets its title. The manager's acceptance committed
-before that is stale, so the gate refuses it. Committed with the title, it
-is either the manager writing the claimed task's file, which is
-`misattributed-write`, or the supervisor writing `DECISIONS.md`, which is
-`undeclared-write`. Until 0.3.2 reads it, the restarted title waits.
-
-Three are fixed. `check_trace` reads the board's rows on a board written as
-the template or with links (F-70; roadmap 0.3.2, §3.1). A requirement honestly
-left unfinished over a closed task has words now: `partly-discharged (T-n;
-D-n)` or `awaiting-judgement (T-n; Q-n)`, which `one-sided-link` accepts when
-they name the task (roadmap 0.3.2, §3.2; FORMATS §"Status vocabularies").
-Plain `open` over a closed task is still refused, because it is still untrue.
-And a restart is judged by its current claim: the manager's edits to a stopped
-task's file, made before the claim it restarts under, are no longer the
-restarted task's `misattributed-write` (F-135; roadmap 0.3.2, §3.4). A restart
-that keeps its label keeps its claim's window, because the label is the
-claim.
-
 ## Reading a finding
 
 Every class, the rule it enforces and the two lists it compares are in
@@ -187,6 +157,13 @@ rows there cannot say:
   It can never prove those requirements *cover* the goal. A goal can be fully
   traced and half built, and only reading the goal against the working thing
   finds that, which is what a checkpoint is for.
+- **`check_report . T-n`** judges the task's latest task-level block and
+  each step's latest block, so a malformed step report is found by the
+  task's run as well as by the step's (F-37). An earlier block for the same
+  id is a superseded attempt, and is not judged. Each finding names its block. A
+  restarted task's previous close, the task-level block already in the file
+  when its current claim began, is compared with nothing of the new run: not
+  its title, the harness meter or the tree.
 - **Run `check_report` before the verifier.** A malformed report is a
   re-dispatch, not a judgement call.
 

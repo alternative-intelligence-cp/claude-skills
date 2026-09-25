@@ -23,7 +23,8 @@ sys.path.insert(0, HERE)
 import result  # noqa: E402
 
 
-def build(findings=(), gaps=(), excluded=(), blocking_only=False, counts=((3, "tasks"),)):
+def build(findings=(), gaps=(), excluded=(), blocking_only=False, counts=((3, "tasks"),),
+          notes=()):
     r = result.Result("check_x", "devteam", width=16)
     for kind, where, detail, advisory in findings:
         r.finding(kind, where, detail, advisory)
@@ -31,6 +32,8 @@ def build(findings=(), gaps=(), excluded=(), blocking_only=False, counts=((3, "t
         r.gap(part, reason, advisory)
     for part, declaration in excluded:
         r.exclude(part, declaration)
+    for label, text in notes:
+        r.note(label, text)
     for n, label in counts:
         r.count(n, label)
     r.blocking_only = blocking_only
@@ -41,9 +44,10 @@ def agree(r):
     """The line and the JSON must say the same thing: one object, two renderings."""
     d = r.as_dict()
     text = "\n".join(r.lines())
+    noted = tuple(f"  {n['label']}: " for n in d["notes"])
     line_classes = sorted(l.split()[0] for l in r.lines()[1:]
                           if l.startswith("  ") and not l.startswith(
-                              ("  not evaluated: ", "  excluded: ", "  accepted by ")))
+                              ("  not evaluated: ", "  excluded: ", "  accepted by ") + noted))
     accepted = sorted((m.group(1), m.group(2)) for m in (
         re.match(r"^  accepted by (D-\d+): (?!not evaluated: )(\S+)", l) for l in r.lines()) if m)
     return (d["exit"] == r.exit_code
@@ -53,7 +57,8 @@ def agree(r):
             and all(f"not evaluated: {g['part']} — " in text for g in d["not_evaluated"])
             and all(f"accepted by {g['by']}: not evaluated: {g['part']} — " in text
                     for g in d["accepted_not_evaluated"])
-            and all(f"excluded: {e['part']} — by " in text for e in d["excluded"]))
+            and all(f"excluded: {e['part']} — by " in text for e in d["excluded"])
+            and all(f"  {n['label']}: {n['text']}" in r.lines() for n in d["notes"]))
 
 
 F = ("missing-field", "tasks/T-1.md:1", "T-1 has no **Discharges.**", False)
@@ -80,6 +85,11 @@ CASES = [
      build(), 0, ["devteam: clean  [3 tasks]"]),
     ("fp-an-exclusion-names-itself-and-stays-clean",
      build(excluded=[("uncovered-requirement", "--pre-plan (2 held back)")]), 0, ["devteam: clean"]),
+    # A note is a fact about what was read (roadmap 0.3.2, L-2.8): on the line
+    # and in the JSON alike, and never a finding or a gap.
+    ("fp-a-note-is-said-on-the-line-and-stays-clean",
+     build(notes=[("reconstructed", "T-1.S-2 — by the supervisor; the worker died")]), 0,
+     ["devteam: clean"]),
     ("fp-blocking-only-passes-an-advisory-finding-alone",
      build(findings=[ADV], blocking_only=True), 0, ["1 finding(s)"]),
     ("fp-blocking-only-passes-an-advisory-gap-alone",
@@ -133,7 +143,6 @@ def main():
 
     for name, r, want, words in CASES:
         head = r.lines()[0]
-        fp -= name.startswith("fp-")          # counted once, by check() below
         check(name, r.exit_code == want and all(w in head for w in words) and agree(r),
               f"exit {r.exit_code}, wanted {want}\n" + "\n".join(r.lines()))
 
@@ -145,6 +154,14 @@ def main():
           "not evaluated: board-drift — 0 of 19 board rows parsed" in text
           and "not evaluated: budget-mismatch — the sandbox's meta/budget.json is gone  (advisory)" in text
           and "excluded: x — by a flag" in text, text)
+    # ...and every note, in both renderings, since only the JSON reaches a
+    # program and only the line reaches a person.
+    r = build(notes=[("reconstructed", "T-1.S-2 — by the supervisor")])
+    check("a-note-is-on-the-line-and-in-the-json",
+          "  reconstructed: T-1.S-2 — by the supervisor" in r.lines()
+          and r.as_dict()["notes"] == [{"label": "reconstructed",
+                                        "text": "T-1.S-2 — by the supervisor"}],
+          "\n".join(r.lines()) + "\n" + json.dumps(r.as_dict().get("notes")))
 
     # The anchor is split for the gate's identity: file and line apart.
     r = build(findings=[F, ADV, ("leak", "", "an absolute path", False)])

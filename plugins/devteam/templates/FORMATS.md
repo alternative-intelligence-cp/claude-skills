@@ -214,13 +214,13 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn` |
 | question `Class.` | `REVERSIBLE` · `IRREVERSIBLE` · `CHARTER` |
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
-| REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT` |
+| REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT`, any of them followed by one qualifier, `(reconstructed: <by whom, and why>)` (§"The REPORT block") |
 | board task state | `—` · `CLAIMED <label>` · `BLOCKED on T-n` · `BLOCKED on Q-n` · `DONE` · `ACCEPTED (<date>, D-n)`. **Several blockers are comma-separated** — `BLOCKED on T-2, Q-4` — for the reason a requirement's status may name several tasks. The cell holds the state and nothing after it: a reason goes in the in-flight table's `Note`. `check_trace` reads the state from the Tasks table, the one whose header names `Task` first and has a `State` column, and a row may name its task bare, as a link, in bold or in backticks (roadmap 0.3.2, L-2.1) |
 | charter `Re-affirmed.` verdict | `holds` · `amended (this entry)` · `added (this entry)` · `struck (D-n, <why>)`, one item per `DM-n` and constraint row label, `- <name> — <verdict>`. **`added (this entry)`** is a condition the entry adds (roadmap 0.3.2, L-2.9). `check_trace` reads the latest entry only — the highest `Version <n>`, from its heading to the next entry heading or the section's end — and each item whole, across its continuation lines. Its list opens `- **Re-affirmed.**`: an entry listing conditions under any other opener is named as not evaluated, and an entry with no list re-affirms nothing |
 | charter header `Version.` | the number of the newest amendment entry, or `1` while there is none. It moves in the commit that adds the entry, and `check_trace` reports a header that disagrees as `stale-version-header` (roadmap 0.3.2, L-2.9) |
 | charter `Containment` | `structural` · `guard-only`. Written by `/devteam:setup` from `sandbox_probe.py`'s exit code and re-checked at every `/devteam:run` startup. **Not a preference and never copied from an example** — it is a fact about the machine |
 | promotion findings | `promote-base-disagreement` · `promote-conflict` · `promote-extraction-failed` · `promote-fetch-failed` · `promote-foreign-subject` · `promote-history-rewrite` · `promote-host-index-dirty` · `promote-no-commits` · `promote-no-scope` · `promote-no-task-file` · `promote-out-of-scope` · `promote-task-file-unparsed` · `promote-task-file-untracked` · `promote-uncommitted`. Check output, closed set, emitted by `sandbox.py promote` and by its `--dry-run`. 0.2.6 is where each is named against the rule it enforces |
-| `check_report` harness findings | `budget-mismatch` · `model-mismatch`. Silent on a `guard-only` project, which has no harness meter — **an absent measurement is not a finding** |
+| `check_report` harness findings | `budget-mismatch` · `model-mismatch`, for a step's block against the meter the `.sandbox` line names for that step. Excluded by name on a `guard-only` project, which has no harness meter, and for a task-level block, which is a supervisor's — **an absent measurement is not a finding**, and on a `structural` project it is named as not evaluated |
 
 ---
 
@@ -241,7 +241,10 @@ The supervisor writes the heartbeat; the harness writes the `.sandbox` line.
 **The root is an absolute path on the line itself**, not derivable from the id:
 resolving one to the other means reading a machine-local environment variable
 the way the writer did, which is a second home for a path, and the second home
-is the one that is wrong. `check_report` finds `meta/budget.json` through it.
+is the one that is wrong. `check_report` finds `meta/budget.json` through it,
+and `meta/base.sha`, the commit the sandbox opened from: a step's block that
+was already in the task file there is an earlier attempt's, and the meter is
+not its own.
 
 Both live under `devteam/.run/`, **which must be git-ignored** — `/devteam:setup`
 writes that line, and `sandbox.py dispatch` refuses if it is missing, because
@@ -252,13 +255,54 @@ otherwise the harness's own file lands in the worker's uncommitted remainder and
 
 ## The REPORT block
 
-Defined in [`../DESIGN.md`](../DESIGN.md) §6 and repeated nowhere. It is the one
-format that is **not** bold-labelled bullets — its keys start at column one and
-continuations are indented — because it is emitted by an agent as its final
-message, where markdown decoration is exactly what goes wrong.
+Its fields are defined in [`../DESIGN.md`](../DESIGN.md) §6 and repeated
+nowhere; how `check_report` reads them is here. It is the one format that is
+**not** bold-labelled bullets — its keys start at column one and continuations
+are indented — because it is emitted by an agent as its final message, where
+markdown decoration is exactly what goes wrong.
 
-`check_report.py` parses it out of a task file's `## Execution record` section
-and compares what it claims against the tree.
+`check_report.py` parses every block out of a task file's `## Execution
+record` section and compares what each claims against the tree (roadmap
+0.3.2, L-2.7 and L-2.8):
+
+- **Which blocks are judged.** `check_report . T-n` judges the task's latest
+  task-level block, `REPORT <role> T-n`, and for each step the file reports,
+  that step's latest block, `REPORT <role> T-n.S-m`. `check_report .
+  T-n.S-m` judges that step's latest block. An earlier block for the same id
+  is a superseded attempt and is not judged: a failed attempt's commits are
+  never promoted, so its citations would stand as a finding for ever. A REPORT
+  line naming the task that does not parse as a header is named as not
+  evaluated, unless a block that does parse comes after it for the same id.
+- **A header may carry an annotation** after its id, in parentheses and on
+  its own line, and is read as that id's block (F-34):
+  `REPORT implementer T-6.S-4 (ATTEMPT 2, correcting attempt 1's FAILED verification)`.
+- **A key may carry an annotation** before its colon, and is read as the key
+  (F-88): `checks (all run by the supervisor, after promotion):`. The
+  annotation may continue onto indented lines, and closes with `):`.
+- **`status:` is read whole**, across its continuation lines, and may carry
+  one qualifier: `status: DONE (reconstructed: by the supervisor from the
+  worker's commits; the worker died)`. The check reads the status, and names
+  the block as reconstructed on its line (F-86). Nothing else may follow a
+  status.
+- **A budget figure may be marked approximate.** `budget: tokens=~150000
+  minutes=~22` is read as 150000 and 22 and compared at a bare figure's
+  tolerance, and a mismatch says the figure was marked approximate (F-32). A
+  figure that is no number is named as not compared.
+- **The title is compared with the task's current report only**: its latest
+  task-level block, unless that block was already in the file when the claim
+  its `RUNNING (since <date>, <label>)` title names began. Then it is the
+  previous claim's close or stop, and is compared with nothing of the current
+  run — not the title, the harness meter, `dirty-tree` or `unfinished-scope`
+  (F-136). A step's block is never compared with the title.
+- **The harness meter is compared with a step's block**, for the step the
+  `.sandbox` line names and no other. A task-level block is a supervisor's,
+  which the harness never meters, and is excluded by name (F-109). A step's
+  block is not compared with another step's meter (F-103), nor with a later
+  attempt's, whose sandbox opened with the block already in the file; each is
+  named as not evaluated.
+- **Each finding names its block** before its message, `T-n:` or `T-n.S-m:`,
+  and is anchored at the block's header, so one defect in two blocks is two
+  findings.
 
 ---
 
@@ -268,7 +312,7 @@ and compares what it claims against the tree.
 |---|---|---|
 | `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps |
 | `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
-| `check_report.py` | one `tasks/T-n.md`, HEAD's history, and the harness's `.run/locks/T-n.sandbox` line | the REPORT block ↔ the committed tree, and the commits it cites ↔ HEAD's history |
+| `check_report.py` | one `tasks/T-n.md`, HEAD's history — the board's in it, for the task's current claim — and the harness's `.run/locks/T-n.sandbox` line | the task's current report and each step's latest REPORT block ↔ the committed tree, and the commits each cites ↔ HEAD's history (§"The REPORT block") |
 | `check_scope.py` | `BOARD.md` and its history, `tasks/*.md`, HEAD's `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written: by each task's commits, and by commits naming no task since a running task's current claim |
 
 `check_trace`, `check_refs` and `check_scope` read **what git would show**
@@ -301,10 +345,8 @@ genuinely empty, and clean, with its zero shown in the line (roadmap 0.3.1,
 L-1.3). So a row written slightly wrong is never silently skipped: fix the
 row, or, for an identifier field, keep the identifiers in the field and move
 the explanation to a bullet of its own, which is how pricelog's T-19 repaired
-its `Discharges.` field (F-132). `check_trace`, `check_refs` and
-`check_scope` read every field whole, across its continuation lines (roadmap
-0.3.2, L-2.3). `check_report` still reads a REPORT block's `status:` from its
-first line, and names one that continues.
+its `Discharges.` field (F-132). All four project checks read every field
+whole, across its continuation lines (roadmap 0.3.2, L-2.3).
 
 **The gate reads the checks, and an agent commits only through it** (P-49).
 `scripts/gate.py commit -F <message file> -- <paths>` builds the commit

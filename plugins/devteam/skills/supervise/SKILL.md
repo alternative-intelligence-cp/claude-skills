@@ -397,6 +397,35 @@ manager judge whether the FAIL was right. Summaries of verdicts have already
 been wrong about their own counts in this project, which is exactly how
 evidence erodes into recollection.
 
+**Four more forms the parser reads**, one copyable example of each (FORMATS
+§"The REPORT block"). Anything else written where these go is a finding or a
+line the check names as not read, never silently accepted:
+
+```
+REPORT supervisor T-9 (re-closing after the verifier's FAIL)
+checks (all run by the supervisor, after promotion):
+budget: tokens=~450000 minutes=~40
+status: DONE (reconstructed: by the supervisor from the worker's commits; the worker died)
+```
+
+- **Your header may carry a note**, in parentheses and on its own line. The
+  check judges the task's latest task-level block and each step's latest
+  block, so an earlier block is superseded, with the note or without it.
+- **A key may carry a note before its colon**, `checks (<whose, and when>):`.
+  It may continue onto indented lines, and closes with `):` (F-88 was a
+  supervisor's).
+- **`~` marks a figure you could not read.** Your own block is never compared
+  with a meter, because the harness meters no supervisor; a worker's is,
+  against its own step's meter.
+- **`reconstructed` is yours to write** when you land a report for a worker
+  whose process died: the words are yours, read from the tree it left, so the
+  header carries your role and its step's id, `REPORT supervisor T-14.S-2`,
+  and the status says so. Moving the word into `notes:` made the field a
+  reader checks first read as the worker's own (F-86).
+- **After a restart**, your task's latest task-level block is the previous
+  claim's close until you report. The check compares it with nothing of your
+  run: not your title, a meter or your tree.
+
 **Commit your own block alone** (P-16), through the gate, as every commit on
 the host is made (P-49):
 
@@ -410,10 +439,9 @@ while the verifier has not yet returned is F-19's window, and the gate allows
 its `one-sided-link` while the task is in the board's in-flight table. The
 worker blocks already stand
 verbatim in the execution record — each worker appended its own — so
-committing your final message literally would leave a worker's block last in
-the file, and the record check would then validate a worker's step report in
-place of yours. Your *message* to the manager carries them appended; the
-*commit* carries your block.
+committing your final message literally would put every one of them in the
+file twice. Your *message* to the manager carries them appended; the *commit*
+carries your block.
 
 **The worker reports go through you unchanged** (P-17). You may judge them —
 that is what `verdict:` is for. You may not summarise them, tidy them, or

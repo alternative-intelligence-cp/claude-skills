@@ -369,6 +369,11 @@ budget: tokens=<n> minutes=<n>
 notes: none | <free text>
 ```
 
+How `check_report` reads it — an annotation after the header's id or before a
+key's colon, a status the supervisor reconstructed, an approximate figure, and
+which of a task file's blocks it judges — is
+[`templates/FORMATS.md`](templates/FORMATS.md) §"The REPORT block".
+
 A supervisor's block adds `verdict:` per step, and then, below everything:
 
 ```

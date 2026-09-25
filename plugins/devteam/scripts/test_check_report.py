@@ -10,6 +10,10 @@ import tempfile
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 CHECK = os.path.join(HERE, "check_report.py")
+# A finding's line, as the check prints it: every indented line that is not a
+# part, an exclusion, an acceptance or a note (roadmap 0.3.2, L-2.8).
+FINDING = re.compile(r"^  (?!not evaluated: |excluded: |accepted by |reconstructed: )(\S+)", re.M)
+PART = re.compile(r"^  not evaluated: (.+?) — ", re.M)
 
 REPORT = """REPORT implementer T-1
 status: DONE
@@ -223,6 +227,50 @@ def build(root, body, leftovers=(), subject="T-1: the config loader", src="x = 1
     return root
 
 
+ENV = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+       "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+# A worker's block for S-1. The harness meters a step's dispatch, and only a
+# step's block is compared with a meter (roadmap 0.3.2, L-2.7).
+STEP = REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1")
+
+
+def metered(root, report, budget, line="S-1", containment="structural", already=False, base=True):
+    """A project whose step blocks landed after the sandbox that metered them
+    opened, as a promotion lands them: the task file is committed with an
+    empty record, that commit is the sandbox's base -- `sandbox.py open`
+    records the host's HEAD -- and the blocks land in the next commit.
+
+    `line` is the step the `.sandbox` line names; None writes no line, and
+    `no-root` a line naming no root. `budget` None writes no meta/budget.json.
+    `already` makes the base the commit that landed the blocks, so they were
+    in the file when the sandbox opened: a later attempt's sandbox. `base`
+    False writes no meta/base.sha."""
+    build(root, task_file(report=""), containment=containment)
+    git = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, text=True,
+                                    env=ENV).stdout.strip()
+    opened = git("rev-parse", "HEAD")
+    with open(os.path.join(root, "devteam", "tasks", "T-1.md"), "w", encoding="utf-8") as fh:
+        fh.write(task_file(report=report))
+    git("commit", "-qam", "T-1.S-1: land the step's report")
+    if already:
+        opened = git("rev-parse", "HEAD")
+    sroot = os.path.join(root, "sbox")
+    os.makedirs(os.path.join(sroot, "meta"), exist_ok=True)
+    if budget is not None:
+        with open(os.path.join(sroot, "meta", "budget.json"), "w") as fh:
+            json.dump(budget, fh)
+    if base:
+        with open(os.path.join(sroot, "meta", "base.sha"), "w") as fh:
+            fh.write(opened + "\n")
+    if line is not None:
+        locks = os.path.join(root, "devteam", ".run", "locks")
+        os.makedirs(locks, exist_ok=True)
+        with open(os.path.join(locks, "T-1.sandbox"), "w") as fh:
+            fh.write(f"T-1 {'S-1' if line == 'no-root' else line} live2 exited 0 at "
+                     f"2026-09-07T04:57:06{'' if line == 'no-root' else f' root {sroot}'}\n")
+    return root
+
+
 def main():
     passed = failed = 0
     for case in CASES:
@@ -236,7 +284,7 @@ def main():
             build(root, body, leftovers, subject, src)
             proc = subprocess.run([sys.executable, CHECK, root, want],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
+            got = set(FINDING.findall(proc.stdout))
             want_exit = 1 if expected else 0
             if got == expected and proc.returncode == want_exit:
                 passed += 1
@@ -266,89 +314,121 @@ def main():
     # been closed (pricelog RECORD.md:356). Now the charter's declaration
     # EXCLUDES the comparison by name (exit 0), and an absence with no
     # declaration behind it is NOT EVALUATED (exit 3), naming what was missing.
+    #
+    # AGAINST THE STEP IT METERED (roadmap 0.3.2, L-2.7). The harness meters a
+    # worker's dispatch, and its `.sandbox` line names that dispatch's step. So
+    # a step's block is compared with the meter the line names for that step,
+    # and a task-level block -- a supervisor's, which the harness never
+    # meters -- is excluded by name. The blocks below are S-1's unless a case
+    # says otherwise, each landed after the sandbox that metered it opened.
+    def step(report=STEP, **edits):
+        for key, val in edits.items():
+            report = re.sub(rf"^{key}: .*$", f"{key}: {val}", report, count=1, flags=re.M)
+        return report
+
+    meter = {"tokens": 4210, "minutes": 9.0, "model": "claude-opus-5"}
+    both = {"budget-mismatch", "model-mismatch"}
     budget_cases = [
-        # (name, report edits, sandbox {} or None, budget.json or None, expected,
-        #  expected parts not evaluated, the charter's containment)
-        ("budget-mismatch-on-tokens",
-         {"budget": "tokens=3000 minutes=9"},
-         True, {"tokens": 309639, "minutes": 9.0, "model": "claude-opus-5"},
-         {"budget-mismatch"}, set(), "structural"),
-        ("budget-mismatch-on-minutes",
-         {"budget": "tokens=4210 minutes=9"},
-         True, {"tokens": 4210, "minutes": 0.59, "model": "claude-opus-5"},
-         {"budget-mismatch"}, set(), "structural"),
-        ("model-mismatch-when-the-worker-names-another-model",
-         {}, True,
-         {"tokens": 4210, "minutes": 9.0, "model": "claude-haiku-4-5-20251001"},
-         {"model-mismatch"}, set(), "structural"),
-        ("fp-budget-inside-the-tolerances-is-clean",
-         {}, True, {"tokens": 4400, "minutes": 10.5, "model": "claude-opus-5"},
-         set(), set(), "structural"),
+        # (name, the blocks landed, the step the `.sandbox` line names -- None
+        #  for no line, "no-root" for a line naming no root -- budget.json or
+        #  None, expected findings, expected parts not evaluated, the charter's
+        #  containment, text the output must hold, metered()'s options)
+        ("budget-mismatch-on-tokens", step(budget="tokens=3000 minutes=9"), "S-1",
+         dict(meter, tokens=309639), {"budget-mismatch"}, set(), "structural",
+         ["T-1.S-1: the report says tokens=3000 and the harness metered 309639"], {}),
+        ("budget-mismatch-on-minutes", step(), "S-1", dict(meter, minutes=0.59),
+         {"budget-mismatch"}, set(), "structural", [], {}),
+        ("model-mismatch-when-the-worker-names-another-model", step(), "S-1",
+         dict(meter, model="claude-haiku-4-5-20251001"), {"model-mismatch"}, set(), "structural",
+         ["T-1.S-1: the report says `model: claude-opus-5`"], {}),
+        ("fp-budget-inside-the-tolerances-is-clean", step(), "S-1",
+         {"tokens": 4400, "minutes": 10.5, "model": "claude-opus-5"}, set(), set(), "structural", [], {}),
         # The declaration: a guard-only project has no meter, says so, exits 0.
-        ("fp-guard-only-excludes-the-harness-by-declaration",
-         {"budget": "tokens=1 minutes=1"}, False, None, set(), set(), "guard-only"),
+        ("fp-guard-only-excludes-the-harness-by-declaration", step(budget="tokens=1 minutes=1"),
+         None, None, set(), set(), "guard-only",
+         ["excluded: budget-mismatch and model-mismatch"], {}),
         # THE DID-NOT-LOOK CASES (L-6). Each one read `clean` before 0.3.1.
         ("no-sandbox-file-on-a-structural-project-is-not-evaluated",
-         {"budget": "tokens=1 minutes=1"}, False, None, set(),
-         {"budget-mismatch", "model-mismatch"}, "structural"),
-        ("a-sandbox-line-with-no-root-is-not-evaluated",
-         {"budget": "tokens=1 minutes=1"}, "no-root", None, set(),
-         {"budget-mismatch", "model-mismatch"}, "structural"),
+         step(budget="tokens=1 minutes=1"), None, None, set(), both, "structural", [], {}),
+        ("a-sandbox-line-with-no-root-is-not-evaluated", step(budget="tokens=1 minutes=1"),
+         "no-root", None, set(), both, "structural", [], {}),
         # F-32's T-4 case: the sandbox was closed, so its meter is gone.
         ("a-closed-sandbox-with-no-budget-json-is-not-evaluated",
-         {"budget": "tokens=1 minutes=1"}, True, None, set(),
-         {"budget-mismatch", "model-mismatch"}, "structural"),
+         step(budget="tokens=1 minutes=1"), "S-1", None, set(), both, "structural", [], {}),
         # A project that declares nothing gets no exclusion: silence would need
         # a declaration behind it, and there is none.
-        ("an-undeclared-containment-excludes-nothing",
-         {"budget": "tokens=1 minutes=1"}, False, None, set(),
-         {"budget-mismatch", "model-mismatch"}, None),
+        ("an-undeclared-containment-excludes-nothing", step(budget="tokens=1 minutes=1"),
+         None, None, set(), both, None, [], {}),
         # ...and a row whose author BELIEVES it declared something is named
         # as well (L-1.3): `guard only` is not `guard-only`.
-        ("a-containment-row-that-does-not-parse-is-named",
-         {"budget": "tokens=1 minutes=1"}, False, None, set(),
-         {"budget-mismatch", "model-mismatch", "the charter's Containment row"}, "guard only"),
-        # F-32's hedged figure: the harness has a number, the report gives
-        # `~N`, and the comparison was skipped as though it had passed.
-        ("a-hedged-budget-figure-is-not-evaluated",
-         {"budget": "tokens=~4000 minutes=9"}, True,
-         {"tokens": 4210, "minutes": 9.0, "model": "claude-opus-5"},
-         set(), {"budget-mismatch"}, "structural"),
+        ("a-containment-row-that-does-not-parse-is-named", step(budget="tokens=1 minutes=1"),
+         None, None, set(), both | {"the charter's Containment row"}, "guard only", [], {}),
+        # A figure that is no number at all is not compared, and says so.
+        ("a-budget-figure-that-is-no-number-is-not-evaluated",
+         step(budget="tokens=unknown minutes=9"), "S-1", meter, set(), {"budget-mismatch"},
+         "structural", ["tokens as `unknown`, which is not a number"], {}),
         # A figure split over two lines is still read whole: the budget field
         # is joined before it is parsed.
-        ("fp-a-budget-split-over-two-lines-is-read-whole",
-         {"budget": "tokens=4210\n  minutes=9"}, True,
-         {"tokens": 4210, "minutes": 9.0, "model": "claude-opus-5"},
-         set(), set(), "structural"),
+        ("fp-a-budget-split-over-two-lines-is-read-whole", step(budget="tokens=4210\n  minutes=9"),
+         "S-1", meter, set(), set(), "structural", [], {}),
+        # F-32 (L-2.8): the honest hedge is read, and compared. RECORD.md:475's
+        # four workers, T-8's S-1, S-2, S-3 and S-5, as T-8.md:1055 recorded
+        # each figure against the harness's: out by 36, 24, 15.6 and 16.6
+        # times, and none flagged.
+        *[(f"f32-{said}-against-{got}-fires-marked-approximate",
+           step(budget=f"tokens=~{said} minutes=~9"), "S-1", dict(meter, tokens=got),
+           {"budget-mismatch"}, set(), "structural",
+           [f"tokens=~{said}, marked approximate, and the harness metered {got} "
+            "(10% tolerance)  (advisory)"], {})
+          for said, got in ((35000, 1269199), (150000, 3600914), (240000, 3749248),
+                            (260000, 4306918))],
+        ("fp-f32-an-approximate-figure-within-tolerance-is-clean",
+         step(budget="tokens=~4000 minutes=~9"), "S-1", meter, set(), set(), "structural", [], {}),
+        # F-109: a correct Sonnet supervisor's report, marked for re-dispatch
+        # against its last worker's Opus meter. A task-level block is excluded,
+        # and the line names it.
+        ("fp-f109-a-task-level-block-is-excluded-from-the-meter-by-name",
+         REPORT.replace("model: claude-opus-5", "model: claude-sonnet-5"), "S-3", meter,
+         set(), set(), "structural",
+         ["excluded: T-1's block against the harness meter — by its header, which names no step"],
+         {}),
+        # F-103: S-2's block against S-4's meter. S-4's is compared, and S-2 is
+        # named as compared with nothing.
+        ("f103-only-the-step-the-line-names-is-compared",
+         step(STEP.replace("T-1.S-1", "T-1.S-2"), budget="tokens=1 minutes=1") + "\n"
+         + step(STEP.replace("T-1.S-1", "T-1.S-4"), budget="tokens=1 minutes=9"), "S-4", meter,
+         {"budget-mismatch"}, both, "structural",
+         ["T-1.S-4: the report says tokens=1 and the harness metered 4210",
+          "devteam/.run/locks/T-1.sandbox names S-4 (S-2)"], {}),
+        # F-136: a restarted task's latest task-level block is the previous
+        # supervisor's, and the meter is the current step's worker's.
+        ("fp-f136-the-previous-supervisors-block-is-never-compared-with-the-current-meter",
+         REPORT.replace("REPORT implementer T-1", "REPORT supervisor T-1")
+               .replace("model: claude-opus-5", "model: claude-sonnet-5")
+               .replace("budget: tokens=4210 minutes=9", "budget: tokens=1 minutes=1") + "\n"
+         + STEP.replace("T-1.S-1", "T-1.S-5"), "S-5", meter, set(), set(), "structural",
+         ["excluded: T-1's block against the harness meter"], {}),
+        # A LATER ATTEMPT'S METER (L-2.7). The line names S-1, and S-1's latest
+        # block was already in the file when that sandbox opened: it is an
+        # earlier attempt's, and the meter is not its own.
+        ("a-block-already-there-when-the-sandbox-opened-is-not-compared",
+         step(budget="tokens=1 minutes=1"), "S-1", meter, set(), both, "structural",
+         ["with the block already in the task file, so its meter is a later attempt's (S-1)"],
+         {"already": True}),
+        ("a-sandbox-naming-no-base-is-not-compared", step(budget="tokens=1 minutes=1"), "S-1",
+         meter, set(), both, "structural", ["meta/base.sha names no commit"], {"base": False}),
     ]
-    for name, edits, sb, budget, expected, want_gaps, containment in budget_cases:
+    for name, report, line, budget, expected, want_gaps, containment, must, opts in budget_cases:
         root = tempfile.mkdtemp(prefix="devteam-report-budget-")
         try:
-            report = REPORT
-            for key, val in edits.items():
-                report = re.sub(rf"^{key}: .*$", f"{key}: {val}", report,
-                                count=1, flags=re.M)
-            build(root, task_file(report=report), containment=containment)
-            sroot = os.path.join(root, "sbox")
-            os.makedirs(os.path.join(sroot, "meta"), exist_ok=True)
-            if budget is not None:
-                with open(os.path.join(sroot, "meta", "budget.json"), "w") as fh:
-                    json.dump(budget, fh)
-            if sb:
-                locks = os.path.join(root, "devteam", ".run", "locks")
-                os.makedirs(locks, exist_ok=True)
-                line = ("T-1 S-1 live2 exited 0 at 2026-09-07T04:57:06"
-                        + ("" if sb == "no-root" else f" root {sroot}"))
-                with open(os.path.join(locks, "T-1.sandbox"), "w") as fh:
-                    fh.write(line + "\n")
+            metered(root, report, budget, line, containment, **opts)
             proc = subprocess.run([sys.executable, CHECK, root, "T-1"],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
-            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            got = set(FINDING.findall(proc.stdout))
+            gaps = set(PART.findall(proc.stdout))
             want_rc = 1 if expected else (3 if want_gaps else 0)
-            excluded_ok = (containment != "guard-only"
-                           or "excluded: budget-mismatch and model-mismatch" in proc.stdout)
-            if got == expected and gaps == want_gaps and proc.returncode == want_rc and excluded_ok:
+            unsaid = [m for m in must if m not in proc.stdout]
+            if got == expected and gaps == want_gaps and proc.returncode == want_rc and not unsaid:
                 passed += 1
             else:
                 failed += 1
@@ -357,8 +437,10 @@ def main():
                       f"{sorted(want_gaps) or 'nothing'}, exit {want_rc}")
                 print(f"        got      {sorted(got) or 'clean'}, not evaluated "
                       f"{sorted(gaps) or 'nothing'}, exit {proc.returncode}")
-                for line in (proc.stdout + proc.stderr).strip().split("\n"):
-                    print(f"        | {line}")
+                for m in unsaid:
+                    print(f"        never says {m!r}")
+                for text in (proc.stdout + proc.stderr).strip().split("\n"):
+                    print(f"        | {text}")
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
@@ -409,19 +491,7 @@ def main():
     for name, edits, budget, want_exit, must_print, must_not in blocking_cases:
         root = tempfile.mkdtemp(prefix="devteam-report-blocking-")
         try:
-            report = REPORT
-            for key, val in edits.items():
-                report = re.sub(rf"^{key}: .*$", f"{key}: {val}", report,
-                                count=1, flags=re.M)
-            build(root, task_file(report=report), containment="structural")
-            sroot = os.path.join(root, "sbox")
-            os.makedirs(os.path.join(sroot, "meta"), exist_ok=True)
-            with open(os.path.join(sroot, "meta", "budget.json"), "w") as fh:
-                json.dump(budget, fh)
-            locks = os.path.join(root, "devteam", ".run", "locks")
-            os.makedirs(locks, exist_ok=True)
-            with open(os.path.join(locks, "T-1.sandbox"), "w") as fh:
-                fh.write(f"T-1 S-1 live2 exited 0 at 2026-09-07T04:57:06 root {sroot}\n")
+            metered(root, step(**edits), budget)
             cmd = [sys.executable, CHECK, root, "T-1"]
             if want_exit is not None:
                 cmd.append("--blocking-only")
@@ -448,60 +518,147 @@ def main():
     # Each case here read `clean`, or a misleading finding with nothing naming
     # its cause, before 0.3.1. The report is inside the task file's fence, as
     # every real one is.
-    def _task(report=REPORT, edit=lambda body: body):
-        return edit(task_file(report=report))
+    def _task(report=REPORT, edit=lambda body: body, title=None):
+        return edit(task_file(report=report, title=title))
 
+    no_budget = lambda block: block.replace("budget: tokens=4210 minutes=9\n", "")
+    s4 = STEP.replace("T-1.S-1", "T-1.S-4")
     parse_cases = [
-        # (name, task file body, expected findings, expected parts not evaluated)
+        # (name, task file body, expected findings, expected parts not evaluated,
+        #  text the output must hold)
         # ZERO ROWS: the only REPORT line does not parse, so no block is read.
-        ("zero-rows-the-only-header-carries-an-annotation",
-         _task(REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1 (re-dispatch)")),
-         {"no-report"}, {"the REPORT blocks"}),
+        # An annotation left open is not one (roadmap 0.3.2, L-2.7).
+        ("zero-rows-the-only-header-leaves-its-annotation-open",
+         _task(REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1 (re-dispatch")),
+         {"no-report"}, {"the REPORT blocks"}, []),
         # A PARTIAL READ, F-34's shape: a later report the header grammar
         # cannot read, so the check reads the earlier one and says clean.
         ("partial-read-a-later-header-the-grammar-cannot-read",
-         _task(REPORT + "\nREPORT implementer T-1 (second attempt)\nstatus: RED\n"),
-         set(), {"the REPORT blocks"}),
-        # F-88's shape: an annotated key ends the field parse, and every field
-        # after it reads as missing with nothing naming the line.
-        ("partial-read-an-annotated-key-ends-the-parse",
-         _task(REPORT.replace("checks:", "checks (all run by the supervisor):")),
-         {"missing-field", "no-evidence"}, {"the REPORT block"}),
+         _task(REPORT + "\nREPORT implementer T-1 attempt 2\nstatus: RED\n"),
+         set(), {"the REPORT blocks"}, []),
+        # A key the grammar cannot read ends the field parse, and every field
+        # after it is named at its line, not merely reported missing.
+        ("partial-read-a-key-the-grammar-cannot-read-ends-the-parse",
+         _task(REPORT.replace("checks:", "Checks:")),
+         {"missing-field", "no-evidence"}, {"T-1's REPORT block"}, []),
         ("partial-read-a-scope-item-with-its-reason-inline",
          _task(edit=lambda b: b.replace("  - `src/`\n", "  - `src/`\n  - `docs/` — for the notes\n")),
-         set(), {"dirty-tree and unfinished-scope"}),
+         set(), {"dirty-tree and unfinished-scope"}, []),
         ("partial-read-a-title-without-separators",
          _task(edit=lambda b: b.replace("# T-1 — make it work — DONE (2026-09-03)",
                                         "# T-1 make it work DONE")),
-         set(), {"status-mismatch"}),
-        # A WRAPPED FIELD: `status:` read from its first line only.
-        ("wrapped-field-a-status-that-continues",
+         set(), {"status-mismatch"}, []),
+        # READ WHOLE (roadmap 0.3.2, L-2.3): `status:` was read from its first
+        # line, and one that continued was named as not evaluated. It is read
+        # with its continuation, and refused as a whole when it is no status.
+        ("a-status-continued-outside-the-grammar-is-refused-whole",
          _task(REPORT.replace("status: DONE", "status: DONE\n  (after the re-run)")),
-         set(), {"the report's status"}),
+         {"bad-report-status"}, set(), ["'DONE (after the re-run)' is not one of"]),
         # ...and what must stay CLEAN.
         # A status given wholly on its own continuation line is read whole.
         ("fp-a-status-on-its-own-line-is-read-whole",
-         _task(REPORT.replace("status: DONE", "status:\n  DONE")), set(), set()),
+         _task(REPORT.replace("status: DONE", "status:\n  DONE")), set(), set(), []),
         # Prose after a finished block, full of lowercase words and colons,
         # offers no REPORT field -- pricelog's T-6, T-11 and T-13 each have one.
         ("fp-prose-after-a-finished-block-is-not-its-fields",
          _task(REPORT + "\nSUPERVISOR NOTE — reproduced before\nlanding: the refusal line\n"
-                        "anchor: the canonical one\n"), set(), set()),
-        # A malformed header BEFORE the block read cannot hide a later report
-        # -- pricelog's `REPORT tester T-18.S-4-pre` is this.
-        ("fp-a-malformed-header-before-the-block-read",
-         _task("REPORT tester T-1.S-4-pre\nstatus: DONE\n\n" + REPORT), set(), set()),
+                        "anchor: the canonical one\n"), set(), set(), []),
+        # A header the grammar cannot read is a superseded attempt when a block
+        # it does read comes after it for the same id, as any earlier block is.
+        ("fp-a-malformed-header-superseded-by-a-later-block-for-its-id",
+         _task("REPORT tester T-1.S-4 attempt 1\nstatus: DONE\n\n" + s4), set(), set(), []),
+        # ...and not when it names no step id, as pricelog's `REPORT tester
+        # T-18.S-4-pre` does (F-111): no later block can be the same step's,
+        # not even S-4's.
+        ("a-header-naming-no-step-id-is-named-though-a-block-follows",
+         _task("REPORT tester T-1.S-4-pre\nstatus: DONE\n\n" + s4),
+         set(), {"the REPORT blocks"}, []),
+        # ...nor when its annotation wraps past its line: `c6d1f82`'s auditor
+        # header, whose parenthesis closed two lines below it.
+        ("a-header-whose-annotation-wraps-past-its-line-is-named",
+         _task("REPORT auditor T-1.S-3 (adversarial pass, verbatim — the auditor has no write\n"
+               "access; reproduced here by the supervisor)\n\n" + REPORT),
+         set(), {"the REPORT blocks"}, []),
+
+        # --- WHICH BLOCKS ARE JUDGED (roadmap 0.3.2, L-2.7) ----------------
+        # F-34: attempt 2's annotated header is S-4's latest block. Attempt 1's
+        # -- no `budget:`, and citing a commit that was never promoted -- is
+        # superseded, and judged for nothing.
+        ("fp-f34-an-annotated-header-is-its-steps-latest-block",
+         _task(no_budget(s4).replace("HEAD T-1: the config loader",
+                                     "T-1.S-4: attempt 1, never promoted") + "\n"
+               + s4.replace("REPORT implementer T-1.S-4", "REPORT implementer T-1.S-4 (ATTEMPT 2, "
+                            "correcting attempt 1's FAILED verification)")),
+         set(), set(), ["[1 blocks judged, 1 superseded]"]),
+        # F-37: a malformed step block, then a well-formed task-level block.
+        # `check_report . T-9` read clean where `. T-9.S-3` did not, on one
+        # tree; the task's run reports the step's finding, naming the step, at
+        # its block's header.
+        ("f37-the-tasks-run-reports-a-step-blocks-finding",
+         _task(no_budget(STEP.replace("T-1.S-1", "T-1.S-3")) + "\n" + REPORT),
+         {"missing-field"}, set(),
+         ["tasks/T-1.md:15  T-1.S-3: the block has no `budget:`", "[2 blocks judged, 0 superseded]"]),
+        # F-88: an annotated key is read as its key, and nothing after it is
+        # missing.
+        ("fp-f88-an-annotated-key-is-read-as-its-key",
+         _task(REPORT.replace("checks:", "checks (all run by the supervisor, verbatim):")),
+         set(), set(), []),
+        # ...and F-88's own, as `7aa90ac` landed it: the parenthesis opened on
+        # the key's line and closed on the second indented line under it.
+        ("fp-f88-a-key-annotation-continued-onto-indented-lines-is-read",
+         _task(REPORT.replace("checks:", "checks (all run by the supervisor -- first inside the "
+                              "sandbox before\n  promotion, then re-run host-side; figures below\n"
+                              "  are the host-side, post-promotion run):")),
+         set(), set(), []),
+        # An annotation that never closes is no key, and the line is named as
+        # the one the parse stopped at.
+        ("a-key-annotation-that-never-closes-ends-the-parse",
+         _task(REPORT.replace("checks:", "checks (all run by the supervisor\n  and never closed")),
+         {"missing-field", "no-evidence"}, {"T-1's REPORT block"}, []),
+        # F-86 (L-2.8): the qualifier is read, and the line says so.
+        ("fp-f86-a-reconstructed-status-is-read-and-named",
+         _task(REPORT.replace("status: DONE", "status: DONE (reconstructed: by the supervisor from "
+                              "the worker's commits; the worker died)")),
+         set(), set(),
+         ["  reconstructed: T-1 — by the supervisor from the worker's commits; the worker died"]),
+        ("fp-f86-a-reconstructed-status-over-two-lines-is-read-whole",
+         _task(REPORT.replace("status: DONE", "status: DONE (reconstructed: by the supervisor from\n"
+                              "  the worker's commits; the worker died)")),
+         set(), set(),
+         ["  reconstructed: T-1 — by the supervisor from the worker's commits; the worker died"]),
+        # ...and the run's own form is still refused, showing the grammar's.
+        ("f86-the-runs-own-form-is-refused-showing-the-grammars",
+         _task(REPORT.replace("status: DONE", "status: DONE -- RECONSTRUCTED")),
+         {"bad-report-status"}, set(),
+         ["T-1: 'DONE -- RECONSTRUCTED' is not one of DONE, BLOCKED, NEEDS-DECISION, RED, "
+          "READY-TO-AUDIT, or `<status> (reconstructed: <by whom, and why>)`"]),
+        # One defect in a step's block and in the task's block is two findings,
+        # each naming its block: two identities, so neither stands in for the
+        # other at the gate or under an acceptance.
+        ("one-defect-in-two-blocks-is-two-findings-each-naming-its-block",
+         _task(no_budget(STEP) + "\n" + no_budget(REPORT)), {"missing-field"}, set(),
+         ["T-1.S-1: the block has no `budget:`", "T-1: the block has no `budget:`"]),
+        # A task that has not reported has its steps judged, and nothing meets
+        # its title.
+        ("a-running-tasks-steps-are-judged-and-none-meets-the-title",
+         _task(no_budget(STEP), title="RUNNING (since 2026-09-03, T1-a-1200)"),
+         {"missing-field"}, set(), ["T-1.S-1: the block has no `budget:`"]),
+        # A superseded attempt citing a commit never promoted is not judged.
+        ("fp-a-superseded-attempt-citing-a-commit-never-promoted-is-not-judged",
+         _task(STEP.replace("HEAD T-1: the config loader", "T-1.S-1: attempt 1, never promoted")
+               + "\n" + STEP), set(), set(), ["[1 blocks judged, 1 superseded]"]),
     ]
-    for name, body, expected, want_gaps in parse_cases:
+    for name, body, expected, want_gaps, must in parse_cases:
         root = tempfile.mkdtemp(prefix="devteam-report-parse-")
         try:
             build(root, body)
             proc = subprocess.run([sys.executable, CHECK, root, "T-1"],
                                   capture_output=True, text=True)
-            got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
-            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
+            got = set(FINDING.findall(proc.stdout))
+            gaps = set(PART.findall(proc.stdout))
             want_rc = 1 if expected else (3 if want_gaps else 0)
-            if got == expected and gaps == want_gaps and proc.returncode == want_rc:
+            unsaid = [m for m in must if m not in proc.stdout]
+            if got == expected and gaps == want_gaps and proc.returncode == want_rc and not unsaid:
                 passed += 1
             else:
                 failed += 1
@@ -510,6 +667,8 @@ def main():
                       f"{sorted(want_gaps) or 'nothing'}, exit {want_rc}")
                 print(f"        got      {sorted(got) or 'clean'}, not evaluated "
                       f"{sorted(gaps) or 'nothing'}, exit {proc.returncode}")
+                for m in unsaid:
+                    print(f"        never says {m!r}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n"):
                     print(f"        | {line}")
         finally:
@@ -522,7 +681,9 @@ def main():
     # for T-1 would call T-2's acceptance stale, and a step's run would call
     # its task's acceptance stale, though neither evaluated what it names.
     mismatch = task_file(report=REPORT.replace("status: DONE", "status: NEEDS-DECISION"))
-    a_mismatch = ("`check_report` `status-mismatch` `tasks/T-1.md` — status NEEDS-DECISION "
+    # The message names its block (roadmap 0.3.2, L-2.7), so an acceptance of
+    # the message as it read before names nothing.
+    a_mismatch = ("`check_report` `status-mismatch` `tasks/T-1.md` — T-1: status NEEDS-DECISION "
                   "but the title says 'DONE (2026-09-03)'")
     step = task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT implementer T-1.S-1"),
                      title="RUNNING (since 2026-09-03, T1-a-1200)")
@@ -544,8 +705,11 @@ def main():
         # A part cannot be accepted here (result.py refuses it, and check_refs
         # reports the line): the harness gap stands, named, and exits 3.
         ("a-part-of-check_report-is-not-acceptable",
-         task_file(), ["`check_report` not evaluated: model-mismatch"], "T-1", "structural",
-         3, set(), set(), {"budget-mismatch", "model-mismatch"}),
+         task_file(report=STEP), ["`check_report` not evaluated: model-mismatch"], "T-1",
+         "structural", 3, set(), set(), {"budget-mismatch", "model-mismatch"}),
+        ("an-acceptance-of-a-message-that-named-no-block-is-stale",
+         mismatch, [a_mismatch.replace("— T-1: status", "— status")], "T-1", "guard-only", 1,
+         {"stale-acceptance", "status-mismatch"}, set(), set()),
     ]
     for (name, body, items, run_id, containment, want_rc, expected, want_acc,
          want_gaps) in accept_cases:
@@ -557,9 +721,9 @@ def main():
             build(root, body, containment=containment)
             proc = subprocess.run([sys.executable, CHECK, root, run_id], capture_output=True, text=True)
             out = proc.stdout
-            got = set(re.findall(r"^  (?!not evaluated: |excluded: |accepted by )(\S+)", out, re.M))
+            got = set(FINDING.findall(out))
             got_acc = set(re.findall(r"^  accepted by (D-\d+): (\S+)", out, re.M))
-            gaps = set(re.findall(r"^  not evaluated: (.+?) — ", out, re.M))
+            gaps = set(PART.findall(out))
             if (proc.returncode == want_rc and got == expected and got_acc == want_acc
                     and gaps == want_gaps):
                 passed += 1
@@ -572,6 +736,114 @@ def main():
                     print(f"        | {line}")
         finally:
             shutil.rmtree(root, ignore_errors=True)
+
+    # --- the previous claim's report (roadmap 0.3.2, L-2.7; F-136) ---------
+    # A restart is a new claim under a new label (L-2.5), and until its
+    # supervisor reports, the task's latest task-level block is the previous
+    # claim's close. Its DONE was compared with the new RUNNING title: 8 of
+    # 0.3.1's 14 restart commits were refused for it, `90b8b42` and `79e9b7f`
+    # for nothing else. The history below is the claim protocol's: a claim on
+    # the board, the supervisor's title, its close, the board cleared, and a
+    # claim again.
+    flight_head = ("| Task | Title | Agent label | Agent id | Sandbox | Since | Model | Scope | "
+                   "Note |\n|---|---|---|---|---|---|---|---|---|\n")
+    board = lambda *claims: ("# The board\n\n## In flight\n\n" + flight_head + "".join(
+        f"| {t} | a task | {lab} | `a1b2c3` | — | 2026-09-03 12:00 | opus-5-5 | — | running |\n"
+        for t, lab in claims) or "")
+    close = task_file(report=REPORT.replace("REPORT implementer T-1", "REPORT supervisor T-1"))
+    title = lambda status: re.sub(r"^# T-1 .*$", f"# T-1 — make it work — {status}", close,
+                                  count=1, flags=re.M)
+    stub = {"src/main.py": "def load():\n    raise NotImplementedError\n"}
+    restarts = [
+        # (name, the title and board after the close, what lands after them,
+        #  the restart's own work -- committed, then left uncommitted --
+        #  expected findings, text the output must hold)
+        ("fp-f136-a-restart-under-a-new-label-compares-its-previous-close-with-nothing",
+         "RUNNING (since 2026-09-04, T1-b-1500)", "T1-b-1500", None, {}, {}, set(),
+         ["excluded: status-mismatch, dirty-tree and unfinished-scope for T-1's block — by the "
+          "claim its title names, T1-b-1500, which began at"]),
+        # b57c29e's shape, with its title written as the grammar says: a reopen
+        # that keeps its label keeps its claim, so the close is its own.
+        ("f136-a-reopen-under-its-own-label-compares-its-own-close",
+         "RUNNING (since 2026-09-04, T1-a-1200)", "T1-a-1200", None, {}, {}, {"status-mismatch"},
+         ["T-1: status DONE but the title says 'RUNNING (since 2026-09-04, T1-a-1200)'"]),
+        # 42425a8's shape: a title that names no label has no current claim,
+        # and its block is compared as it always was.
+        ("f136-a-title-naming-no-label-compares-its-previous-close",
+         "RUNNING (re-dispatched 2026-09-04, after verify FAIL)", "T1-b-1500", None, {}, {},
+         {"status-mismatch"}, []),
+        # ...and so has a label no board commit carries: `cbbad26`'s shape,
+        # T-5's title naming `T5-restart-0853` over a board that carried
+        # `T5-harness-restart-0730`.
+        ("f136-a-label-no-board-carries-compares-its-previous-close",
+         "RUNNING (since 2026-09-04, T1-z-0853)", "T1-b-1500", None, {}, {},
+         {"status-mismatch"}, []),
+        # Only the previous claim's block is exempt: the restart's own close,
+        # landed with the title left RUNNING, is compared.
+        ("f136-the-restarts-own-close-is-compared",
+         "RUNNING (since 2026-09-04, T1-b-1500)", "T1-b-1500",
+         REPORT.replace("REPORT implementer T-1", "REPORT supervisor T-1 (the restart's close)"),
+         {}, {}, {"status-mismatch"}, []),
+        # NOR THE TREE (the owner's answer of 2026-09-24). A restart's
+        # tests-first step writes a stub into the scope, and a worker's file
+        # sits uncommitted in it; neither is the previous close's.
+        ("fp-f136-a-restarts-stub-and-uncommitted-work-meet-not-the-previous-close",
+         "RUNNING (since 2026-09-04, T1-b-1500)", "T1-b-1500", None, stub,
+         {"src/next.py": "x = 2\n"}, set(), []),
+        # ...and under a claim that kept its label, the close is the current
+        # claim's, so both are compared with it, as at any close.
+        ("f136-a-reopens-stub-and-uncommitted-work-meet-its-own-close",
+         "RUNNING (since 2026-09-04, T1-a-1200)", "T1-a-1200", None, stub,
+         {"src/next.py": "x = 2\n"}, {"status-mismatch", "unfinished-scope", "dirty-tree"}, []),
+    ]
+    for name, status, label, later, work, dirty, expected, must in restarts:
+        root = tempfile.mkdtemp(prefix="devteam-report-restart-")
+        git = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, text=True,
+                                        env=ENV)
+
+        def land(subject, files):
+            for rel, text in files.items():
+                path = os.path.join(root, rel)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+            git("add", "-A")
+            git("commit", "-qm", subject)
+        try:
+            build(root, task_file(report="", title="PLANNED"), subject="plan T-1")
+            land("board: claim T-1", {"devteam/BOARD.md": board(("T-1", "T1-a-1200"))})
+            land("T-1: claimed", {"devteam/tasks/T-1.md": task_file(
+                report="", title="RUNNING (since 2026-09-03, T1-a-1200)")})
+            land("T-1: the config loader", {"devteam/tasks/T-1.md": close})
+            land("board: T-1 closed", {"devteam/BOARD.md": board()})
+            land(f"board: claim T-1 as {label}", {"devteam/BOARD.md": board(("T-1", label))})
+            land("T-1: restarted", {"devteam/tasks/T-1.md": title(status)})
+            if later:
+                land("T-1: the restart's close", {"devteam/tasks/T-1.md": title(status).rstrip("\n")
+                                                  .removesuffix("```").rstrip("\n")
+                                                  + "\n\n" + later + "```\n"})
+            if work:
+                land("T-1.S-2: the stub first", work)
+            for rel, text in dirty.items():
+                with open(os.path.join(root, rel), "w", encoding="utf-8") as fh:
+                    fh.write(text)
+                git("add", "-N", rel)
+            proc = subprocess.run([sys.executable, CHECK, root, "T-1"], capture_output=True, text=True)
+            got = set(FINDING.findall(proc.stdout))
+            unsaid = [m for m in must if m not in proc.stdout]
+            if got == expected and proc.returncode == (1 if expected else 0) and not unsaid:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}\n        expected {sorted(expected) or 'clean'}, "
+                      f"got {sorted(got) or 'clean'} exit {proc.returncode}")
+                for m in unsaid:
+                    print(f"        never says {m!r}")
+                for text in (proc.stdout + proc.stderr).strip().split("\n"):
+                    print(f"        | {text}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+        parse_cases.append((name,))
 
     # NO REPOSITORY IS COULD-NOT-RUN (L-1.1), and it used to be a traceback:
     # step 3.1 made every return of check() a triple except this one.
@@ -665,7 +937,7 @@ def main():
             landed = "chore: land the report" if "head-subject" in name else "T-1: land the report"
             subprocess.run(["git", "-C", root, "commit", "-qam", landed], capture_output=True, env=env)
             proc = subprocess.run([sys.executable, CHECK, root, "T-1"], capture_output=True, text=True)
-            got = set(re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M))
+            got = set(FINDING.findall(proc.stdout))
             said = ("HEAD's history" in proc.stdout) if expected else True
             if got == expected and proc.returncode == (1 if expected else 0) and said:
                 passed += 1

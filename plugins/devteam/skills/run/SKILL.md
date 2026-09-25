@@ -384,16 +384,23 @@ judgement call:
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_report.py" . T-n
 ```
 
+It judges the supervisor's report and each step's latest block, so a malformed
+step report under a well-formed close is found here too (F-37).
+
 Two of its findings are about the report's *honesty* rather than its shape, and
 neither is a thing to correct:
 
 | Finding | Means | Do |
 |---|---|---|
-| `budget-mismatch` | the report's `budget:` disagrees with what the harness metered for that step — beyond 10% on tokens or 20% on minutes | record it. **Never rewrite the worker's figure.** A worker cannot see the counter; the first one this pipeline metered reported `tokens=3000` against `309639`, in good faith. It is a fact about self-reporting (P-17c), and the number to trust is the harness's |
-| `model-mismatch` | the report's `model:` names a model that did not run | this one is not a rounding error. Treat it as a report about a different run than the one you have, and re-dispatch |
+| `budget-mismatch` | a step's `budget:` disagrees with what the harness metered for that step — beyond 10% on tokens or 20% on minutes | record it. **Never rewrite the worker's figure.** A worker cannot see the counter; the first one this pipeline metered reported `tokens=3000` against `309639`, in good faith. It is a fact about self-reporting (P-17c), and the number to trust is the harness's |
+| `model-mismatch` | a step's `model:` names a model that did not run for that step | this one is not a rounding error. Treat it as a report about a different run than the one you have, and re-dispatch the step |
 
-Both are silent on a `guard-only` project, which has no harness meter — an
-absent measurement is not a finding.
+Both compare a step's block with that step's meter and nothing else. The
+supervisor's own block is never compared, because the harness meters no
+supervisor: a correct Sonnet supervisor's report was once marked for
+re-dispatch against its last worker's Opus meter (F-109). Both are excluded by
+name on a `guard-only` project, which has no harness meter — an absent
+measurement is not a finding.
 
 **Then verify it yourself** (P-18). Dispatch a **fresh** `devteam:verifier` —
 not the one the supervisor used — with the task, the pin and the report's

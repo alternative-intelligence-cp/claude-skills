@@ -9,9 +9,10 @@ a RUNNING task's current claim is the label its title carries, and the claim
 began at the first commit in HEAD's history whose board carries that label in
 the in-flight table's `Agent label` column, on the task's row.
 
-`check_scope` opens `misattributed-write`'s window there, and nothing else
-computes a claim. The in-flight table itself has one reader,
-`check_trace.in_flight_rows`, which this reads at each commit.
+`check_scope` opens `misattributed-write`'s window there, and `check_report`
+reads a restarted task's previous close as the previous claim's by it (L-2.7,
+F-136); nothing else computes a claim. The in-flight table itself has one
+reader, `check_trace.in_flight_rows`, which this reads at each commit.
 
 THE LABEL, NEVER A SUBJECT. pricelog's claims were subjected `board: claim T-3
 and T-2`, `plan T-17 and claim T-15`, `board: claim T-9 (re-dispatch)`,
@@ -33,7 +34,8 @@ had left, and the gate now refuses a path naming the whole repository while
 its hook refuses every commit made around it. A commit into a stopped task's
 scope names its paths.
 
-Its control is test_check_scope.py, through the window it opens.
+Its controls are test_check_scope.py, through the window it opens, and
+test_check_report.py, through the restarts it reads.
 """
 import os
 import re

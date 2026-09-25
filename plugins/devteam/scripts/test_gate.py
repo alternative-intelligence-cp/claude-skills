@@ -202,6 +202,26 @@ RESTARTING = CLAIMED + [
         rows=("| `T-1` | make it work | R-1 | none | `src/` | CLAIMED T1-again-1934 |",
               "| `T-2` | tidy the docs | none | none | `docs/` | — |"))}),
 ]
+# A RESTART AFTER A CLOSE (roadmap 0.3.2, L-2.7; F-136): the supervisor
+# closes, the manager claims the task again under a new label -- after a
+# verifier's FAIL, say -- and the new supervisor sets its title.
+RECLAIMED = CLAIMED + [
+    ("T-1: close", {"devteam/tasks/T-1.md": CLOSED_T1}),
+    ("board: claim T-1 (T1-again-1934)", {"devteam/BOARD.md": board(
+        IN_FLIGHT_T1.replace("T1-work-1200", "T1-again-1934"),
+        rows=("| `T-1` | make it work | R-1 | none | `src/` | CLAIMED T1-again-1934 |",
+              "| `T-2` | tidy the docs | none | none | `docs/` | — |"))}),
+]
+REOPENED_T1 = CLOSED_T1.replace("DONE (2026-09-04)", "RUNNING (since 2026-09-05, T1-again-1934)", 1)
+# The restart's plan, and its first step's report: a tests-first stub.
+REOPENED_STEPS = REOPENED_T1.replace("\n## Execution record\n", "\n## Steps\n\n- [ ] **S-1** — the "
+                                     "stub first · class: `standard` · verify: `make test`\n\n"
+                                     "## Execution record\n", 1)
+TESTS_FIRST = ("\nREPORT tester T-1.S-1\nstatus: DONE\nmodel: opus-5-5\nenv: fixture\n"
+               "requirements: R-1\nscope: src/\ncommits:\n  - HEAD T-1.S-1: the stub first\n"
+               "checks:\n  - `make test` → 1 failed, as a tests-first step leaves it\n"
+               "questions: none\nfindings-for-protocol: none\nbudget: tokens=1000 minutes=1\n"
+               "notes: none\n")
 STUB = "raise NotImplementedError\n"
 STUBBED = CLAIMED + [("T-1.S-1: the stub first", {"src/app.py": STUB})]
 FOREIGN = ("other/x.py is modified and lies outside every live scope (T-1). No agent of this "
@@ -526,6 +546,31 @@ CASES = [
      edit({"devteam/tasks/T-1.md": RESTARTED_T1 + "- A note after the claim.\n"}),
      ["-m", "T-1: title RUNNING (since 2026-09-05, T1-again-1934)", "--", "devteam/tasks/T-1.md"],
      1, {"adds-finding"}, refused_by(adds_finding="misattributed-write")),
+    # F-136's status half (roadmap 0.3.2, L-2.7): a task closed, then claimed
+    # again under a new label. Until the new supervisor reports, the task's
+    # latest task-level block is the previous claim's DONE, and it met the new
+    # RUNNING title as `status-mismatch`: `90b8b42` and `79e9b7f` in 0.3.1's
+    # replay, refused for nothing else.
+    ("fp-f136-a-restarts-title-lands-over-the-previous-close", RECLAIMED,
+     edit({"devteam/tasks/T-1.md": REOPENED_T1}),
+     ["-m", "T-1: title RUNNING (since 2026-09-05, T1-again-1934)", "--", "devteam/tasks/T-1.md"],
+     0, set(), committed(["devteam/tasks/T-1.md"])),
+    # Nor with the tree (the owner's answer of 2026-09-24): the restart's
+    # tests-first step lands its stub and its report together. Before, the
+    # stub met the previous close's DONE as `unfinished-scope`.
+    ("fp-f136-a-restarts-tests-first-step-lands-with-its-report",
+     RECLAIMED + [("T-1: title RUNNING (since 2026-09-05, T1-again-1934)",
+                   {"devteam/tasks/T-1.md": REOPENED_STEPS})],
+     edit({"src/app.py": STUB, "devteam/tasks/T-1.md": REOPENED_STEPS + TESTS_FIRST}),
+     ["-m", "T-1.S-1: the stub first", "--", "src/app.py", "devteam/tasks/T-1.md"],
+     0, set(), committed(["src/app.py", "devteam/tasks/T-1.md"])),
+    # ...and a reopen that keeps its label -- the board still carrying it, as
+    # a close leaves it -- is the close's own claim, so the close meets the
+    # title: `b57c29e`'s shape, which the owner read as real.
+    ("f136-a-reopen-under-its-own-label-meets-its-close", RECLAIMED[:-1],
+     edit({"devteam/tasks/T-1.md": REOPENED_T1.replace("T1-again-1934", "T1-work-1200")}),
+     ["-m", "T-1: title RUNNING (since 2026-09-05, T1-work-1200)", "--", "devteam/tasks/T-1.md"],
+     1, {"adds-finding"}, refused_by(adds_finding="status-mismatch")),
 
     # --- F-24 and F-117: a red result, with nothing left to chain ------------
     ("f24-a-red-result-exits-1-with-head-the-index-and-the-tree-untouched", CLAIMED,
@@ -555,7 +600,8 @@ CASES = [
     ("fp-a-stub-in-a-closed-tasks-scope-is-judged-at-its-writers-close", ADVANCED,
      edit({"src/app.py": STUB}), ["-m", "T-2.S-1: the stub first", "--", "src/app.py"], 0, set(),
      both(committed(["src/app.py"]),
-          says(r"allowed: check_report unfinished-scope tasks/T-1\.md — unfinished-scope is judged when T-1"))),
+          says(r"allowed: check_report unfinished-scope tasks/T-1\.md:\d+ — unfinished-scope is "
+               r"judged when T-1"))),
     ("a-report-closing-over-a-stub-in-its-own-scope-is-refused", STUBBED,
      edit({"devteam/tasks/T-1.md": CLOSED_T1}), ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"],
      1, {"adds-finding"}, refused_by(adds_finding="unfinished-scope")),
