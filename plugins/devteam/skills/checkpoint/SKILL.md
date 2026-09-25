@@ -101,12 +101,31 @@ Every check in this pipeline ships a negative control, because a check that has
 never failed has not been shown to work (P-35). **The verification layer is
 held to no such standard, and it is the layer everything else rests on.**
 
-Count it:
+Count it with the tally, which reads the record's verdict entries —
+`verify <label> PASS|FAIL`, the form FORMATS gives them — and nothing else:
 
 ```bash
-grep -coE "verify [A-Za-z0-9-]+ PASS" devteam/RECORD.md
-grep -coE "verify [A-Za-z0-9-]+ FAIL" devteam/RECORD.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tally.py" .
 ```
+
+**Paste its whole output into the checkpoint's §3c**: the first line, and every
+task's line under it. The first line carries four counts, task and step, PASS
+and FAIL, and each task's line names the record lines it counted, so a count
+and its members come from one run. A task closed with no task-level PASS shows
+as `task 0 PASS`, and a task with no verdict at all has no line. `--at
+<commit>` reads the record as a commit held it, which is how a filed
+checkpoint's count is checked afterwards.
+
+**It replaced two `grep -coE` commands, and the reason is worth knowing.** A
+grep counts the lines the words appear on. On the project where this was
+measured, it counted a hypothetical inside a finding and a step verifier's line
+as manager verdicts: one checkpoint reported eleven PASS where the record held
+nine, and the one before it nine where it held eight. Both put the three FAILs
+on two tasks, while the grep's own matches were on three (roadmap 0.3.2,
+L-2.12). An entry whose keyword is `verify` and that the tally cannot read is
+named by its line as not evaluated, and is not counted: quote that line too.
+The record is append-only, so it stays named; the remedy is a correct entry
+appended after it.
 
 **A project whose verify step has never returned FAIL is indistinguishable from
 a project with a rubber stamp**, and you cannot tell which one you have by

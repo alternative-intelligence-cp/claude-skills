@@ -16,7 +16,7 @@ This control proves the verdict logic -- that each fault produces its finding,
 that a blocker outranks the rest, that the ceiling stops every session, and
 that what merely differs from the first measured run is not reported. It does
 **not** prove a background session works: that was measured by hand on
-2026-09-23 and is recorded in `meta/roadmap/0.3/0.3.0.md` §3.1. The two
+2026-09-23 and is recorded in `meta/roadmap/done/0.3.0.md` §3.1. The two
 last cases are the join between the two: the real script, as a subprocess,
 against a fake `claude` on PATH -- the planted case 0.3.0 asks for, kept.
 """

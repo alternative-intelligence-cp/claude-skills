@@ -104,9 +104,9 @@ def scan(roots):
 
     THE SHAPE IS THE GATE, NOT THE PATH. An earlier version matched only
     `devteam/research`, which meant a properly written digest filed under a
-    different convention -- `meta/research/`, say -- was invisible. The parser
-    already rejects anything that is not a digest, so the directory name buys
-    nothing and costs reach. A document with no `As of` line is skipped
+    different convention -- `<project>/meta/research/`, say -- was invisible.
+    The parser already rejects anything that is not a digest, so the directory
+    name buys nothing and costs reach. A document with no `As of` line is skipped
     wherever it lives, because a digest that cannot be dated cannot be aged,
     and an entry that cannot be aged is worse than an absent one.
     """

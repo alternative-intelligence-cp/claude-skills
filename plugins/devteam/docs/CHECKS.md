@@ -173,7 +173,7 @@ lists (P-4).
 | `missing-script` | P-34 | scripts named by skills, agents and hooks ↔ `scripts/` | `enforces` |
 | `unknown-rule` | P-22 | `P-n` cited anywhere in the plugin ↔ `PROTOCOL.md`'s declarations | `enforces` |
 | `uncontrolled-check` | P-35 — a check that has never failed has not been shown to work | check scripts ↔ their negative controls | `enforces` |
-| `broken-link` | `FORMATS.md` §"What each check reads" | relative link targets in plugin docs ↔ files on disk | `enforces` |
+| `broken-link` | `FORMATS.md` §"What each check reads"; for a script, roadmap 0.3.2, L-2.13 | relative link targets in plugin docs, and each path under the plugin's own directories that a Python file backticks in a docstring or comment, read from the plugin's root ↔ files on disk. A path holding a `<placeholder>` is a pattern and is not looked up, a glob must match something, and a project's path is written from its root — `devteam/…`, `<project>/…` — because a project may have a `meta/` or a `docs/` of its own | `enforces` |
 | `bad-manifest` | P-34 | `plugin.json` and the marketplace entry ↔ the tree they describe | `enforces` |
 | `namespace-drift` | `FORMATS.md` §"The namespace" — *this table is the whole of it* | prefixes reserved in `FORMATS.md` ↔ prefixes recognised by `check_refs.py` | `enforces` |
 | `template-ships-a-finding` | P-35b; the general rule that an installed template declares nothing of this repository | a freshly scaffolded project's `check_trace --pre-plan`, `check_refs` and `check_scope` output ↔ empty (roadmap 0.3.2, L-2.11; `check_refs` alone until then) | `enforces` |

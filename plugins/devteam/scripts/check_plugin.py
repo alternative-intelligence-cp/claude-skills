@@ -15,10 +15,13 @@ Exit 0 clean, 1 findings, 2 could not run, 3 not evaluated -- the contract
 is result.py's (roadmap 0.3.1, L-1.1).
 """
 import ast
+import glob
+import io
 import json
 import os
 import re
 import tempfile
+import tokenize
 import subprocess
 import shutil
 import sys
@@ -116,6 +119,67 @@ def cited_rules(body):
         # finding cannot cite anything.
         out.update(RULE.findall(CHECK_OUTPUT.sub("`quoted`", line)))
     return out
+
+
+# --- A SCRIPT'S CITATIONS ARE LINKS TOO (roadmap 0.3.2, L-2.13) --------------
+# `broken-link` read the relative links in the plugin's documents and nothing
+# in its scripts, so two scripts went on citing roadmap files after both moved
+# under done/: test_sandbox_probe.py's docstring named meta/roadmap/0.2/0.2.0.md
+# and test_bg_session_probe.py's named meta/roadmap/0.3/0.3.0.md (the cycle
+# README's §4.8 found the first by reading).
+#
+# WHAT IS A CITATION, since a script also talks about projects and patterns. A
+# backticked path in a docstring or a comment that begins with one of the
+# plugin's own directories is read as a citation of the plugin's file, from the
+# plugin's root. Three things are not:
+#   - a string that is no docstring, because a control's fixtures write paths
+#     that exist only in the fixture;
+#   - a path holding a <placeholder>, which is a pattern -- `agents/<role>.md`
+#     in sandbox.py -- as a placeholder marks a form everywhere else here;
+#   - a path under any other directory. A project's path is written from its
+#     root, `devteam/tasks/…` or `<project>/meta/…`, because a project may have
+#     a meta/ or a docs/ of its own and a check cannot tell which one is meant.
+# A glob must match something, and a line or an anchor after the path --
+# scripts/gate.py:244, docs/CHECKS.md#… -- is the reader's, not the path's.
+#
+# THIS FILE'S OWN COMMENTS BACKTICK NO PLUGIN PATH, and the examples above are
+# written bare for that reason: its control copies it into partial plugins
+# that have no scripts/gate.py, and it would report its own comment there.
+SCRIPT_DIRS = ("meta", "docs", "templates", "skills", "agents", "scripts", "hooks")
+SCRIPT_CITATION = re.compile(r"`((?:" + "|".join(SCRIPT_DIRS) + r")/[^`\s]*)`")
+
+
+def script_citations(path):
+    """`(line, path)` for each backticked path under the plugin's directories
+    in a Python file's docstrings and comments. Raises SyntaxError,
+    tokenize.TokenError or UnicodeDecodeError when the file cannot be read as
+    Python, which the caller names as not evaluated."""
+    with open(path, encoding="utf-8") as fh:
+        src = fh.read()
+    docs = set()
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            first = node.body[0] if node.body else None
+            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)):
+                docs.add((first.value.lineno, first.value.col_offset))
+    out = []
+    for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+        if tok.type == tokenize.COMMENT or (tok.type == tokenize.STRING and tok.start in docs):
+            for m in SCRIPT_CITATION.finditer(tok.string):
+                out.append((tok.start[0] + tok.string.count("\n", 0, m.start()), m.group(1)))
+    return out
+
+
+def cited_exists(target):
+    """Whether a script's citation names something in the plugin. A
+    placeholder is a pattern, and names nothing to look for."""
+    if "<" in target or ">" in target:
+        return True
+    t = re.sub(r"(?::\d+(?:-\d+)?|#.*)$", "", target)
+    if "*" in t or "?" in t:
+        return bool(glob.glob(os.path.join(PLUGIN, t)))
+    return os.path.exists(os.path.join(PLUGIN, t))
 
 
 def field(fm, key):
@@ -337,6 +401,29 @@ def main(argv=None):
                 continue
             if not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(path), t))):
                 add("broken-link", rel(path), t)
+
+    # The paths the plugin's Python files cite (L-2.13), read as the comment
+    # above SCRIPT_CITATION says.
+    for base, dirs, files in os.walk(PLUGIN):
+        dirs[:] = sorted(d for d in dirs if d not in (".git", "__pycache__", ".run"))
+        for name in sorted(files):
+            if not name.endswith(".py"):
+                continue
+            path = os.path.join(base, name)
+            try:
+                cited = script_citations(path)
+            except (SyntaxError, tokenize.TokenError, UnicodeDecodeError) as exc:
+                gaps.append((f"{rel(path)}'s citations", f"it does not read as Python "
+                             f"({type(exc).__name__}: {exc}), so the paths its docstrings "
+                             "and comments cite were not looked up"))
+                continue
+            for line, target in cited:
+                if not cited_exists(target):
+                    add("broken-link", f"{rel(path)}:{line}",
+                        f"{target} is not in the plugin. A backticked path under its own "
+                        "directories, in a docstring or comment, cites the plugin's file: "
+                        "write a project's path from its root, and a pattern with a "
+                        "<placeholder>")
 
     for name in sorted(os.listdir(HERE)):
         if name.startswith("check_") and name.endswith(".py") and name != "check_plugin.py":

@@ -14,7 +14,7 @@ that a blocker outranks an undetermined row, and that the rows which merely
 differ between distributions produce nothing. It does **not** prove that the
 composition works, because every command is faked. That the composition works
 was measured by hand on 2026-09-05 and again on 2026-09-07, and is recorded in
-`meta/roadmap/0.2/0.2.0.md` §3.2 and §3.3 with the output. The last case here
+`meta/roadmap/done/0.2.0.md` §3.2 and §3.3 with the output. The last case here
 is the join between the two: it runs the real probe against the real machine
 and requires only that it survives and returns one of its three documented
 exit codes -- which is all a control can honestly ask of a machine it did not

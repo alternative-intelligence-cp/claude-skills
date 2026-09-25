@@ -37,6 +37,17 @@ each still cheap to reverse. This list is why the autonomy is honest.>
 |---|---|---|---|
 | Q-3 | D-5 | <what was decided> | yes |
 
+## 3c. Has the verification layer ever rejected anything?
+
+<`tally.py`'s output, pasted whole: its first line's four counts and every
+task's line under it, with any entry it names as not evaluated. Then the ratio,
+and whether the verifier briefs asked for what they could not reproduce (the
+`checkpoint` skill §3c).>
+
+```
+<the output of: python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tally.py" .>
+```
+
 ## 4. Is the plan still right?
 
 - **Requirements that turned out wrong:** <R-n, and how>

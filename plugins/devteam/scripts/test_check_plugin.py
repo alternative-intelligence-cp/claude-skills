@@ -509,6 +509,59 @@ unknown-rule  skills/alpha/SKILL.md  cites P-99, which PROTOCOL.md does not decl
      lambda p: roadmap(p, {"0.3/README.md": "# The cycle"}),
      set()),
 
+    # --- A SCRIPT'S CITATIONS ARE LINKS TOO (roadmap 0.3.2, L-2.13) ---------
+    # broken-link read the documents' links and nothing in the scripts, so two
+    # test files went on citing roadmap files after both moved under done/. A
+    # fifth element is text the output must carry: here, the citation's line.
+    ("broken-link-a-module-docstring-cites-a-moved-file",
+     lambda p: w(p, "scripts/check_thing.py",
+                 '"""A check.\n\nMeasured by hand, and recorded in\n'
+                 '`meta/roadmap/0.2/0.2.0.md` §3.2.\n"""\n'),
+     {"broken-link"}, set(), "scripts/check_thing.py:4  meta/roadmap/0.2/0.2.0.md is not in the plugin"),
+    ("broken-link-a-function-docstring-cites-a-missing-file",
+     lambda p: w(p, "scripts/check_thing.py",
+                 '# a check\n\n\ndef read():\n    """What `templates/GONE.md` holds."""\n'),
+     {"broken-link"}, set(), "scripts/check_thing.py:5  templates/GONE.md is not"),
+    ("broken-link-a-comment-cites-a-missing-file",
+     lambda p: w(p, "scripts/check_thing.py", "# a check, whose rule is in `docs/GONE.md`\n"),
+     {"broken-link"}, set(), "scripts/check_thing.py:1  docs/GONE.md is not"),
+    ("broken-link-a-glob-that-matches-nothing",
+     lambda p: w(p, "scripts/check_thing.py", "# every `templates/*.json` is read\n"),
+     {"broken-link"}),
+    # A script that does not read as Python offered citations nobody read.
+    ("partial-read-a-script-that-does-not-read-as-python",
+     lambda p: w(p, "scripts/check_thing.py", "# a check\ndef broken(:\n"),
+     set(), {"scripts/check_thing.py's citations"}),
+    # ...and what a script may say without citing the plugin.
+    ("fp-a-script-citation-that-resolves-is-silent",
+     lambda p: w(p, "scripts/check_thing.py",
+                 '"""A check. Its grammar is `templates/FORMATS.md`\'s, and its\n'
+                 'control is `scripts/test_check_thing.py`."""\n'
+                 "# its rows are in `docs/CHECKS.md`\n"),
+     set()),
+    ("fp-a-url-in-a-script-is-not-read",
+     lambda p: w(p, "scripts/check_thing.py", "# see `https://example.com/docs/GONE.md`\n"),
+     set()),
+    ("fp-a-placeholder-path-is-a-pattern",
+     lambda p: w(p, "scripts/check_thing.py",
+                 'def role_tools(role):\n    """The `tools:` line of `agents/<role>.md`."""\n'),
+     set()),
+    ("fp-a-string-that-is-no-docstring-is-not-read",
+     lambda p: w(p, "scripts/check_thing.py",
+                 '# a check\nFIXTURE = "a fixture names `docs/GONE.md`"\n'),
+     set()),
+    ("fp-a-projects-path-from-its-root-is-not-read",
+     lambda p: w(p, "scripts/check_thing.py",
+                 "# a project's `devteam/tasks/T-1.md`, or its `<project>/meta/research/`\n"),
+     set()),
+    ("fp-a-cited-line-or-anchor-is-not-part-of-the-path",
+     lambda p: w(p, "scripts/check_thing.py",
+                 "# `scripts/check_thing.py:2` and `docs/CHECKS.md#broken-link`\n"),
+     set()),
+    ("fp-a-glob-that-matches-is-silent",
+     lambda p: w(p, "scripts/check_thing.py", "# every `templates/*.md` is read\n"),
+     set()),
+
     ("unknown-rule-still-fires-in-prose-below-an-exempt-fence",
      lambda p: w(p, "skills/alpha/SKILL.md", SKILL.format(name="alpha") + '''
 ```
@@ -528,6 +581,8 @@ def main():
         # Parts a case plants NOT EVALUATED, on top of what the fixture itself
         # cannot exercise (roadmap 0.3.1, L-1.3).
         planted = case[3] if len(case) > 3 else set()
+        # Text the output must carry, such as a finding's line (0.3.2, L-2.13).
+        said = case[4] if len(case) > 4 else ""
         root, plugin = build(mutate)
         try:
             proc = subprocess.run(
@@ -550,12 +605,14 @@ def main():
                 want_gaps.add("unruled-finding and stale-row")
             want_gaps |= planted
             want_exit = 1 if expected else 3
-            if got == expected and gaps == want_gaps and proc.returncode == want_exit:
+            if (got == expected and gaps == want_gaps and proc.returncode == want_exit
+                    and said in proc.stdout):
                 passed += 1
             else:
                 failed += 1
                 print(f"FAIL  {name}")
-                print(f"        expected {sorted(expected) or 'clean'} exit {want_exit}")
+                print(f"        expected {sorted(expected) or 'clean'} exit {want_exit}"
+                      + (f", saying {said!r}" if said else ""))
                 print(f"        got      {sorted(got) or 'clean'} exit {proc.returncode}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n")[:6]:
                     print(f"        | {line}")
@@ -589,6 +646,14 @@ def main():
 
     def both(*plants):
         return lambda p: [plant(p) for plant in plants]
+
+    def replace_in(rel, old, new):
+        def plant(p):
+            path = os.path.join(p, rel)
+            text = open(path, encoding="utf-8").read()
+            assert text.count(old) == 1, (rel, old)
+            open(path, "w", encoding="utf-8").write(text.replace(old, new))
+        return plant
 
     def prose_protected_paths(p):
         """The charter template's Protected paths cell filled in as prose, the
@@ -628,6 +693,16 @@ def main():
                         "  - `check_scope` `overlapping-scope` `tasks/T-1.md` — planted\n"),
               append_to("templates/RECORD.md", "\n- D-1 is cited here.\n")),
          {"template-ships-a-finding"}, set()),
+        # THE TWO CITATIONS THE CYCLE README'S §4.8 FOUND, as they stood before
+        # 0.3.2's step 3.6 corrected them (L-2.13): each is reported at its line.
+        ("broken-link-the-two-moved-citations-as-they-stood",
+         both(replace_in("scripts/test_sandbox_probe.py", "meta/roadmap/done/0.2.0.md",
+                         "meta/roadmap/0.2/0.2.0.md"),
+              replace_in("scripts/test_bg_session_probe.py", "meta/roadmap/done/0.3.0.md",
+                         "meta/roadmap/0.3/0.3.0.md")),
+         {"broken-link"}, set(),
+         ("scripts/test_sandbox_probe.py:17  meta/roadmap/0.2/0.2.0.md is not",
+          "scripts/test_bg_session_probe.py:19  meta/roadmap/0.3/0.3.0.md is not")),
         ("template-scaffold-fails",
          lambda p: open(os.path.join(p, "scripts", "setup.py"), "w").write(
              "import sys\nsys.exit('refusing to scaffold')\n"),
@@ -641,7 +716,8 @@ def main():
              + open(os.path.join(HERE, "check_refs.py"), encoding="utf-8").read()),
          set(), {"the template checks"}),
     ]
-    for name, plant, expected, want_gaps in scaffold_cases:
+    for name, plant, expected, want_gaps, *rest in scaffold_cases:
+        said = rest[0] if rest else ()
         root, plugin = whole_plugin()
         try:
             if plant:
@@ -655,7 +731,8 @@ def main():
             got = {m for m in re.findall(r"^  (?!not evaluated: |excluded: )(\S+)", proc.stdout, re.M)}
             gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
             want_exit = 1 if expected else (3 if want_gaps else 0)
-            if got == expected and gaps == want_gaps and proc.returncode == want_exit:
+            if (got == expected and gaps == want_gaps and proc.returncode == want_exit
+                    and all(text in proc.stdout for text in said)):
                 passed += 1
             else:
                 failed += 1
