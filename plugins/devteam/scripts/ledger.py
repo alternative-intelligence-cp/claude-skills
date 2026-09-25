@@ -47,12 +47,12 @@ What this module holds, and who reads it:
     audit file's own `Disposition.` lines. It was a regex copied into both
     checks (0.3.2 §3.2's joint), and it retires with those lines at step 3.4;
   * an audit's answer, which is where an audit's findings come from: the
-    `AUDIT <scope> (<dimension>)` and `END AUDIT <scope>` lines that open and
-    close it, and the heading each finding is, read into the answer's scope
-    and its findings wherever the answer lands, in a task file or in
-    `audits/` (FORMATS §"An audit's answer"; roadmap 0.3.3, L-3.4).
-    check_report reads the opening and closing lines' shape from here, and
-    ends a REPORT block at either.
+    heading each finding is, read into the answer's scope and its findings
+    wherever the answer lands, in a task file or in `audits/` (FORMATS §"An
+    audit's answer"; roadmap 0.3.3, L-3.4). The `AUDIT <scope> (<dimension>)`
+    and `END AUDIT <scope>` lines that open and close it are report.py's,
+    because a REPORT block ends at either, and this module reads them from
+    there (roadmap 0.3.3 §3.4).
 
     python3 ledger.py <project> [--json]
 
@@ -72,6 +72,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import report  # noqa: E402 -- the REPORT block, and an answer's two lines (roadmap 0.3.3 §3.4)
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
 USAGE = "usage: ledger.py <project> [--json]"
@@ -126,58 +127,25 @@ def is_open(value):
 
 # --- an audit's answer (FORMATS §"An audit's answer"; roadmap 0.3.3, L-3.4) --
 #
-# AN AUDIT'S FINDINGS ARE ITEMS WHEREVER ITS TEXT LANDS, SO THE TEXT OPENS AND
-# CLOSES ON TWO LINES THE GRAMMAR READS. pricelog's auditors answered in
-# whatever shape their message took, and nothing could count what they found.
-# T-10.S-3's supervisor landed its answer under a header of its own making,
-# `REPORT auditor T-10.S-3 (…`, which is not a report. T-19.S-3's answer opened
-# `AUDIT T-19.S-3 (correctness): **one break found.** …` inside a fence, and
-# two of the items under it reached no owner (F-139). The four gate audits
-# numbered their findings `## Finding 1 (…)`, `### 1.` and `## F-1 — HIGH`,
-# and one of them waited four days for an owner (F-99). So an answer opens
-# `AUDIT <scope> (<dimension>)` and closes `END AUDIT <scope>`, each alone on
-# its line, and each finding in it is a heading carrying its dimension's
-# label. The scope is read from the AUDIT line, never from a file's name:
-# T-18's step audit had only its name, `pricelog-T-18-S-4-2026-09-17.md`, and
-# nothing tied it to its task (0.3.1 §3.2).
+# AN AUDIT'S FINDINGS ARE ITEMS WHEREVER ITS TEXT LANDS. The answer opens and
+# closes on two lines the grammar reads, `AUDIT <scope> (<dimension>)` and
+# `END AUDIT <scope>`, which are report.py's (a REPORT block ends at either),
+# and each finding between them is a heading carrying its dimension's label.
+# The four gate audits numbered their findings `## Finding 1 (…)`, `### 1.`
+# and `## F-1 — HIGH`, and one of them waited four days for an owner (F-99).
 
-LABELS = {"safety": "SAF", "correctness": "COR", "security": "SEC", "hygiene": "HYG"}
-DIMENSIONS = ", ".join(list(LABELS)[:-1]) + " or " + list(LABELS)[-1]
-# A step's scope, a task's, or a lowercase word for a milestone's. A word never
-# begins as a task id does: `t-18` or `t18` is a task mistyped, and read as a
-# milestone it would tie the audit to no task.
-SCOPE = r"(T-\d+(?:\.S-\d+)?|(?!t-?\d)[a-z][a-z0-9-]*)"
-AUDIT = re.compile(r"^AUDIT\s+" + SCOPE + r"\s+\((" + "|".join(LABELS) + r")\)\s*$")
-END = re.compile(r"^END\s+AUDIT\s+" + SCOPE + r"\s*$")
-# The same two lines however they are written, so one written slightly wrong
-# is named rather than passed over: T-19's, with text after the dimension; a
-# scope or a dimension left out or misplaced; an emphasised `**AUDIT`; the
-# audit skill's own form copied with its `<scope>` unfilled. Not the dispatch
-# field `AUDIT: none`, nor prose such as `**AUDIT triaged** (…)`, which
-# pricelog's task files hold at T-15:542 and T-18:2037.
-AUDIT_ISH = re.compile(r"^[*_]{0,2}AUDIT[*_]{0,2}(?:\s+<|(?::\s*|\s+)"
-                       r"(?:T-?\d|\(|(?:" + "|".join(LABELS) + r")\b|[A-Za-z][A-Za-z0-9-]*\s*\())")
-END_ISH = re.compile(r"^[*_]{0,2}END[*_]{0,2}\s+AUDIT\b")
-OPENING = (f"`AUDIT <scope> (<dimension>)` alone on its line (the scope `T-n.S-m`, `T-n` "
-           f"or a lowercase word; the dimension {DIMENSIONS})")
 # A finding is a heading with its dimension's label, `##` or `###`, which is
 # how the audits carrying `Disposition.` declared their findings before the
 # ledger (check_refs' audit heading). The number is the audit's own, from 1.
-FINDING = re.compile(r"^#{2,3}\s+(" + "|".join(LABELS.values()) + r")-(\d+)\s*" + DASH
+FINDING = re.compile(r"^#{2,3}\s+(" + "|".join(report.LABELS.values()) + r")-(\d+)\s*" + DASH
                      + r"\s*(.*?)\s*$")
 # A heading that looks like a finding, in the shapes the corpus used for one:
 # the gate audits' `## Finding 1 (…) —`, `### 1.` and `## F-1 — HIGH —`, and
 # any label written loosely. Any other heading in an answer, `## Verdict` or
 # `## Checked and found clean`, is its text.
 FINDING_ISH = re.compile(r"^#{2,3}\s*[*_]*\s*(?:finding\s*#?\s*\d+\b|\d+[.)]\s"
-                         r"|(?:" + "|".join(LABELS.values()) + r")[\s-]*\d+\b|[A-Z]{1,5}-\d+\b)",
+                         r"|(?:" + "|".join(report.LABELS.values()) + r")[\s-]*\d+\b|[A-Z]{1,5}-\d+\b)",
                          re.I)
-
-
-def is_answer_line(line):
-    """Does this line open or close an audit's answer, however it is written?
-    check_report ends a REPORT block at one."""
-    return bool(AUDIT_ISH.match(line) or END_ISH.match(line))
 
 
 class Finding:
@@ -205,7 +173,7 @@ class Answer:
 
     @property
     def label(self):
-        return LABELS.get(self.dimension)
+        return report.LABELS.get(self.dimension)
 
     @property
     def task(self):
@@ -280,15 +248,15 @@ def answers(lines, filed=False):
             inside.append(fenced)
     out, unread, events = [], [], []
     for i, line in enumerate(lines):
-        if not is_answer_line(line):
+        if not report.is_answer_line(line):
             continue
         if inside[i]:
             unread.append((i + 1, "an `AUDIT` or `END AUDIT` line inside a fenced block, where "
                                   "no answer is read: an answer is landed unfenced, so the "
                                   "findings under it are not counted"))
             continue
-        m = AUDIT.match(line) or END.match(line)
-        closing = bool(END_ISH.match(line))
+        m = report.AUDIT.match(line) or report.END.match(line)
+        closing = bool(report.END_ISH.match(line))
         events.append((i, closing, m.group(1) if m else None, None if closing or not m else m.group(2)))
     # Each opening is closed by the next closing line. A malformed line
     # still opens or closes, so that one fault is reported once.
@@ -300,7 +268,7 @@ def answers(lines, filed=False):
                                                f"{current[1]}` before line {i + 1}, so its "
                                                "findings are not counted"))
             if scope is None:
-                unread.append((i + 1, f"an `AUDIT` line that does not parse as {OPENING}, so "
+                unread.append((i + 1, f"an `AUDIT` line that does not parse as {report.OPENING}, so "
                                       "no answer opens here and the findings under it are "
                                       "not counted"))
             current = (i, scope, dimension)
@@ -324,9 +292,9 @@ def answers(lines, filed=False):
                                        "after it, so its findings are not counted"))
     if filed and not events and not unread:
         answer = Answer(None, None, None)
-        _findings(lines, inside, 0, len(lines), answer, set(LABELS.values()), unread)
+        _findings(lines, inside, 0, len(lines), answer, set(report.LABELS.values()), unread)
         out.append(answer)
-        unread.append((1, f"no line opens an answer as {OPENING}, so the file's findings "
+        unread.append((1, f"no line opens an answer as {report.OPENING}, so the file's findings "
                           "are tied to no task"))
     unread.sort()
     return out, unread

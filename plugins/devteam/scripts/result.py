@@ -41,7 +41,11 @@ partial read, a wrapped field (L-1.3) -- is also here, at the bottom, for the
 same reason. So is what a decision accepts (L-1.6): its grammar is read here,
 and a finding's identity -- what the gate also matches by -- is defined here.
 So is whether a commit a record names is in HEAD's history (L-2.6), which
-check_report and check_trace both read (roadmap 0.3.3, L-3.2).
+check_report and check_trace both read (roadmap 0.3.3, L-3.2), and whether a
+line of a file was already in it at a commit, which dates a block against a
+claim for both. So are a section's lines, a table row's cells and a cell's
+text, which the board's two tables are read by in check_trace and claim.py
+(roadmap 0.3.3 §3.4).
 
 Its control is test_result.py.
 """
@@ -437,6 +441,82 @@ def in_history(root, ref):
     if rc("cat-file", "-e", f"{ref}^{{commit}}") != 0:
         return ABSENT
     return IN_HISTORY if rc("merge-base", "--is-ancestor", ref, "HEAD") == 0 else ELSEWHERE
+
+
+def landed(root, path, n, commit):
+    """Whether line `n` of `path` was already in it at `commit`: the commit
+    that wrote the line, by blame, is `commit` or an ancestor of it. A line
+    not yet committed was not. None when blame cannot say.
+
+    A block is dated by its header line, which the record writes once and
+    never edits; a field repaired after the fact leaves the header where it
+    was. `--ignore-revs-file ""` clears any the project configured, which
+    would move a line's authorship to an older commit.
+
+    check_report dates a task's close against its current claim (roadmap
+    0.3.2, L-2.7) and a step's block against its sandbox, and check_trace an
+    item against the claim it was raised under (roadmap 0.3.3, L-3.5), so the
+    test is here, once, where neither check's imports can close a cycle
+    through it."""
+    def git(*args):
+        try:
+            p = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
+        except OSError:
+            return 127, ""
+        return p.returncode, p.stdout.strip()
+    rc, out = git("blame", "--porcelain", "--ignore-revs-file", "", "-L", f"{n},{n}", "--", path)
+    sha = out.split(" ", 1)[0] if rc == 0 else ""
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        return None
+    if set(sha) == {"0"}:
+        return False
+    return git("merge-base", "--is-ancestor", sha, commit)[0] == 0
+
+
+# --- a section, a table row, a cell (roadmap 0.3.3 §3.4) --------------------
+#
+# The board's two tables are read in two places: its Tasks table by
+# check_trace, and its in-flight table by claim.py, the claim's home. claim.py
+# is imported by check_trace, to date an item against the claim it was raised
+# under (L-3.5), so the reading both tables share is here, at the bottom,
+# rather than in either: had claim.py kept reading the in-flight table through
+# check_trace, the two would import each other.
+
+SECTION = re.compile(r"^##\s+(.+?)\s*$")
+TABLE_RULE = re.compile(r"^\|\s*:?-{3,}")
+LINK_TEXT = re.compile(r"^\[([^\]]*)\]\([^)]*\)$")
+
+
+def section_lines(lines, title):
+    """(first line number, lines) of the `## <title>` section, or (None, [])."""
+    start = None
+    for n, line in enumerate(lines, 1):
+        m = SECTION.match(line)
+        if m and start is None and m.group(1).strip().lower() == title:
+            start = n
+        elif m and start is not None:
+            return start, lines[start:n - 1]
+    return (start, lines[start:]) if start is not None else (None, [])
+
+
+def cells(line):
+    """A table row's cells, stripped, without the empty cells outside its pipes."""
+    parts = line.strip().split("|")
+    return [c.strip() for c in parts[1:-1 if line.strip().endswith("|") else None]]
+
+
+def plain(cell):
+    """A cell's text with its decoration peeled, in any order: a link becomes
+    its text, and bold, italics and backticks come off both ends."""
+    c = cell.strip()
+    while True:
+        before = c
+        c = c.strip("*`_ ").strip()
+        m = LINK_TEXT.match(c)
+        if m:
+            c = m.group(1).strip()
+        if c == before:
+            return c
 
 
 # --- a checkout of one commit (roadmap 0.3.1, L-1.5) ------------------------

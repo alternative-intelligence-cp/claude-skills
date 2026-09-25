@@ -37,7 +37,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import claim   # noqa: E402 -- a task's current claim, computed in one place (L-2.5)
-import ledger  # noqa: E402 -- an audit's answer, whose lines end a block (roadmap 0.3.3, L-3.4)
+import report  # noqa: E402 -- the block's parse, one home with the ledger's join (roadmap 0.3.3 §3.4)
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
 # `open:` IS REQUIRED, after `questions:` (roadmap 0.3.3, L-3.4). It holds what
@@ -71,20 +71,10 @@ DASH = r"[—–-]"
 # hyphen inside a word or a date never has spaces around it; a separator always
 # does.
 SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
-# A header may carry an annotation after its id, in parentheses and on its own
-# line: `REPORT implementer T-6.S-4 (ATTEMPT 2, correcting attempt 1's FAILED
-# verification)`. The run wrote exactly that, the grammar refused it, and the
-# check read attempt 1's block in its place with no word said (F-34; roadmap
-# 0.3.2, L-2.7). The parenthetical is the idiom a title's status already uses.
-HEADER = re.compile(r"^REPORT\s+(\S+)\s+(T-\d+)(?:\.(S-\d+))?(?:\s+\((.+)\))?\s*$")
-# A key may carry an annotation before its colon: F-88's `checks (all run by
-# the supervisor…):` ended the field parse, and every field after it read as
-# missing (L-2.7). The annotation may continue onto indented lines, as any
-# value may, and F-88's did: its parenthesis opened on the key's line and
-# closed two indented lines below, `…post-promotion run):`.
-KEY = re.compile(r"^([a-z][a-z-]*)(?:\s*\(.*?\))?:\s*(.*)$")
-OPEN_KEY = re.compile(r"^([a-z][a-z-]*)\s*\((?!.*\):)")
-CLOSE_KEY = re.compile(r"\):\s*(.*)$")
+# THE BLOCK'S PARSE IS report.py's -- its header, its keys and their
+# annotations, where it ends, and which block is judged for an id -- because
+# the ledger counts items from the same blocks this judges (roadmap 0.3.3
+# §3.4; P-34).
 # A status is one of STATUSES, read across its continuation lines (L-2.3), and
 # may carry one qualifier: a report the supervisor reconstructed after its
 # worker died says so, `DONE (reconstructed: <by whom, and why>)`. pricelog's
@@ -149,16 +139,8 @@ HEADER_ISH = re.compile(r"^REPORT\s+\S+\s+(T-\d+)")
 # whose annotation wraps onto the next line. `T-18.S-4-pre` names no step id,
 # so no later block can be the same step's.
 HEADER_ID = re.compile(r"^REPORT\s+\S+\s+(T-\d+)(?:\.(S-\d+))?(?=[\s(]|$)")
-# AN AUDITOR'S ANSWER IS NOT A REPORT (roadmap 0.3.3, L-3.4). An auditor has
-# no tool that writes, so its supervisor lands its answer, and pricelog's
-# T-10.S-3 supervisor landed one under a header of its own making,
-# `REPORT auditor T-10.S-3 (adversarial pass, verbatim, P-17 — …`, its
-# parenthesis closing two lines below it. An answer opens
-# `AUDIT <scope> (<dimension>)` and closes `END AUDIT
-# <scope>`, and a REPORT line whose role is `auditor`, parsed or not, is named
-# as not a report, with that form in the reason. It is never judged as a
-# block, and never counts as a later block for its id.
-AUDITOR = re.compile(r"^REPORT\s+(?i:auditor)\s+T-\d+")
+# An auditor's REPORT line, parsed or not, is not a report (roadmap 0.3.3,
+# L-3.4): report.AUDITOR, which opens no block there and is named here.
 # A REPORT field as a writer would write one, annotation and all: F-88's
 # `checks (all run by the supervisor…):` ended the parse, and every field
 # after it read as missing. Only the grammar's own keys: prose after a block
@@ -201,85 +183,6 @@ def task_scope(devteam, task_id, unparsed=None):
     return [p for p in out if p and "<" not in p]
 
 
-# One block: the 0-based line of its header, what the header says, its fields
-# (each a list: a key's inline value, then its indented continuation lines),
-# each key's line, and the line the field parse stopped at, or None when it
-# ran to the block's end (roadmap 0.3.1, L-1.3).
-Block = collections.namedtuple("Block", "start role task step note fields at stop")
-
-
-def ends_block(line):
-    """Does this line end the block above it? The next header, a heading, or
-    an audit's answer opening or closing (roadmap 0.3.3, L-3.4): an answer
-    landed right after a block is text between blocks, as a supervisor's
-    prose is, and none of its lines is that block's field."""
-    return bool(HEADER.match(line) or line.startswith("#") or ledger.is_answer_line(line))
-
-
-def parse_block(lines, i):
-    """The block whose header is `lines[i]`."""
-    m = HEADER.match(lines[i])
-    fields, key, at, stop = {}, None, {}, None
-    j = i + 1
-    while j < len(lines):
-        line = lines[j]
-        if ends_block(line):
-            break
-        k = KEY.match(line)
-        closed = None
-        if not k and OPEN_KEY.match(line):
-            # The annotation's indented lines, up to the one that closes it.
-            # One that never closes leaves the line unread, as before.
-            n = j + 1
-            while n < len(lines) and lines[n].startswith((" ", "\t")) and lines[n].strip():
-                if CLOSE_KEY.search(lines[n]):
-                    closed = n
-                    break
-                n += 1
-        if k or closed is not None:
-            key = (k or OPEN_KEY.match(line)).group(1)
-            value = k.group(2) if k else CLOSE_KEY.search(lines[closed]).group(1)
-            fields[key] = [value] if value else []
-            at[key] = j
-            j = closed if closed is not None else j
-        elif key is not None and line.startswith((" ", "\t")) and line.strip():
-            fields[key].append(line.strip())
-        elif line.strip():
-            stop = j
-            break
-        j += 1
-    return Block(i, m.group(1), m.group(2), m.group(3), m.group(4), fields, at, stop)
-
-
-def judged(blocks, task_id, step_id=None):
-    """(the blocks a run for `task_id`, or for its step `step_id`, judges, in
-    file order; how many earlier blocks for the same ids they supersede)."""
-    mine = [b for b in blocks if b.task == task_id and (b.step == step_id if step_id else True)]
-    latest = {}
-    for b in mine:
-        latest[b.step] = b                    # a later block for the same id wins
-    return sorted(latest.values(), key=lambda b: b.start), len(mine) - len(latest)
-
-
-def landed(repo, path, n, commit):
-    """Whether line `n` of `path` was already in it at `commit`: the commit
-    that wrote the line, by blame, is `commit` or an ancestor of it. A line
-    not yet committed was not. None when blame cannot say.
-
-    A block is dated by its header line, which the record writes once and
-    never edits; a field repaired after the fact leaves the header where it
-    was. `--ignore-revs-file ""` clears any the project configured, which
-    would move a line's authorship to an older commit."""
-    rc, out = git(repo, "blame", "--porcelain", "--ignore-revs-file", "", "-L", f"{n},{n}",
-                  "--", path)
-    sha = out.split(" ", 1)[0] if rc == 0 else ""
-    if not re.fullmatch(r"[0-9a-f]{40}", sha):
-        return None
-    if set(sha) == {"0"}:
-        return False
-    return git(repo, "merge-base", "--is-ancestor", sha, commit)[0] == 0
-
-
 def previous_claim(repo, task_id, title_status, b):
     """A task-level block landed before the task's current claim is the
     PREVIOUS claim's report (roadmap 0.3.2, L-2.7; F-136): `(label, the
@@ -298,7 +201,7 @@ def previous_claim(repo, task_id, title_status, b):
         return None
     rel = f"tasks/{task_id}.md"
     lab, anchor, _why = claim.current(repo, {task_id: (rel, title_status)})[task_id]
-    if anchor and landed(repo, f"devteam/{rel}", b.start + 1, anchor):
+    if anchor and result.landed(repo, f"devteam/{rel}", b.start + 1, anchor):
         return lab, anchor
     return None
 
@@ -485,10 +388,9 @@ def check(project, want_id):
         add("no-report", "the task file has no `## Execution record` section")
 
     task_rel = f"tasks/{task_id}.md"
-    blocks = [parse_block(lines, i) for i, l in enumerate(lines)
-              if HEADER.match(l) and not AUDITOR.match(l)]
-    read, superseded = judged(blocks, task_id, step_id)
-    # A REPORT line naming this task that HEADER cannot read is a block this
+    blocks = report.blocks(lines)
+    read, superseded = report.judged(blocks, task_id, step_id)
+    # A REPORT line naming this task that report.HEADER cannot read is a block this
     # run judges nothing of -- F-34's shape, where attempt 2's header did not
     # parse and the check read attempt 1 in its place -- unless a block the
     # grammar does read comes after it for the same id. Then it is a
@@ -503,10 +405,10 @@ def check(project, want_id):
         ident = (loose.group(1), loose.group(2)) if loose else None
         if step_id and ident and ident[1] != step_id:
             continue                          # another id, and this run reads one step
-        if AUDITOR.match(l):
+        if report.AUDITOR.match(l):
             auditors.append((j + 1, ".".join(filter(None, ident)) if ident else "<scope>"))
             continue
-        if HEADER.match(l):
+        if report.HEADER.match(l):
             continue
         if ident and any(b.start > j and (b.task, b.step) == ident for b in blocks):
             continue
@@ -522,7 +424,7 @@ def check(project, want_id):
         reasons.append(f"{task_rel}:{n} is an auditor's REPORT line, and an audit's answer is "
                        f"not a report: it lands between `AUDIT {scope} (<dimension>)` and "
                        f"`END AUDIT {scope}`, each alone on its line, the dimension "
-                       f"{ledger.DIMENSIONS} (FORMATS §\"An audit's answer\")")
+                       f"{report.DIMENSIONS} (FORMATS §\"An audit's answer\")")
     if reasons:
         gaps.append(("the REPORT blocks", "; ".join(reasons), False))
     if not read and blocks:
@@ -587,7 +489,7 @@ def check(project, want_id):
         if b.stop is not None:
             rest = []
             for j in range(b.stop, len(lines)):
-                if ends_block(lines[j]) or HEADER_ISH.match(lines[j]):
+                if report.ends_block(lines[j]) or HEADER_ISH.match(lines[j]):
                     break
                 k = KEY_ISH.match(lines[j])
                 if k and k.group(1) not in b.fields:
@@ -765,7 +667,7 @@ def check(project, want_id):
             unmetered[f"devteam/.run/locks/{task_id}.sandbox names "
                        f"{on_line or 'no step'}"].append(b.step)
             continue
-        if landed(repo, f"devteam/{task_rel}", b.start + 1, base) is not False:
+        if result.landed(repo, f"devteam/{task_rel}", b.start + 1, base) is not False:
             unmetered[f"the sandbox devteam/.run/locks/{task_id}.sandbox names opened at "
                       f"{base[:7]} with the block already in the task file, so its meter "
                       "is a later attempt's"].append(b.step)

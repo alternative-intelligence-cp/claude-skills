@@ -11,8 +11,18 @@ the in-flight table's `Agent label` column, on the task's row.
 
 `check_scope` opens `misattributed-write`'s window there, and `check_report`
 reads a restarted task's previous close as the previous claim's by it (L-2.7,
-F-136); nothing else computes a claim. The in-flight table itself has one
-reader, `check_trace.in_flight_rows`, which this reads at each commit.
+F-136); nothing else computes a claim.
+
+THE IN-FLIGHT TABLE'S ONE READER IS HERE, `in_flight_rows`, because the table
+is the claim's record: check_trace's `in_flight`, which the gate's allowance
+keys on, reads it through this, and so does the claim at each commit. It was
+check_trace's, and this read it from there. Then check_trace came to need the
+claim -- an item raised under a task's current claim is not due until its row
+leaves `CLAIMED` (roadmap 0.3.3, L-3.5) -- and the two modules would have
+imported each other. So the reader moved here, and the reading it shares with
+check_trace's Tasks table -- a section's lines, a row's cells, a cell's text
+-- moved to result.py, at the bottom, which imports no check (roadmap 0.3.3
+§3.4).
 
 THE LABEL, NEVER A SUBJECT. pricelog's claims were subjected `board: claim T-3
 and T-2`, `plan T-17 and claim T-15`, `board: claim T-9 (re-dispatch)`,
@@ -34,8 +44,9 @@ had left, and the gate now refuses a path naming the whole repository while
 its hook refuses every commit made around it. A commit into a stopped task's
 scope names its paths.
 
-Its controls are test_check_scope.py, through the window it opens, and
-test_check_report.py, through the restarts it reads.
+Its controls are test_check_scope.py, through the window it opens,
+test_check_report.py, through the restarts it reads, and test_check_trace.py
+and test_gate.py, through the in-flight table's allowance.
 """
 import os
 import re
@@ -43,7 +54,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import check_trace  # noqa: E402 -- the in-flight table's one reader
+import result  # noqa: E402 -- a section, a row's cells and a cell's text, which the board is read by
 
 BOARD = "devteam/BOARD.md"
 GRAMMAR = "`RUNNING (since <date>, <label>)`"
@@ -56,6 +67,44 @@ def label(status):
     """The claim label a task title's status carries, or None."""
     m = TITLE_LABEL.match(status.strip())
     return m.group(1) if m else None
+
+
+IN_FLIGHT_ROW = re.compile(r"^\|\s*(?:\[|\*\*|\*|`)*\s*(T-\d+)\b")
+
+
+def in_flight_rows(lines):
+    """([(T-n, its claim label or None, its line)], [lines of rows naming no
+    task]) for the `## In flight` table of a board's lines -- the table's one
+    reader, which check_trace's `in_flight` and the claim both read.
+
+    The label is the cell under the header's `Agent label`, decoration
+    peeled, as the Tasks table's state is the cell under `State`. It is None
+    when the table has no such column, the cell is a placeholder, or the row
+    has a cell more or fewer than its header, so that a label is never read
+    from the wrong column (roadmap 0.3.2, L-2.5).
+    """
+    start, body = result.section_lines(lines, "in flight")
+    out, unparsed, col, width = [], [], None, 0
+    if start is None:
+        return out, unparsed
+    for k, line in enumerate(body):
+        if not line.startswith("|") or result.TABLE_RULE.match(line):
+            continue
+        first = line.split("|")[1].strip().strip("*`_ ")
+        if first.lower() == "task":
+            head = [result.plain(c).lower() for c in result.cells(line)]
+            col = head.index("agent label") if "agent label" in head else None
+            width = len(head)
+            continue
+        m = IN_FLIGHT_ROW.match(line)
+        if m:
+            row = result.cells(line)
+            label = result.plain(row[col]) if col is not None and len(row) == width else ""
+            out.append((m.group(1), label if label not in ("", "—", "-") else None,
+                        start + 1 + k))
+        elif first.lower() not in ("—", "-", ""):
+            unparsed.append(start + 1 + k)
+    return out, unparsed
 
 
 def boards(repo):
@@ -96,7 +145,7 @@ def current(repo, running):
     wanted = {t: lab for t, lab in labels.items() if lab}
     if wanted:
         for sha, lines in boards(repo):
-            rows, _unparsed = check_trace.in_flight_rows(lines)
+            rows, _unparsed = in_flight_rows(lines)
             for tid, lab, _n in rows:
                 if tid in wanted and lab == wanted[tid] and tid not in found:
                     found[tid] = sha

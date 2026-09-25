@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 import ledger  # noqa: E402 -- the ledger's grammar, and the first-word `open` test
 import check_refs  # noqa: E402 -- a checkpoint's declaration, one home (P-34)
+import claim   # noqa: E402 -- a task's current claim, and the in-flight table's reader (L-2.5)
 
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -218,7 +219,6 @@ WORKING_STATE = ("untracked-file",)
 
 # --- the amendment re-affirmation (P-48) ---------------------------------
 DM_DECL = re.compile(r"^-\s+\*\*(DM-\d+)\*\*\s*" + DASH)
-SECTION = re.compile(r"^##\s+(.+?)\s*$")
 AMENDMENT_ENTRY = re.compile(r"^###\s+(.+?)\s*$")
 # WHICH ENTRY IS "THE LATEST" IS A DECLARED FIELD, NOT A POSITION. Charters
 # write amendments NEWEST FIRST, so taking the last `###` in the section picks
@@ -476,18 +476,6 @@ def field_gaps(ident, where, fields):
     return out
 
 
-def section_lines(lines, title):
-    """(first line number, lines) of the `## <title>` section, or (None, [])."""
-    start = None
-    for n, line in enumerate(lines, 1):
-        m = SECTION.match(line)
-        if m and start is None and m.group(1).strip().lower() == title:
-            start = n
-        elif m and start is not None:
-            return start, lines[start:n - 1]
-    return (start, lines[start:]) if start is not None else (None, [])
-
-
 # --- estimate-step-mismatch (roadmap 0.3.2, L-2.10) --------------------------
 # The estimate states its model, `model=<steps>x440000x1.78+150000` (P-41), and
 # `<steps>` is the step-units AS PLANNED -- the plan skill's model, whose rounds
@@ -510,7 +498,7 @@ def planned_steps(lines):
     """([the step numbers under `## Steps`], [1-based lines offered there that
     are not a step line]). A step named twice -- a re-attempt's own line --
     is one step."""
-    start, body = section_lines(lines, "steps")
+    start, body = result.section_lines(lines, "steps")
     got, missed = [], []
     for k, line in enumerate(body):
         if not STEP_ISH.match(line):
@@ -622,7 +610,6 @@ def first_declared(devteam):
 # found by its header rather than by its `## Tasks` heading, so a board written
 # without the heading reads the same.
 TABLE_ROW = re.compile(r"^\|")
-LINK_TEXT = re.compile(r"^\[([^\]]*)\]\([^)]*\)$")
 TASK_ID = re.compile(r"^T-\d+$")
 
 # FORMATS' board task states (§"Status vocabularies"), matched WHOLE. A reason
@@ -634,26 +621,6 @@ TASK_ID = re.compile(r"^T-\d+$")
 # said something untrue.
 BOARD_STATE = re.compile(r"^(?:—|-|CLAIMED \S+|BLOCKED on [TQ]-\d+(?:, [TQ]-\d+)*|DONE"
                          r"|ACCEPTED \(\d{4}-\d{2}-\d{2}, D-\d+\))$")
-
-
-def cells(line):
-    """A table row's cells, stripped, without the empty cells outside its pipes."""
-    parts = line.strip().split("|")
-    return [c.strip() for c in parts[1:-1 if line.strip().endswith("|") else None]]
-
-
-def plain(cell):
-    """A cell's text with its decoration peeled, in any order: a link becomes
-    its text, and bold, italics and backticks come off both ends."""
-    c = cell.strip()
-    while True:
-        before = c
-        c = c.strip("*`_ ").strip()
-        m = LINK_TEXT.match(c)
-        if m:
-            c = m.group(1).strip()
-        if c == before:
-            return c
 
 
 def board_rows(lines):
@@ -675,17 +642,17 @@ def board_rows(lines):
         while n < len(lines) and TABLE_ROW.match(lines[n]):
             n += 1
         table = lines[start:n]
-        head = [plain(c).lower() for c in cells(table[0])]
-        if (len(table) < 2 or not TABLE_RULE.match(table[1])
+        head = [result.plain(c).lower() for c in result.cells(table[0])]
+        if (len(table) < 2 or not result.TABLE_RULE.match(table[1])
                 or not head or head[0] != "task" or "state" not in head):
             continue
         found, col = True, head.index("state")
         for line_no, line in enumerate(table[2:], start + 3):
             if not BOARD_ROW_ISH.match(line):
                 continue
-            row = cells(line)
-            tid = plain(row[0]) if row else ""
-            if len(row) != len(head) or not TASK_ID.match(tid) or not plain(row[col]):
+            row = result.cells(line)
+            tid = result.plain(row[0]) if row else ""
+            if len(row) != len(head) or not TASK_ID.match(tid) or not result.plain(row[col]):
                 missed.append(line_no)
                 continue
             # Bold and backticks anywhere in the state are decoration:
@@ -738,10 +705,6 @@ BOARD_PHASES = {
 CLAIM_HELD = ("DONE", "READY-TO-AUDIT", "NEEDS-DECISION", "BLOCKED")
 
 
-IN_FLIGHT_ROW = re.compile(r"^\|\s*(?:\[|\*\*|\*|`)*\s*(T-\d+)\b")
-TABLE_RULE = re.compile(r"^\|\s*:?-{3,}")
-
-
 def in_flight(devteam):
     """({T-n: its line in BOARD.md}, [lines of rows naming no task]) for the
     board's `## In flight` table.
@@ -753,45 +716,10 @@ def in_flight(devteam):
     other than the template's `—` placeholder and the header -- is returned
     as unparsed, so the allowance cannot read a task into it and fails closed.
     """
-    rows, unparsed = in_flight_rows(read(devteam, "BOARD.md"))
+    rows, unparsed = claim.in_flight_rows(read(devteam, "BOARD.md"))
     out = {}
     for tid, _label, n in rows:
         out.setdefault(tid, n)
-    return out, unparsed
-
-
-def in_flight_rows(lines):
-    """([(T-n, its claim label or None, its line)], [lines of rows naming no
-    task]) for the `## In flight` table of a board's lines -- the table's one
-    reader, which `in_flight` and the claim's home (claim.py) both read.
-
-    The label is the cell under the header's `Agent label`, decoration
-    peeled, as the Tasks table's state is the cell under `State`. It is None
-    when the table has no such column, the cell is a placeholder, or the row
-    has a cell more or fewer than its header, so that a label is never read
-    from the wrong column (roadmap 0.3.2, L-2.5).
-    """
-    start, body = section_lines(lines, "in flight")
-    out, unparsed, col, width = [], [], None, 0
-    if start is None:
-        return out, unparsed
-    for k, line in enumerate(body):
-        if not line.startswith("|") or TABLE_RULE.match(line):
-            continue
-        first = line.split("|")[1].strip().strip("*`_ ")
-        if first.lower() == "task":
-            head = [plain(c).lower() for c in cells(line)]
-            col = head.index("agent label") if "agent label" in head else None
-            width = len(head)
-            continue
-        m = IN_FLIGHT_ROW.match(line)
-        if m:
-            row = cells(line)
-            label = plain(row[col]) if col is not None and len(row) == width else ""
-            out.append((m.group(1), label if label not in ("", "—", "-") else None,
-                        start + 1 + k))
-        elif first.lower() not in ("—", "-", ""):
-            unparsed.append(start + 1 + k)
     return out, unparsed
 
 
@@ -875,7 +803,7 @@ def check(devteam):
     # What the Goals section OFFERS: every top-level list item and table row
     # in it. GOAL is read over the whole charter and that is unchanged; this
     # only names a row written in the section that GOAL does not accept.
-    start, body = section_lines(charter, "goals")
+    start, body = result.section_lines(charter, "goals")
     offered = [start + 1 + k for k, line in enumerate(body) if SECTION_ROW.match(line)]
     missed = [n for n in offered if not GOAL.match(charter[n - 1])]
     if missed:
@@ -994,7 +922,7 @@ def check(devteam):
     # anything read out of them.
     dm_offered, dm_missed, row_offered, row_missed = 0, [], 0, []
     for n, line in enumerate(charter, 1):
-        ms = SECTION.match(line)
+        ms = result.SECTION.match(line)
         if ms:
             section = ms.group(1).strip().lower()
             if section.startswith("amendment"):
@@ -1023,7 +951,7 @@ def check(devteam):
     # a version, read for stale-version-header below.
     header_at, header_n = None, None
     for n, line in enumerate(charter, 1):
-        if SECTION.match(line):
+        if result.SECTION.match(line):
             break
         if HEADER_ISH.match(line):
             mh = HEADER_VERSION.match(line)
@@ -1044,7 +972,7 @@ def check(devteam):
         # not fire at all (F-68, RECORD.md:922). An entry runs to the next
         # entry heading, and the section to the next section.
         end = next((k for k in range(amend_start, len(charter))
-                    if SECTION.match(charter[k])), len(charter))
+                    if result.SECTION.match(charter[k])), len(charter))
         tail = charter[amend_start:end]
         entries = [i for i, l in enumerate(tail) if AMENDMENT_ENTRY.match(l)]
         if entries:
