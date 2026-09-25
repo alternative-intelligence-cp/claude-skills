@@ -53,11 +53,14 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 26 classes
+## `check_trace.py` — 29 classes
 
-Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`, `BOARD.md` and `audits/`,
-tracked or untracked and not ignored, and `DECISIONS.md`'s acceptances. Diffs
-goals ↔ requirements ↔ tasks ↔ acceptance criteria.
+Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`, `BOARD.md`, `audits/`, and
+`LEDGER.md` with the `QUESTIONS.md` statuses and `checkpoints/` titles its
+dispositions name, tracked or untracked and not ignored; `DECISIONS.md`'s
+acceptances; and HEAD's history, for a ledger entry's fix. Diffs goals ↔
+requirements ↔ tasks ↔ acceptance criteria, and each item's disposition ↔ what
+it names.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
@@ -86,6 +89,9 @@ goals ↔ requirements ↔ tasks ↔ acceptance criteria.
 | `estimate-step-mismatch` | P-41 — estimates come from a stated model; `FORMATS.md` §"Identifier declarations", the estimate | a `PLANNED` task's `Estimate.` `model=<n>x…` ↔ the step lines under its `## Steps`, struck ones included, a step named twice counted once. Compared only while the title reads `PLANNED`: the model counts the steps as planned, and its rounds rate prices each step a supervisor adds once the task runs (roadmap 0.3.2, L-2.10, the owner's answer of 2026-09-24). No `## Steps` is compared with nothing | `enforces` |
 | `bad-kind` | `FORMATS.md` §"Status vocabularies", task `Kind.` | the declared `Kind.` ↔ the closed set `implementation · probe · spike · chore` | `enforces` |
 | `open-finding-at-close` | P-31 — the audit precedes the close | an audit file's `Disposition.` values, read whole, open when the first word is `open` ↔ the audited task's title status | `enforces` |
+| `expired-item` | P-52 — an item raised has a decision, or a date by which one is due | each `LEDGER.md` entry's `Disposition.`, read through `ledger.py` ↔ what it names. `open (until T-n)` and `routed T-n` ↔ T-n's title and board row: due once the title reads `DONE` or `ACCEPTED` and the row does not read `CLAIMED`, so the supervisor's close lands and the manager's advance decides the item (roadmap 0.3.3, L-3.12, the owner's answer of 2026-09-25). `open (until C-n)` ↔ the checkpoints filed, each read by `check_refs`' own title declaration in a file it reads as a checkpoint: due once one numbered n or higher is filed, so a skipped number still falls due. `raised Q-n` ↔ Q-n's `Status.`: due once it reads `withdrawn` | `enforces` |
+| `routed-out-of-scope` | P-52; P-10 — a worker writes only inside its declared scope | a `routed T-n` entry's `Needs.` — a path list, read by the parse `Scope.` is, its first `Needs.` standing — ↔ T-n's `Scope.`, by the containment `unreachable-acceptance` applies (P-34). An entry with no `Needs.`, or one naming no path, is the finding. An entry of the list that is not a bare path, or a `Needs.` named and not written as the field, is a part not evaluated, `ITM-n's Needs.` | `enforces` |
+| `fix-not-in-history` | P-52; P-5 — discharged by evidence, never assertion | each commit a `fixed (<commit>)` entry names ↔ HEAD's history, by `result.in_history`: the ancestry test `check_report`'s `unknown-commit` applies to a hash a report cites (roadmap 0.3.2, L-2.6) | `enforces` |
 | `unjustified-task` | P-45 — a probe names what it de-risks | a probe/spike's `Informs.`, read as bare identifiers ↔ the declared requirements and goals | `enforces` (P-45, written here) |
 
 ## `check_refs.py` — 11 classes
@@ -96,7 +102,7 @@ leaks.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
-| `cited-undefined` | P-22 | identifiers cited ↔ identifiers declared | `enforces` |
+| `cited-undefined` | P-22 | identifiers cited ↔ identifiers declared. A ledger entry's `open (until C-n)` names a checkpoint not yet filed, so its `C-n` is a date and not a citation, and `check_trace`'s `expired-item` judges it (roadmap 0.3.3, L-3.12); the same checkpoint cited anywhere else is a citation | `enforces` |
 | `defined-uncited` | P-22 — *and a decision declared must be cited* | decisions declared ↔ decisions cited | `enforces` |
 | `duplicate-id` | `FORMATS.md` §"Identifier declarations" — one declaration per identifier | declaration sites ↔ each other | `enforces` |
 | `broken-link` | `FORMATS.md` §"What each check reads" | relative link targets ↔ files on disk | `enforces` |
@@ -124,7 +130,7 @@ Each finding names its block, and is anchored at its header.
 | `missing-field` | `FORMATS.md` §"The REPORT block" | the block's keys ↔ the required key set. A key may carry an annotation, `checks (<why>):`, and is read as its key (roadmap 0.3.2, L-2.7; F-88) | `enforces` |
 | `bad-report-status` | `FORMATS.md` §"Status vocabularies", REPORT `status:` | the reported status, read whole ↔ the closed set of five, which may carry one qualifier, `(reconstructed: <by whom, and why>)` (roadmap 0.3.2, L-2.8; F-86) | `enforces` |
 | `status-mismatch` | P-34 — facts have one home | the task's current report's `status:` ↔ the task title's status. A task-level block already in the file when the claim its `RUNNING` title names began is the previous claim's, and is compared with nothing of the current run: not the title, the meter or the tree (roadmap 0.3.2, L-2.7; F-136) | `enforces` |
-| `unknown-commit` | P-5 — discharged by evidence, never assertion | each commit under `commits:` ↔ HEAD's history: a hash names an ancestor of HEAD, not merely an object, and a subject is one a commit in HEAD's history has. At the gate HEAD is the commit being judged, so another branch's commits, a promotion's leftovers under `refs/devteam/sandbox/` and a refused gate candidate resolve nothing (roadmap 0.3.2, L-2.6) | `enforces` |
+| `unknown-commit` | P-5 — discharged by evidence, never assertion | each commit under `commits:` ↔ HEAD's history: a hash names an ancestor of HEAD, not merely an object, and a subject is one a commit in HEAD's history has. At the gate HEAD is the commit being judged, so another branch's commits, a promotion's leftovers under `refs/devteam/sandbox/` and a refused gate candidate resolve nothing (roadmap 0.3.2, L-2.6). The ancestry test is `result.in_history`, which `check_trace` reads for a ledger entry's fix (P-34) | `enforces` |
 | `head-subject` | P-16 | the subjects in HEAD's history ↔ one beginning with the task this report closes (roadmap 0.3.2, L-2.6) | `enforces` |
 | `dirty-tree` | P-44 — promotion is gated; P-5 | `git status --porcelain` ↔ empty, on the task's current report's closing status | `enforces` |
 | `unfinished-scope` | P-5 | TODO/FIXME/XXX/`NotImplementedError` inside `Scope.` ↔ empty, on the task's current report's closing status | `enforces` |

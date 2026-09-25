@@ -580,6 +580,22 @@ S-1 is the only step.
     ("partial-read-a-second-disposition-in-a-ledger-entry",
      [ledger(ledger_entry(1, "raised Q-1", extra="- **Disposition.** declined (D-1)\n"))],
      set(), {"LEDGER.md's dispositions"}, "a second `Disposition.` in ITM-1"),
+    # AN `until C-n` IS A DATE, NOT A CITATION (roadmap 0.3.3, L-3.12, the
+    # owner's answer of 2026-09-25). It names a checkpoint not yet filed, and
+    # was `cited-undefined` until the filing; check_trace judges the date.
+    ("fp-an-until-checkpoint-not-yet-filed-is-a-date-not-a-citation",
+     [ledger(ledger_entry(1, "open (until C-9)"))], set()),
+    ("fp-an-until-checkpoint-wrapped-onto-its-next-line-is-still-a-date",
+     [ledger(ledger_entry(1, "open (until\n  C-9)"))], set()),
+    # ...the date alone: the same checkpoint cited in a note of the entry is a
+    # citation, and resolves as one.
+    ("cited-undefined-the-dates-checkpoint-cited-in-a-note-is-still-a-citation",
+     [ledger(ledger_entry(1, "open (until C-9)", extra="- discussed before C-9 is filed\n"))],
+     {"cited-undefined"}, set(), "LEDGER.md:10"),
+    # ...and `until T-n` stays a citation: a task exists before it is named.
+    ("cited-undefined-an-until-task-no-file-declares-is-still-a-citation",
+     [ledger(ledger_entry(1, "open (until T-9)"))], {"cited-undefined"}, set(),
+     "T-9 is cited but never declared"),
     # CNV- IS UNCHANGED (roadmap 0.3.3, L-3.3). A convention is declared
     # outside any project, and a citation of one declared nowhere was
     # `cited-undefined` before this subcycle and still is -- recorded under

@@ -216,7 +216,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | step checkbox | `[ ]` pending · `[x]` done · `[~]` struck, with a reason on the line |
 | question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn` |
 | question `Class.` | `REVERSIBLE` · `IRREVERSIBLE` · `CHARTER` |
-| ledger `Disposition.` | `open (until T-n)` · `open (until C-n)` · `routed T-n` · `raised Q-n` · `declined (D-n)` · `fixed (<commit>)`, several commits comma-separated (roadmap 0.3.3, L-3.2). **An open item names the date it is due by**: the task whose close, or the checkpoint whose filing, it must be decided by. `routed T-n`: T-n owns it, and the entry's `Needs.` names the paths it needs changed. `raised Q-n`: the client decides, and Q-n's `Status.` is the one home of the answer. `declined (D-n)`: D-n says why it will not be acted on. `fixed (<commit>)`: the commits named fixed it, and a commit may be backticked. The value is matched whole, so a note goes on a bullet of its own. A value outside the set is `bad-status`, and one that reads `open` with no date is `undispositioned-finding` (§"The ledger") |
+| ledger `Disposition.` | `open (until T-n)` · `open (until C-n)` · `routed T-n` · `raised Q-n` · `declined (D-n)` · `fixed (<commit>)`, several commits comma-separated (roadmap 0.3.3, L-3.2). **An open item names the date it is due by**: the task whose close, or the checkpoint whose filing, it must be decided by. `routed T-n`: T-n owns it, and the entry's `Needs.` names the paths it needs changed. `raised Q-n`: the client decides, and Q-n's `Status.` is the one home of the answer. `declined (D-n)`: D-n says why it will not be acted on. `fixed (<commit>)`: the commits named fixed it, and a commit may be backticked. The value is matched whole, so a note goes on a bullet of its own. A value outside the set is `bad-status`, and one that reads `open` with no date is `undispositioned-finding`. **Each value stays true to what it names**, or `check_trace` reports it: a date that has passed, a task's scope that does not cover the item's `Needs.`, and a fix that is not in HEAD's history (§"The ledger") |
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
 | record verdict | `verify <label> PASS` · `verify <label> FAIL`: a top-level item in `RECORD.md` whose backticks hold the entry and nothing else, with bold or italic around the item read as decoration. The label names the task — a claim's `T<n>-<slug>-<HHMM>` or a task's `T-n` is the task's verdict, and a step's `T-n.S-m` is that step's. `scripts/tally.py` counts them per task for the checkpoint, and names by line, as not evaluated, each item whose entry is `verify` and that it cannot read. A `finding:` or `report` entry that mentions a verdict is not one (roadmap 0.3.2, L-2.12) |
 | REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT`, any of them followed by one qualifier, `(reconstructed: <by whom, and why>)` (§"The REPORT block") |
@@ -275,6 +275,29 @@ outside the vocabulary is `bad-status`, as T-18's *carried to the checkpoint …
 to be given an owner there* would be. `scripts/ledger.py <project>` prints
 every entry's disposition and the counts by value, and names by line each
 entry whose disposition it could not count, as not evaluated.
+
+**`check_trace` reads each disposition against what it names**, because a
+value written true can go untrue (roadmap 0.3.3, L-3.2, and the owner's
+answers of 2026-09-25, L-3.12):
+
+- **A date passes: `expired-item`.** `open (until T-n)` and `routed T-n` fall
+  due at T-n's close. That is when T-n's title reads `DONE` or `ACCEPTED` and
+  its board row does not read `CLAIMED`. The supervisor's close lands with
+  the row still `CLAIMED`, and the manager decides the item in the commit
+  that moves the row. A routed item becomes `fixed (<commit>)` or `declined
+  (D-n)`, or is routed on; an open one is decided, or given a later date.
+  `open (until C-n)` falls due once any checkpoint numbered n or higher is
+  filed, so a skipped number still falls due. A checkpoint named as a date is
+  not a citation, so `check_refs` does not resolve it: it is not filed yet.
+  `raised Q-n` falls due once Q-n reads `withdrawn`.
+- **A route its task cannot follow: `routed-out-of-scope`.** T-n's `Scope.`
+  covers every path `Needs.` names, by the containment
+  `unreachable-acceptance` applies. A routed entry with no `Needs.`, or one
+  that names no path, is refused too.
+- **A fix not in HEAD's history: `fix-not-in-history`**, by the test
+  `check_report` applies to a hash a report cites (§"What each check reads").
+  A commit on another branch, or a worker's commit before promotion rewrote
+  it, has not landed.
 
 ---
 
@@ -364,8 +387,8 @@ record` section and compares what each claims against the tree (roadmap
 
 | Check | Reads | Diffs |
 |---|---|---|
-| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps |
-| `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks; each status value ↔ its vocabulary; each audit finding's disposition ↔ not `open`, and each ledger entry's ↔ decided, or open with a date (§"The ledger") |
+| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/`; `LEDGER.md`, with the `QUESTIONS.md` statuses and `checkpoints/` titles its dispositions name, and HEAD's history for each fix | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps; each ledger entry's disposition ↔ what it names — its date, its task's scope, HEAD's history (§"The ledger") |
+| `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks; each status value ↔ its vocabulary; each audit finding's disposition ↔ not `open`, and each ledger entry's ↔ decided, or open with a date, whose checkpoint is not a citation (§"The ledger") |
 | `check_report.py` | one `tasks/T-n.md`; the files its `Scope.` names, for stub markers; the charter's `Containment` row; HEAD's history — the board's in it, for the task's current claim, and each block's header line by `git blame` — and `git status`; and the harness's `.run/locks/T-n.sandbox` line, with the `meta/budget.json` and `meta/base.sha` of the sandbox it names | the task's current report ↔ its title; the task's current report and each step's latest REPORT block ↔ the committed tree, and the commits each cites ↔ HEAD's history; a step's block ↔ its own step's meter (§"The REPORT block") |
 | `check_scope.py` | `BOARD.md` and its history, `tasks/*.md`, HEAD's `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written: by each task's commits, and by commits naming no task since a running task's current claim |
 

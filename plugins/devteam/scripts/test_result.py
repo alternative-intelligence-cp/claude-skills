@@ -402,6 +402,37 @@ def main():
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
+    # A commit in HEAD's history (roadmap 0.3.2, L-2.6; 0.3.3, L-3.2): the one
+    # test check_report reads for a hash a report cites, and check_trace for a
+    # ledger entry's fix. A commit on no branch HEAD holds is a commit, and not
+    # in its history; a blob is an object, and no commit.
+    root = tempfile.mkdtemp(prefix="devteam-result-")
+    try:
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True,
+                                        text=True, env=env).stdout.strip()
+        git("init", "-q", "-b", "main")
+        for n in (1, 2):
+            with open(os.path.join(root, "f"), "w", encoding="utf-8") as fh:
+                fh.write(f"{n}\n")
+            git("add", "f")
+            git("commit", "-qm", f"commit {n}")
+            if n == 1:
+                first = git("rev-parse", "HEAD")
+        head = git("rev-parse", "HEAD")
+        side = git("commit-tree", git("rev-parse", "HEAD^{tree}"), "-m", "on no branch")
+        blob = git("rev-parse", "HEAD:f")
+        got = {ref: result.in_history(root, ref) for ref in (first, head[:7], side, "a4f3774", blob)}
+        check("in-history-an-ancestor-and-head-itself-abbreviated",
+              got[first] == result.IN_HISTORY and got[head[:7]] == result.IN_HISTORY, got)
+        check("in-history-a-commit-on-no-branch-head-holds-is-elsewhere",
+              got[side] == result.ELSEWHERE, got)
+        check("in-history-a-hash-naming-no-object-is-absent", got["a4f3774"] == result.ABSENT, got)
+        check("in-history-a-blob-names-no-commit", got[blob] == result.ABSENT, got)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
     total = passed + failed
     print(f"\nresult control: {passed} passed, {failed} failed, {total} cases "
           f"({fp} of them false-positive controls, {100 * fp // total}%)")

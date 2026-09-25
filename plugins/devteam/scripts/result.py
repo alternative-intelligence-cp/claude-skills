@@ -40,6 +40,8 @@ What makes a part not evaluated when a check parses rows -- zero rows, a
 partial read, a wrapped field (L-1.3) -- is also here, at the bottom, for the
 same reason. So is what a decision accepts (L-1.6): its grammar is read here,
 and a finding's identity -- what the gate also matches by -- is defined here.
+So is whether a commit a record names is in HEAD's history (L-2.6), which
+check_report and check_trace both read (roadmap 0.3.3, L-3.2).
 
 Its control is test_result.py.
 """
@@ -404,6 +406,37 @@ def listed(root, *patterns):
 UNTRACKED = ("is not tracked by git, so it is in no commit: every check reads it, "
              "and a clone, a review or the gate at HEAD does not. Commit it, or "
              "move it out of devteam/ if it is scratch")
+
+
+# --- a commit in HEAD's history (roadmap 0.3.2, L-2.6; 0.3.3, L-3.2) --------
+#
+# A commit a record names is looked for in the history HEAD creates, not
+# anywhere in the repository. At the gate HEAD is the commit being judged, and a
+# commit on another branch is not in its history. Nor is a worker's commit that
+# a promotion stopped on a conflict left under `refs/devteam/sandbox/`, or a
+# refused gate candidate. check_report reads a hash a REPORT block cites this
+# way (L-2.6), and check_trace a ledger entry's `fixed (<commit>)` (L-3.2). The
+# test is here, once, because both checks read it (P-34), and this module
+# imports no check, so neither check's imports can close a cycle through it
+# (roadmap 0.3.3 §3.4).
+
+IN_HISTORY, ELSEWHERE, ABSENT = "in HEAD's history", "a commit elsewhere", "no commit"
+
+
+def in_history(root, ref):
+    """Where the commit `ref` names stands against HEAD, in the repository at
+    `root`: IN_HISTORY when HEAD is that commit or descends from it, ELSEWHERE
+    when it names a commit HEAD's history does not hold, and ABSENT when it
+    names no commit here. A repository git cannot read at all is the caller's
+    to refuse first, as both callers do; here it reads as ABSENT."""
+    def rc(*args):
+        try:
+            return subprocess.run(["git", "-C", root, *args], capture_output=True).returncode
+        except OSError:
+            return 127
+    if rc("cat-file", "-e", f"{ref}^{{commit}}") != 0:
+        return ABSENT
+    return IN_HISTORY if rc("merge-base", "--is-ancestor", ref, "HEAD") == 0 else ELSEWHERE
 
 
 # --- a checkout of one commit (roadmap 0.3.1, L-1.5) ------------------------

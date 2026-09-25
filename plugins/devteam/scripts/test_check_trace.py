@@ -264,6 +264,56 @@ T3_RENEWS = """# T-3 — fix what T-1 shipped — DONE (2026-09-24)
 - **Estimate.** tokens=100 minutes=5
 """
 
+# --- the ledger against the tree (roadmap 0.3.3, L-3.2, L-3.12) ----------
+LEDGER_HEAD = "# The ledger\n\nProse about the ledger.\n\n---\n\n"
+
+
+def itm(n, disposition, needs=""):
+    """One ledger entry, raised by the manager, with `needs` written as given."""
+    return (f"### ITM-{n} — item {n}\n\n- **Raised.** manager 2026-09-25\n{needs}"
+            f"- **Disposition.** {disposition}\n\n")
+
+
+def ledger(*entries):
+    return LEDGER_HEAD + "".join(entries)
+
+
+def needs(*paths):
+    """`Needs.` in the list form, one path per indented item."""
+    return "- **Needs.**\n" + "".join(f"  - `{p}`\n" for p in paths)
+
+
+def checkpoint(n):
+    return f"# C-{n} — 2026-09-2{n % 10} — ON-COURSE\n\nThe verdict.\n"
+
+
+def question(n, status):
+    return (f"# Open questions\n\n### Q-{n} — which way?\n\n- **Class.** REVERSIBLE\n"
+            f"- **Recommendation.** this way.\n- **Status.** {status}\n")
+
+
+# pricelog's T-18, with the scope its task file declares on the clone
+# (`MEASURED`, roadmap 0.3.3 §3.2): it re-establishes R-1, and may write two
+# files.
+T18 = """# T-18 — the failure paths — PLANNED
+
+- **Discharges.** none
+- **Re-establishes.** R-1
+- **Depends on.** none
+- **Scope.**
+  - `pricelog/cli.py`
+  - `tests/test_failures.py`
+- **Gate.** the failure tests pass.
+- **Verify.** `make test`
+- **Estimate.** tokens=100 minutes=5
+"""
+# T-1 closed by its supervisor, its claim still held: the board reads CLAIMED
+# with an in-flight row, as it does until the manager's advance (L-2.2).
+HELD = {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight("T-1"),
+        "tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": REQS_R1_DONE}
+# ...and after the advance: the row reads DONE.
+ADVANCED = {"tasks/T-1.md": T1_DONE, "REQUIREMENTS.md": REQS_R1_DONE}
+
 CASES = [
     # --- unparseable-protected-path ---------------------------------------
     # The row that fooled 0.2.8, verbatim. It reads correctly to a human, and
@@ -553,6 +603,131 @@ CASES = [
       "audits/notes-about-T-1.md": "# Notes about T-1\n\nProse only.\n",
       "BOARD.md": BOARD.format(s1="DONE", s2="—")},
      set()),
+
+    # --- the ledger against the tree (roadmap 0.3.3, L-3.2, L-3.12) --------
+    # AN ITEM DUE BY A TASK'S CLOSE falls due when the task's row leaves
+    # CLAIMED (the owner's answer of 2026-09-25): the supervisor's close lands
+    # with the row still CLAIMED, and it may not write the ledger (P-13), so
+    # the item is due in the manager's advance.
+    ("expired-item-open-until-a-task-that-has-closed",
+     {**ADVANCED, "LEDGER.md": ledger(itm(1, "open (until T-1)"))},
+     {"expired-item"}, [], None, set(),
+     ("ITM-1 is `open (until T-1)`, and T-1 has closed", "decide it, or name a later date")),
+    ("fp-open-until-a-task-still-running",
+     {"tasks/T-1.md": T1_RUNNING, "REQUIREMENTS.md": REQS_R1_RUNNING,
+      "LEDGER.md": ledger(itm(1, "open (until T-1)"))},
+     set()),
+    ("fp-open-until-a-task-its-supervisor-closed-while-its-row-reads-claimed",
+     {**HELD, "LEDGER.md": ledger(itm(1, "open (until T-1)"))},
+     set()),
+    # ...and only the task the entry names: T-1's close leaves an item due by
+    # T-2 pending.
+    ("fp-an-item-due-by-another-task-is-not-due-at-this-ones-close",
+     {**ADVANCED, "LEDGER.md": ledger(itm(1, "open (until T-2)"))},
+     set()),
+    # A CHECKPOINT IS A DATE (L-3.12): T-18's COR-6 as the plan writes it,
+    # `open (until C-9)`, before C-9 is filed and after it.
+    ("expired-item-t18-cor6-open-until-c9-once-c9-is-filed",
+     {"LEDGER.md": ledger(itm(6, "open (until C-9)")),
+      "checkpoints/C-9-2026-09-19.md": checkpoint(9)},
+     {"expired-item"}, [], None, set(), ("ITM-6 is `open (until C-9)`, and C-9 is filed",)),
+    ("fp-t18-cor6-open-until-c9-before-c9-is-filed",
+     {"LEDGER.md": ledger(itm(6, "open (until C-9)")),
+      "checkpoints/C-8-2026-09-18.md": checkpoint(8)},
+     set()),
+    # A number skipped still falls due: a later checkpoint is filed.
+    ("expired-item-a-later-checkpoint-filed-over-a-skipped-number",
+     {"LEDGER.md": ledger(itm(6, "open (until C-9)")),
+      "checkpoints/C-10-2026-09-20.md": checkpoint(10)},
+     {"expired-item"}, [], None, set(), ("C-10 is filed and C-9 is not",)),
+    # A checkpoint is filed as check_refs declares one: by its title, in a file
+    # named for a checkpoint, outside a fence.
+    ("fp-a-checkpoint-quoted-in-a-fence-is-not-filed",
+     {"LEDGER.md": ledger(itm(6, "open (until C-9)")),
+      "checkpoints/C-8-2026-09-18.md": checkpoint(8) + "\n```\n# C-9 — quoted — ON-COURSE\n```\n"},
+     set()),
+    ("fp-a-file-in-checkpoints-not-named-for-one-files-nothing",
+     {"LEDGER.md": ledger(itm(6, "open (until C-9)")),
+      "checkpoints/notes.md": "# C-9 — notes on the next checkpoint\n"},
+     set()),
+    # A QUESTION WITHDRAWN leaves the item it raised undecided (L-3.2).
+    ("expired-item-raised-a-question-since-withdrawn",
+     {"QUESTIONS.md": question(28, "withdrawn"), "LEDGER.md": ledger(itm(1, "raised Q-28"))},
+     {"expired-item"}, [], None, set(), ("Q-28 reads `withdrawn`",)),
+    ("fp-raised-an-open-question",
+     {"QUESTIONS.md": question(28, "open"), "LEDGER.md": ledger(itm(1, "raised Q-28"))},
+     set()),
+    ("fp-raised-an-answered-question",
+     {"QUESTIONS.md": question(28, "answered D-1"), "LEDGER.md": ledger(itm(1, "raised Q-28"))},
+     set()),
+    # AN ITEM ROUTED TO A TASK falls due at that task's close, by the same
+    # trigger (L-3.12): an item whose owner has gone, F-99 and F-139's loss.
+    ("expired-item-routed-to-a-task-that-has-closed",
+     {**ADVANCED, "LEDGER.md": ledger(itm(1, "routed T-1", needs("src/parse.py")))},
+     {"expired-item"}, [], None, set(), ("record what became of it",)),
+    ("fp-routed-to-a-task-its-supervisor-closed-while-its-row-reads-claimed",
+     {**HELD, "LEDGER.md": ledger(itm(1, "routed T-1", needs("src/parse.py")))},
+     set()),
+    # A ROUTE ITS TASK CANNOT FOLLOW. T-18's declared scope, with a need
+    # outside it and one inside it.
+    ("routed-out-of-scope-t18-a-need-outside-its-scope",
+     {"tasks/T-18.md": T18,
+      "LEDGER.md": ledger(itm(1, "routed T-18", needs("pricelog/store.py")))},
+     {"routed-out-of-scope"}, [], None, set(),
+     ("T-18's `Scope.` does not cover pricelog/store.py",)),
+    ("fp-routed-t18-a-need-inside-its-scope",
+     {"tasks/T-18.md": T18,
+      "LEDGER.md": ledger(itm(1, "routed T-18", needs("pricelog/cli.py")))},
+     set()),
+    ("fp-routed-a-scope-directory-covers-the-need",
+     {"LEDGER.md": ledger(itm(1, "routed T-1", needs("src/parse.py")))},
+     set()),
+    ("routed-out-of-scope-one-need-of-two-outside-names-that-one",
+     {"LEDGER.md": ledger(itm(1, "routed T-1", needs("src/parse.py", "README.md")))},
+     {"routed-out-of-scope"}, [], None, set(), ("does not cover README.md:",)),
+    ("routed-out-of-scope-an-entry-with-no-needs",
+     {"LEDGER.md": ledger(itm(1, "routed T-1"))},
+     {"routed-out-of-scope"}, [], None, set(), ("is `routed T-1` and has no `Needs.`",)),
+    ("routed-out-of-scope-a-needs-naming-no-path",
+     {"LEDGER.md": ledger(itm(1, "routed T-1", "- **Needs.**\n"))},
+     {"routed-out-of-scope"}, [], None, set(), ("its `Needs.` names no path",)),
+    # pricelog wrote `Needs.` beside the field, comma-separated
+    # (tasks/T-17.md:444), and the path list reads that form too.
+    ("fp-routed-needs-written-beside-the-field-are-read",
+     {"LEDGER.md": ledger(itm(1, "routed T-1", "- **Needs.** `src/parse.py`, `src/lex.py`\n"))},
+     set()),
+    # WHAT CANNOT BE READ IS NAMED, never guessed at (roadmap 0.3.1, L-1.3):
+    # an entry that is not a bare path, a field named and not written as one,
+    # and a second `Needs.`, whose first stands, as ledger.entries reads it.
+    ("routed-a-needs-entry-that-is-not-a-path-is-not-evaluated",
+     {"LEDGER.md": ledger(itm(1, "routed T-1", "- **Needs.**\n  - `README.md` — the usage\n"))},
+     set(), [], None, {"ITM-1's Needs."}),
+    ("routed-a-needs-named-with-a-colon-is-not-evaluated-not-absent",
+     {"LEDGER.md": ledger(itm(1, "routed T-1", "- **Needs:** `README.md`\n"))},
+     set(), [], None, {"ITM-1's Needs."}),
+    ("routed-a-second-needs-leaves-the-first-standing-and-is-named",
+     {"LEDGER.md": ledger(itm(1, "routed T-1", needs("src/parse.py") + needs("README.md")))},
+     set(), [], None, {"ITM-1's Needs."}, ("a second `Needs.` in ITM-1",)),
+    # A task no file declares is check_refs' `cited-undefined`, and is not
+    # judged twice.
+    ("fp-routed-to-a-task-no-file-declares-is-left-to-check-refs",
+     {"LEDGER.md": ledger(itm(1, "routed T-9", needs("src/parse.py")))},
+     set()),
+    ("fp-open-until-a-task-no-file-declares-is-left-to-check-refs",
+     {"LEDGER.md": ledger(itm(1, "open (until T-9)"))},
+     set()),
+    # No ledger, or one with no entry, has nothing to judge.
+    ("fp-an-empty-ledger", {"LEDGER.md": ledger()}, set()),
+    # WHAT THIS CHECK READS, AS GIT WOULD SHOW IT (roadmap 0.3.1, L-1.4): the
+    # ledger and the question statuses it reads are read untracked, and named.
+    ("untracked-file-an-untracked-ledger-is-read-and-named",
+     {"LEDGER.md": ("untracked", ledger(itm(6, "open (until C-9)"))),
+      "checkpoints/C-9-2026-09-19.md": checkpoint(9)},
+     {"untracked-file", "expired-item"}, [], None, set(), ("LEDGER.md",)),
+    ("untracked-file-untracked-questions-are-read-and-named",
+     {"QUESTIONS.md": ("untracked", question(28, "withdrawn")),
+      "LEDGER.md": ledger(itm(1, "raised Q-28"))},
+     {"untracked-file", "expired-item"}, [], None, set(), ("QUESTIONS.md",)),
     # --- zero rows, partial reads and wrapped fields (roadmap 0.3.1, L-1.3) --
     # Each of these used to report CLEAN, and each is a row the source offered
     # that the grammar did not read. The case expects the part named, and a
@@ -1726,6 +1901,76 @@ def main():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # --- fix-not-in-history (roadmap 0.3.3, L-3.2) --------------------------
+    # A FIX IS A COMMIT IN HEAD'S HISTORY, by the test check_report applies to a
+    # hash a report cites (result.in_history, L-2.6). The cases loop cannot
+    # write a hash its own build makes, so each case here builds the project
+    # (its commit is `a`), commits a second change on top (`b`), makes a commit
+    # HEAD's history does not hold (`s`, on no branch), and only then writes the
+    # ledger naming them. pricelog's `a4f3774` names no commit here; that it
+    # reads clean on the corpus's own history is 0.3.3 §3.7's to plant.
+    def _history(root, ledger_for):
+        dt = build(root, {})
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True,
+                                        text=True, env=env).stdout.strip()
+        a = git("rev-parse", "HEAD")
+        with open(os.path.join(dt, "notes.md"), "w", encoding="utf-8") as fh:
+            fh.write("a second change\n")
+        git("add", "devteam/notes.md")
+        git("commit", "-qm", "a second change")
+        b = git("rev-parse", "HEAD")
+        s = git("commit-tree", git("rev-parse", "HEAD^{tree}"), "-m", "on no branch")
+        with open(os.path.join(dt, "LEDGER.md"), "w", encoding="utf-8") as fh:
+            fh.write(ledger_for(a, b, s))
+        git("add", "devteam/LEDGER.md")
+        git("commit", "-qm", "the ledger")
+        return dt, (a, b, s)
+
+    # (name, the ledger from (a, b, s), the classes, the words the output
+    # must hold and must not, from (a, b, s))
+    history = [
+        ("fp-fixed-by-a-commit-in-head-s-history",
+         lambda a, b, s: ledger(itm(1, f"fixed ({a})")), set(), lambda a, b, s: ((), ())),
+        ("fp-fixed-by-head-itself-abbreviated-and-backticked-beside-another",
+         lambda a, b, s: ledger(itm(1, f"fixed ({a[:7]}, `{b}`)")), set(),
+         lambda a, b, s: ((), ())),
+        ("fix-not-in-history-a-commit-head-s-history-does-not-hold",
+         lambda a, b, s: ledger(itm(1, f"fixed ({s})")), {"fix-not-in-history"},
+         lambda a, b, s: ((f"ITM-1 is fixed by {s}, which is a commit, and not one in HEAD's "
+                           "history",), ())),
+        ("fix-not-in-history-t18-cor5-a4f3774-names-no-commit-here",
+         lambda a, b, s: ledger(itm(5, "fixed (a4f3774)")), {"fix-not-in-history"},
+         lambda a, b, s: (("ITM-5 is fixed by a4f3774, which is not a commit in this "
+                           "repository",), ())),
+        ("fix-not-in-history-one-of-several-names-only-that-one",
+         lambda a, b, s: ledger(itm(1, f"fixed ({a}, {s})")), {"fix-not-in-history"},
+         lambda a, b, s: ((f"fixed by {s}",), (f"fixed by {a}",))),
+    ]
+    for name, ledger_for, expected, words in history:
+        root = tempfile.mkdtemp(prefix="devteam-trace-history-")
+        try:
+            dt, hashes = _history(root, ledger_for)
+            proc = subprocess.run([sys.executable, CHECK, dt], capture_output=True, text=True)
+            got = set(re.findall(FINDING_LINE, proc.stdout, re.M))
+            must, mustnt = words(*hashes)
+            wrong = ([f"missing  {w!r}" for w in must if w not in proc.stdout]
+                     + [f"holds    {w!r}" for w in mustnt if w in proc.stdout])
+            if got == expected and proc.returncode == (1 if expected else 0) and not wrong:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}")
+                print(f"        expected {sorted(expected) or 'clean'}, got "
+                      f"{sorted(got) or 'clean'} exit {proc.returncode}")
+                for w in wrong:
+                    print(f"        {w}")
+                for line in (proc.stdout + proc.stderr).strip().split("\n")[:6]:
+                    print(f"        | {line}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     for name, overrides, extra, want_exit, expected, want_acc, want_gaps in ACCEPT_CASES:
         root = tempfile.mkdtemp(prefix="devteam-trace-accept-")
         try:
@@ -1785,7 +2030,8 @@ def main():
     # in that list, and a hand-maintained total that disagrees with the number
     # of cases executed is the exact defect docs/CHECKS.md exists to stop.
     total = passed + failed
-    fp = sum(1 for c in CASES + ACCEPT_CASES if c[0].startswith("fp-") or c[0] == "clean") + 1
+    fp = sum(1 for c in CASES + ACCEPT_CASES + history
+             if c[0].startswith("fp-") or c[0] == "clean") + 1
     print(f"\ncheck_trace control: {passed} passed, {failed} failed, "
           f"{total} cases ({fp} of them false-positive controls, "
           f"{100 * fp // total}%)")

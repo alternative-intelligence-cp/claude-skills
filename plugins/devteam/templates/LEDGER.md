@@ -18,7 +18,12 @@ entry.
 the checkpoint by which it must be decided. The vocabulary is the plugin's
 `templates/FORMATS.md`, §"Status vocabularies". An entry that reads `open` with
 no date is undecided with nobody due to decide it, and `check_refs` reports it,
-as it reports an entry with no disposition at all.
+as it reports an entry with no disposition at all. `check_trace` reports an
+item whose date has passed — an open or routed item once its task's row leaves
+`CLAIMED` at the close, an open item once its checkpoint is filed, a question
+withdrawn — a routed item whose task's `Scope.` does not cover its `Needs.`,
+and a fix that is not in HEAD's history. So decide what is due in the commit
+that moves the row, or that files the checkpoint.
 `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.py <project>` prints every
 entry's disposition, and the counts by value.
 

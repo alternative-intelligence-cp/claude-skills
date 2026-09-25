@@ -231,6 +231,9 @@ So `routed T-n` requires **T-n's declared `Scope.` to cover the finding's
 `Needs.`** — the same containment `unreachable-acceptance` applies to a
 requirement's criterion. A finding routed to a task that cannot touch what it
 needs is filed, not routed, and it will read as handled to everyone afterwards.
+In the ledger this is checked: `check_trace` refuses a `routed T-n` entry whose
+`Needs.` T-n's `Scope.` does not cover, or which has none, as
+`routed-out-of-scope` (roadmap 0.3.3, L-3.2).
 
 **This exists because a finding filed is not a finding routed, and nothing
 distinguished them.** One project's two audits produced fifteen findings: three

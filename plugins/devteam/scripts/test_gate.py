@@ -174,6 +174,17 @@ ADVANCED = CLAIMED + [
             "| `T-1` | make it work | R-1 | none | `src/` | DONE |",
             "| `T-2` | tidy the docs | none | none | `src/` | CLAIMED T2-src-0900 |"))}),
 ]
+# AN ITEM DUE BY T-1'S CLOSE (roadmap 0.3.3, L-3.12): ledgered while T-1 runs,
+# then T-1 closed by its supervisor, and then the manager's advance.
+LEDGER_DUE = ("# The ledger\n\n### ITM-1 — an item due by T-1's close\n\n"
+              "- **Raised.** manager 2026-09-04\n- **Disposition.** open (until T-1)\n")
+LEDGERED = CLAIMED + [("devteam: ITM-1, due by T-1's close", {"devteam/LEDGER.md": LEDGER_DUE})]
+LEDGERED_CLOSED = LEDGERED + [("T-1: close", {"devteam/tasks/T-1.md": CLOSED_T1})]
+ADVANCE_T1 = {
+    "devteam/REQUIREMENTS.md": reqs(requirement(1, "the thing works when run.", "discharged (T-1)")),
+    "devteam/BOARD.md": board(rows=("| `T-1` | make it work | R-1 | none | `src/` | DONE |",
+                                    "| `T-2` | tidy the docs | none | none | `docs/` | — |"))}
+ADVANCE_ARGS = ["-m", "advance T-1", "--", "devteam/REQUIREMENTS.md", "devteam/BOARD.md"]
 # A SUPERVISOR'S STOP (roadmap 0.3.2, L-2.2): its title and report land with
 # CLAIMED still on the board, which the manager moves afterwards.
 STOPPED_T1 = task(1, "make it work", "NEEDS-DECISION (which way the docs go)", T1_FIELDS,
@@ -497,6 +508,23 @@ CASES = [
      MSG + ["--", "devteam/tasks/T-2.md"], 1, {"adds-finding", "adds-not-evaluated"},
      both(refused_by(adds_finding="T-2 is RUNNING and discharges R-1"),
           refused_by(adds_not_evaluated="misattributed-write for T-2"))),
+
+    # --- an item due by a task's close (roadmap 0.3.3, L-3.12) ---------------
+    # The owner's answer of 2026-09-25: it falls due when the task's row leaves
+    # CLAIMED. The supervisor's close lands with the row still CLAIMED, since it
+    # may not write the ledger (P-13); the manager's advance moves the row, and
+    # is refused until the item is decided. The gate itself is unchanged: the
+    # window is check_trace's rule, as L-2.2's is.
+    ("fp-l312-a-supervisors-close-lands-over-an-item-due-by-its-task", LEDGERED,
+     edit({"devteam/tasks/T-1.md": CLOSED_T1}), ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"],
+     0, set(), committed(["devteam/tasks/T-1.md"])),
+    ("l312-the-advance-over-the-item-still-open-is-refused", LEDGERED_CLOSED,
+     edit(ADVANCE_T1), ADVANCE_ARGS, 1, {"adds-finding"},
+     refused_by(adds_finding="ITM-1 is `open (until T-1)`, and T-1 has closed")),
+    ("fp-l312-the-advance-that-decides-the-item-lands", LEDGERED_CLOSED,
+     edit({**ADVANCE_T1, "devteam/LEDGER.md": LEDGER_DUE.replace("open (until T-1)",
+                                                                 "declined (D-1)")}),
+     ADVANCE_ARGS + ["devteam/LEDGER.md"], 0, set(), committed(["devteam/LEDGER.md"])),
 
     # --- the board's rows, read at the gate (roadmap 0.3.2, L-2.1, L-2.2) ---
     # Once board-drift reads the rows, a supervisor's own close or stop meets

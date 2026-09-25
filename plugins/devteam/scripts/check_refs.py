@@ -40,10 +40,15 @@ DASH = r"[—–-]"
 # does.
 SEP = r"(?:\s+[\u2014\u2013]\s+|\s+-\s+)"
 
+# A task's or a checkpoint's title declares it. check_trace reads a checkpoint
+# as filed by this same pattern, in the files ARTIFACTS names, so that the two
+# checks cannot disagree about which checkpoints exist (roadmap 0.3.3, L-3.12).
+TITLE_DECLARATION = re.compile(r"^#\s+(T|C)-(\d+)\s*" + DASH)
+
 DECLARATIONS = (
     re.compile(r"^###\s+(R|D|Q)-(\d+)\s*" + DASH),          # REQUIREMENTS/DECISIONS/QUESTIONS
     re.compile(r"^-\s+\*\*(G|DM|F)-(\d+)\*\*\s*" + DASH),    # goals, done-means, findings
-    re.compile(r"^#\s+(T|C)-(\d+)\s*" + DASH),               # a task or checkpoint title
+    TITLE_DECLARATION,                                       # a task or checkpoint title
     re.compile(r"^-\s+\[[ x~]\]\s+\*\*(S)-(\d+)\*\*"),       # a step inside a task
     # An audit finding, declared by a heading in devteam/audits/*.md. The
     # HEADING form is canonical because it is what the audits carrying
@@ -600,6 +605,26 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
                         findings.append(("bad-status", rel, got[0],
                                          f"ledger-disposition: {got[1]!r} is not in the "
                                          f"vocabulary — {ledger.GRAMMAR}"))
+                # AN `until C-n` IS A DATE, NOT A CITATION (roadmap 0.3.3,
+                # L-3.12, the owner's answer of 2026-09-25). It names a
+                # checkpoint that is not filed yet, so resolving it made the
+                # entry `cited-undefined` until the filing, and check_trace's
+                # `expired-item` from the filing on: no commit could hold it
+                # clean. check_trace judges the date. Only the date is left
+                # unresolved -- the lines the disposition is read from, as
+                # ledger.entries reads it, its line and every line continuing
+                # it -- so the same checkpoint cited anywhere else still must
+                # be declared. `until T-n` stays a citation: a task exists
+                # before anybody names it.
+                dated = e.parsed()
+                if dated and dated[0] == "open" and dated[1].startswith("C-"):
+                    span = {f"{rel}:{k + 1}"
+                            for k in [got[0] - 1] + result.continuation(lines, got[0] - 1)}
+                    sites = [s for s in cited.get(dated[1], []) if s not in span]
+                    if sites:
+                        cited[dated[1]] = sites
+                    else:
+                        cited.pop(dated[1], None)
 
 
     for (owner, ident), sites in sorted(step_cited.items()):

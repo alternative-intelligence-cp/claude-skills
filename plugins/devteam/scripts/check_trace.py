@@ -25,6 +25,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 import ledger  # noqa: E402 -- the ledger's grammar, and the first-word `open` test
+import check_refs  # noqa: E402 -- a checkpoint's declaration, one home (P-34)
 
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -271,15 +272,25 @@ NEXT_FIELD = re.compile(r"^-\s+\*\*[A-Za-z]|^#")
 BARE_PATH = re.compile(r"^`?[^`\s]+`?$")
 
 
-def path_lists(lines, unparsed=None):
-    """{field name: [entries]} for every `Scope.`/`Requires-write.` list in a block.
+# A ledger entry's `Needs.` is a path list of the same shape (FORMATS §"The
+# ledger"), read by this same parse. It is not added to LIST_FIELD, because a
+# task file holds an audit's answer landed verbatim, and pricelog's T-17 and
+# T-18 landings carry `Needs.` lines under their findings: those are the
+# audit's text, not the task's fields, and reading them as the task's would
+# name the audit's prose as the task's unparsed entries.
+NEEDS_FIELD = re.compile(r"^-\s+\*\*(Needs)\.\*\*\s*(.*)$")
+
+
+def path_lists(lines, unparsed=None, field=LIST_FIELD):
+    """{field name: [entries]} for every path list in a block: `Scope.` and
+    `Requires-write.` by default, or the fields `field` matches.
 
     `unparsed`, when given, collects (index into `lines`, field name) for each
     entry of a path list that does not parse as a path.
     """
     out, collecting = {}, None
     for i, line in enumerate(lines):
-        m = LIST_FIELD.match(line)
+        m = field.match(line)
         if m:
             collecting = m.group(1)
             out.setdefault(collecting, [])
@@ -792,6 +803,40 @@ def requirement_statuses(devteam):
             for ident, _n, _x, fields in parse_blocks(read(devteam, "REQUIREMENTS.md"),
                                                      REQ, REQ_FIELDS)}
 
+
+# --- what a ledger disposition names (roadmap 0.3.3, L-3.2, L-3.12) ----------
+QUESTION = re.compile(r"^###\s+(Q-\d+)\s*" + DASH + r"\s*(.*)$")
+
+
+def question_statuses(devteam):
+    """{Q-n: its `Status.` value, read whole, whitespace as layout}, from
+    QUESTIONS.md. The vocabulary is check_refs' to judge; the ledger asks only
+    which question reads `withdrawn`."""
+    return {ident: " ".join(fields.get("Status", "").split())
+            for ident, _n, _x, fields in parse_blocks(read(devteam, "QUESTIONS.md"),
+                                                     QUESTION, ("Status",))}
+
+
+def filed_checkpoints(devteam, every):
+    """The numbers of the checkpoints filed: each C-n that a file in
+    `checkpoints/` declares by its title. It is read as check_refs declares
+    one -- the files it reads as artifacts, fenced lines skipped, and its own
+    title pattern -- so the two checks cannot disagree about which checkpoints
+    exist (P-34)."""
+    out = set()
+    for rel in every:
+        if not rel.startswith("checkpoints/") or not check_refs.ARTIFACTS.match(rel):
+            continue
+        fenced = False
+        for line in read(devteam, rel):
+            if line.lstrip().startswith("```"):
+                fenced = not fenced
+                continue
+            m = None if fenced else check_refs.TITLE_DECLARATION.match(line)
+            if m and m.group(1) == "C":
+                out.add(int(m.group(2)))
+    return out
+
 def check(devteam):
     findings = []
     add = lambda kind, where, detail: findings.append((kind, where, detail))
@@ -810,8 +855,12 @@ def check(devteam):
     # tracked files and untracked ones no ignore rule covers. Task files were
     # read from the index alone, so a new one was invisible until staged
     # (F-131). Each untracked file read is now a finding of its own.
+    # The ledger, and what its dispositions name that this check reads -- a
+    # question's status and the checkpoints filed -- are read the same way
+    # (roadmap 0.3.3, L-3.2).
     listing = result.listed(devteam, "CHARTER.md", "REQUIREMENTS.md", "BOARD.md",
-                            "tasks/*.md", "audits/*.md")
+                            "tasks/*.md", "audits/*.md", ledger.PATH, "QUESTIONS.md",
+                            "checkpoints/*.md")
     if listing is None:
         return None
     every, untracked = listing
@@ -1625,6 +1674,127 @@ def check(devteam):
                     f"{current} is still open and {tid} is {phase} — P-31 puts "
                     f"the audit before the close, so this task closed over a "
                     f"finding it commissioned")
+
+    # --- the ledger's dispositions against the tree (roadmap 0.3.3, L-3.2) --
+    # AN ITEM HAS A DECISION, OR A DATE BY WHICH ONE IS DUE (P-52). check_refs
+    # reads each disposition against the vocabulary; this reads what the value
+    # says against the tree, where three things make a value written true go
+    # untrue later.
+    #
+    # A DATE THAT HAS PASSED is `expired-item`. An open item is due by a task's
+    # close or a checkpoint's filing. A question withdrawn leaves the item it
+    # raised undecided again. And an item routed to a task is due at that
+    # task's close too: an entry still reading `routed T-n` once T-n closed
+    # passed every check whether or not T-n fixed it, an item whose owner has
+    # gone -- the loss F-99 and F-139 measured (the owner's answer of
+    # 2026-09-25, L-3.12).
+    #
+    # A TASK'S CLOSE IS WHEN ITS ROW LEAVES `CLAIMED` (L-3.12). The supervisor
+    # writes the closing title in its own close commit, with the row still
+    # `CLAIMED`, and it may not write the ledger (P-13). Keyed on the title
+    # alone, this class would have the gate refuse that commit over an entry
+    # only the manager can change. So the item is due in the commit that moves
+    # the row, the manager's advance, as L-3.5 makes an unledgered item due. A
+    # board this cannot read shows no claim, so an item is due rather than
+    # held: the gate's allowance fails closed the same way.
+    #
+    # A CHECKPOINT IS A DATE, NOT A CITATION (L-3.12). `until C-n` falls due
+    # once any checkpoint numbered n or higher is filed, so a number skipped
+    # still falls due; check_refs does not resolve it.
+    #
+    # A ROUTE ITS TASK CANNOT FOLLOW is `routed-out-of-scope`. The audit skill
+    # said "a finding routed to a task that cannot touch what it needs is
+    # filed, not routed", and nothing checked it. `Needs.` names the paths,
+    # and the task's `Scope.` covers each by `contains`, the containment
+    # `unreachable-acceptance` applies (P-34).
+    #
+    # A FIX NOT IN HEAD'S HISTORY is `fix-not-in-history`, by the test
+    # check_report applies to a hash a report cites (result.in_history, L-2.6).
+    #
+    # A value naming a task, a question or a decision that does not exist is
+    # check_refs' `cited-undefined`, and is not judged again here.
+    items, ledger_unread = ledger.entries(read(devteam, ledger.PATH))
+    if items:
+        claimed = {tid for tid, s, _ in rows if s.split()[:1] == ["CLAIMED"]}
+        gone = lambda t: closed(t) and t not in claimed
+        filed = filed_checkpoints(devteam, every)
+        asked = question_statuses(devteam)
+        for e in items:
+            got = e.parsed()
+            if got is None:
+                continue
+            kind, named = got
+            at = f"{ledger.PATH}:{e.fields['Disposition'][0]}"
+            if kind in ("open", "routed") and named.startswith("T-") and gone(named):
+                was = f"open (until {named})" if kind == "open" else f"routed {named}"
+                todo = ("decide it, or name a later date" if kind == "open" else
+                        "record what became of it, `fixed (<commit>)` or `declined (D-n)`, "
+                        "or route it on")
+                add("expired-item", at,
+                    f"{e.ident} is `{was}`, and {named} has closed: its title reads "
+                    f"{tasks[named][2].strip()!r} and its board row does not read CLAIMED. "
+                    f"The item was due at that close, in the commit that moves the row: "
+                    f"{todo} (P-52)")
+            elif kind == "open" and named.startswith("C-"):
+                later = sorted(c for c in filed if c >= int(named[2:]))
+                if later:
+                    add("expired-item", at,
+                        f"{e.ident} is `open (until {named})`, and "
+                        + (f"{named} is filed" if later[0] == int(named[2:]) else
+                           f"C-{later[0]} is filed and {named} is not")
+                        + ", so the date has passed: decide it, or name a later one (P-52)")
+            elif kind == "raised" and asked.get(named) == "withdrawn":
+                add("expired-item", at,
+                    f"{e.ident} is `raised {named}`, and {named} reads `withdrawn`, so "
+                    f"nobody is deciding it: decide it, or raise it again (P-52)")
+            elif kind == "routed" and named in tasks:
+                # The first `Needs.` stands, as ledger.entries reads it: a
+                # second one, or one named and not written as the field, is
+                # named with the entries that do not parse, never guessed at.
+                texts = [t for _, t in e.block]
+                first = next((k for k, t in enumerate(texts) if NEEDS_FIELD.match(t)), None)
+                mine = {n for n, _ in e.block}
+                missed = [(n, what) for n, field, what in ledger_unread
+                          if field == "Needs" and n in mine]
+                needs, bad = [], []
+                if first is not None:
+                    end = next((k for k in range(first + 1, len(texts))
+                                if NEEDS_FIELD.match(texts[k])), len(texts))
+                    needs = path_lists(texts[first:end], bad, NEEDS_FIELD).get("Needs", [])
+                    missed += [(e.block[first + i][0], "an entry that does not parse as a "
+                                                       "bare `path`") for i, _ in bad]
+                if missed:
+                    gaps.append((f"{e.ident}'s Needs.",
+                                 f"{len(missed)} line(s) of the field routed-out-of-scope could "
+                                 "not read — "
+                                 + "; ".join(f"{ledger.PATH}:{n}, {what}" for n, what in sorted(missed))
+                                 + f" — so it did not compare what they name with {named}'s "
+                                 "`Scope.`"))
+                outside = [p for p in needs if not contains(scopes.get(named, []), p)]
+                if outside:
+                    add("routed-out-of-scope", at,
+                        f"{e.ident} is `routed {named}`, and {named}'s `Scope.` does not cover "
+                        f"{', '.join(outside)}: an item routed to a task that cannot touch what "
+                        "it needs is not routed. Route it to a task whose scope covers it, "
+                        "or raise it (P-52)")
+                elif not needs and not missed:
+                    add("routed-out-of-scope", at,
+                        f"{e.ident} is `routed {named}` and "
+                        + ("has no `Needs.`" if first is None else "its `Needs.` names no path")
+                        + f", so nothing shows {named} can reach it: a routed item names the "
+                        f"paths it needs changed, and {named}'s `Scope.` covers each (P-52)")
+            elif kind == "fixed":
+                for commit in named:
+                    stands = result.in_history(devteam, commit)
+                    if stands == result.ABSENT:
+                        add("fix-not-in-history", at,
+                            f"{e.ident} is fixed by {commit}, which is not a commit in this "
+                            "repository (P-52)")
+                    elif stands == result.ELSEWHERE:
+                        add("fix-not-in-history", at,
+                            f"{e.ident} is fixed by {commit}, which is a commit, and not one in "
+                            "HEAD's history: a fix on another branch, or a worker's commit "
+                            "before promotion rewrote it, has not landed (P-52)")
 
     # Last, because every class above has now read whatever it reads: an
     # identifier field is not evaluated when a class read it AND it holds a

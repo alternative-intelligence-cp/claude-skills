@@ -638,10 +638,12 @@ def check(project, want_id):
             h = HASH.match("- " + text)
             ref = h.group(1) if h else None
             if ref and ref != "HEAD":            # a hash, or HEAD~1 / HEAD^
-                rc, _ = git(repo, "cat-file", "-e", f"{ref}^{{commit}}")
-                if rc != 0:
+                # The ancestry test's one home is result.py, which check_trace
+                # reads for a ledger entry's fix too (roadmap 0.3.3, L-3.2).
+                stands = result.in_history(repo, ref)
+                if stands == result.ABSENT:
                     add("unknown-commit", say(f"{ref} is not a commit in this repository"), at)
-                elif git(repo, "merge-base", "--is-ancestor", ref, "HEAD")[0] != 0:
+                elif stands == result.ELSEWHERE:
                     add("unknown-commit", say(f"{ref} is a commit, and not one in HEAD's history"), at)
                 continue
             # `HEAD <subject>` names the commit this block is committed in -- its
