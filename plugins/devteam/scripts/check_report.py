@@ -765,6 +765,10 @@ ADVISORY = {"budget-mismatch"}
 # L-1.5): `git status`, and the harness's meter, which lives under the ignored
 # `devteam/.run/` and in a sandbox outside the repository, so no commit holds it.
 WORKING_STATE = ("dirty-tree", "budget-mismatch", "model-mismatch")
+# `dirty-tree`'s message, which the gate reads back to leave out a path the
+# commit it is making commits as the working tree holds it (roadmap 0.3.4,
+# L-4.8): the prefix, then the paths, joined by ", ".
+DIRTY = re.compile(r"^(uncommitted inside T-\d+'s scope on status \S+: )(.+)$")
 
 
 def main(argv):

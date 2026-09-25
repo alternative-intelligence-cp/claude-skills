@@ -22,6 +22,9 @@ sys.path.insert(0, HERE)
 import check_trace  # noqa: E402 -- the template rows the fixture's charter carries
 import gate as gate_module  # noqa: E402 -- its renderer, so the line is asserted too
 
+SESSION = gate_module.SESSION
+SETUP_PY = os.path.join(HERE, "setup.py")
+
 VALUES = {"Protected paths": "`protected/`", "Containment": "`guard-only`"}
 CHARTER = ("# Charter — Fixture\n\n## Goals\n\n- **G-1** — the thing works\n\n"
            "## Constraints\n\n| Constraint | Value |\n|---|---|\n"
@@ -55,8 +58,11 @@ IN_FLIGHT_T1 = ("| T-1 | make it work | T1-work-1200 | `a1b2c3` | — | 2026-09-
 
 
 def board(in_flight="", rows=("| `T-1` | make it work | R-1 | none | `src/` | CLAIMED T1-work-1200 |",
-                              "| `T-2` | tidy the docs | none | none | `docs/` | — |")):
-    return ("# The board\n\n## In flight\n\n"
+                              "| `T-2` | tidy the docs | none | none | `docs/` | — |"), writer=None):
+    return ("# The board\n\n"
+            + (f"**Writer.** `{writer}` since 2026-09-03 — one writer here (P-13).\n\n"
+               if writer else "")
+            + "## In flight\n\n"
             "| Task | Title | Agent label | Agent id | Sandbox | Since | Model | Scope | Note |\n"
             "|---|---|---|---|---|---|---|---|---|\n"
             + (in_flight or "| — | — | — | — | — | — | — | — | nothing running |\n")
@@ -273,6 +279,21 @@ FOREIGN = ("other/x.py is modified and lies outside every live scope (T-1). No a
            "run should have written it, and the guard no longer refuses a session that is not "
            "part of the run")
 
+# THE WRITER LOCK AT A COMMIT (roadmap 0.3.4, L-4.8): the board names S-MGR,
+# and the committing session is planted through the environment. A board with
+# no Writer line -- every fixture above -- reads as vacant.
+WRITTEN = [("setup: the fixture", SETUP),
+           ("board: claim T-1", {**CLAIM, "devteam/BOARD.md": board(IN_FLIGHT_T1, writer="S-MGR")})]
+VACANT = [("setup: the fixture", SETUP),
+          ("board: claim T-1", {**CLAIM, "devteam/BOARD.md": board(IN_FLIGHT_T1,
+                                                                    writer="<session id>")})]
+# A rotation's lock commit, the board alone: S-NEW holds it, and S-MGR, the
+# outgoing manager, is named by handoff-ready (`run` §7b).
+MOVED = WRITTEN + [("board: writer S-NEW (rotation from S-MGR, C-1)",
+                    {"devteam/BOARD.md": board(IN_FLIGHT_T1, writer="S-NEW")})]
+HANDOFF_READY = {"devteam/.run/session/handoff-ready": "session S-MGR\ncheckpoint C-1\n"}
+LANDED_REPORT = task(1, "make it work", RUNNING, T1_FIELDS, report("BLOCKED", "  - HEAD T-1: land the report"))
+
 
 def git(root, *args, check=True):
     p = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
@@ -312,9 +333,22 @@ def state(root):
             git(root, "diff"), git(root, "worktree", "list", "--porcelain"))
 
 
+def planted(extra):
+    """The environment a case runs in: this process's, with the committing
+    session planted as S-MGR (roadmap 0.3.4, L-4.8) and `extra` over it. A
+    value of None removes the variable."""
+    env = dict(os.environ, **{SESSION: "S-MGR"})
+    for key, value in extra.items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = value
+    return env
+
+
 def gate(root, *args, env=None, script=GATE):
     p = subprocess.run([sys.executable, script, "commit", "-C", root, "--json", *args],
-                       capture_output=True, text=True, env=env)
+                       capture_output=True, text=True, env=env or planted({}))
     try:
         doc = json.loads(p.stdout)
     except ValueError:
@@ -805,6 +839,103 @@ CASES = [
 ]
 
 
+def dirty(named=(), unnamed=()):
+    """The working state's `dirty-tree` lines name these paths, and not those."""
+    def check(root, proc, doc, before):
+        said = " ".join(w["detail"] for w in doc.get("working_state", [])
+                        if w["class"] == "dirty-tree")
+        missing = [p for p in named if p not in said]
+        present = [p for p in unnamed if p in said]
+        return (f"dirty-tree does not name {missing}" if missing else
+                f"dirty-tree names {present}, which the commit commits as it stands"
+                if present else "")
+    return check
+
+
+# Each case with the environment it runs in, over the runner's default of
+# SESSION=S-MGR; None removes the variable (roadmap 0.3.4, L-4.8).
+ENV_CASES = [
+    # --- the writer lock at a commit -------------------------------------------
+    ("lock-a-session-not-on-the-writer-line-committing-the-record-is-refused", WRITTEN,
+     NOTE, MSG + R, 1, {"lock-not-held"},
+     both(refused_by(lock_not_held="devteam/RECORD.md"), says(r"this session is S-OTHER"),
+          says(r"names another session as its writer \(S-MGR\); this session is S-OTHER")),
+     {SESSION: "S-OTHER"}),
+    ("fp-lock-the-writer-committing-the-record-lands", WRITTEN, NOTE, MSG + R, 0, set(),
+     committed(["devteam/RECORD.md"]), {}),
+    # The board is always writable (P-11): a board change by a session the
+    # board does not name lands, and so does one that takes the lock.
+    ("fp-lock-a-session-not-on-the-writer-line-committing-the-board-alone-lands", WRITTEN,
+     edit({"devteam/BOARD.md": board(IN_FLIGHT_T1, writer="S-MGR") + "\nA note.\n"}),
+     ["-m", "board: a note", "--", "devteam/BOARD.md"], 0, set(),
+     committed(["devteam/BOARD.md"]), {SESSION: "S-OTHER"}),
+    ("fp-lock-a-session-taking-the-lock-commits-the-board-alone", WRITTEN,
+     edit({"devteam/BOARD.md": board(IN_FLIGHT_T1, writer="S-OTHER")}),
+     ["-m", "board: writer S-OTHER", "--", "devteam/BOARD.md"], 0, set(),
+     committed(["devteam/BOARD.md"]), {SESSION: "S-OTHER"}),
+    ("fp-lock-a-task-file-committed-by-a-session-not-on-the-writer-line-lands", WRITTEN,
+     edit({"devteam/tasks/T-1.md": LANDED_REPORT}),
+     ["-m", "T-1: land the report", "--", "devteam/tasks/T-1.md"], 0, set(),
+     committed(["devteam/tasks/T-1.md"]), {SESSION: "S-OTHER"}),
+    ("fp-lock-a-vacant-writer-line-lands", VACANT, NOTE, MSG + R, 0, set(),
+     committed(["devteam/RECORD.md"]), {SESSION: "S-OTHER"}),
+    ("fp-lock-no-session-id-over-a-vacant-writer-line-lands", VACANT, NOTE, MSG + R, 0, set(),
+     committed(["devteam/RECORD.md"]), {SESSION: None}),
+    ("lock-no-session-id-is-refused", WRITTEN, NOTE, MSG + R, 1, {"no-session"},
+     refused_by(no_session="devteam/RECORD.md"), {SESSION: None}),
+    ("lock-a-blank-session-id-is-refused", WRITTEN, NOTE, MSG + R, 1, {"no-session"},
+     refused_by(no_session="no CLAUDE_CODE_SESSION_ID"), {SESSION: "  "}),
+    # The guard's lesson (lock_state): an exact token, never a substring.
+    ("lock-a-session-whose-id-is-inside-the-writers-is-refused", WRITTEN, NOTE, MSG + R, 1,
+     {"lock-not-held"}, refused_by(lock_not_held="this session is MGR"), {SESSION: "MGR"}),
+    # The board as the commit leaves it: a commit taking the lock and writing
+    # under it is one writer's.
+    ("fp-lock-a-commit-that-takes-the-lock-and-writes-under-it-lands", WRITTEN,
+     combine(NOTE, edit({"devteam/BOARD.md": board(IN_FLIGHT_T1, writer="S-NEW")})),
+     MSG + ["--", "devteam/BOARD.md", "devteam/RECORD.md"], 0, set(),
+     committed(["devteam/BOARD.md", "devteam/RECORD.md"]), {SESSION: "S-NEW"}),
+    # ...and one taken in the working tree and not committed holds nothing: the
+    # commit would land the record under S-MGR's board.
+    ("lock-a-lock-taken-in-the-working-tree-and-not-committed-is-not-held", WRITTEN,
+     combine(NOTE, edit({"devteam/BOARD.md": board(IN_FLIGHT_T1, writer="S-NEW")})), MSG + R, 1,
+     {"lock-not-held"}, refused_by(lock_not_held="this session is S-NEW"), {SESSION: "S-NEW"}),
+    # L-4.8's case: a replaced manager commits an edit it made before the lock moved.
+    ("lock-the-replaced-manager-committing-the-record-is-refused", MOVED,
+     combine(NOTE, edit(HANDOFF_READY)), MSG + R, 1, {"lock-not-held"},
+     both(refused_by(lock_not_held="devteam/RECORD.md"), says(r"You have been REPLACED")),
+     {SESSION: "S-MGR"}),
+    ("fp-lock-the-successor-committing-the-record-lands", MOVED, NOTE, MSG + R, 0, set(),
+     committed(["devteam/RECORD.md"]), {SESSION: "S-NEW"}),
+    # Judged by what the commit changes: a manager artifact named and unchanged
+    # is not written by it.
+    ("fp-lock-a-manager-artifact-named-and-unchanged-is-not-judged", WRITTEN,
+     edit({"devteam/tasks/T-1.md": LANDED_REPORT}),
+     ["-m", "T-1: land the report", "--", "devteam/tasks/T-1.md", "devteam/RECORD.md"], 0, set(),
+     committed(["devteam/tasks/T-1.md"]), {SESSION: "S-OTHER"}),
+    ("lock-a-dry-run-says-it-would-refuse", WRITTEN, NOTE, ["--dry-run"] + MSG + R, 1,
+     {"lock-not-held"}, says(r"gate: would refuse — the commit changes a manager artifact"),
+     {SESSION: "S-OTHER"}),
+
+    # --- the file being committed is not uncommitted (roadmap 0.3.2 §3.5's joint) --
+    ("dirty-a-close-prints-no-dirty-tree-for-the-task-file-it-commits", CLAIMED,
+     edit({"devteam/tasks/T-1.md": CLOSED_T1}), ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"],
+     0, set(), both(committed(["devteam/tasks/T-1.md"]), dirty(unnamed=["devteam/tasks/T-1.md"])),
+     {}),
+    ("dirty-an-unnamed-dirty-file-in-the-tasks-scope-is-still-printed", CLAIMED,
+     edit({"devteam/tasks/T-1.md": CLOSED_T1, "src/app.py": "print('ok, twice')\n"}),
+     ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"], 0, set(),
+     both(committed(["devteam/tasks/T-1.md"], ["src/app.py"]),
+          dirty(named=["src/app.py"], unnamed=["devteam/tasks/T-1.md"])), {}),
+    # A named path whose working tree is not what is committed stays printed:
+    # the project's pre-commit hook writes the file after it was staged.
+    ("dirty-a-named-file-changed-after-staging-is-still-printed", CLAIMED,
+     combine(edit({"devteam/tasks/T-1.md": CLOSED_T1}),
+             hook("pre-commit", 'echo "- a line the hook wrote." >> devteam/tasks/T-1.md\n')),
+     ["-m", "T-1: close", "--", "devteam/tasks/T-1.md"], 0, set(),
+     dirty(named=["devteam/tasks/T-1.md"]), {}),
+]
+
+
 def extra_cases(tmp, bases):
     """Cases that need a stand-in check, a held lock or a repository of their own."""
     out = []
@@ -821,6 +952,130 @@ def extra_cases(tmp, bases):
     return out
 
 
+def around_is(hows, cannot=None):
+    """The commits the gate names as made without it, each (how, subject), and
+    what it says it cannot tell, if anything."""
+    def check(root, proc, doc, before):
+        ar = (doc or {}).get("around") or {}
+        got = [(c["how"], c["subject"]) for c in ar.get("commits", [])]
+        told = ar.get("cannot_tell")
+        if got != list(hows):
+            return f"named {got}, wanted {list(hows)}"
+        if cannot is None and told:
+            return f"said it cannot tell: {told}"
+        if cannot is not None and not (told and cannot in told["why"]):
+            return f"cannot-tell is {told}, wanted one saying {cannot!r}"
+        return ""
+    return check
+
+
+def not_says(pattern):
+    def check(root, proc, doc, before):
+        blob = "\n".join(gate_module.render(doc) if doc and "line" in doc else [])
+        return f"output matches {pattern!r}" if re.search(pattern, blob) else ""
+    return check
+
+
+AROUND_SUBJECT = "devteam: a note made around the gate"
+
+
+def around_cases(tmp, bases):
+    """Cases whose history holds a commit the gate made -- made by running the
+    gate itself -- and commits made around it (roadmap 0.3.4, L-4.8). Nothing
+    is ever refused for one."""
+    def derive(label, frm):
+        root = os.path.join(tmp, "bases", label)
+        shutil.copytree(bases[frm], root, symlinks=True)
+        bases[label] = root
+        return root
+
+    def side(root, subject):
+        git(root, "checkout", "-q", "-b", "side")
+        write(root, {"docs/readme.md": "# docs\n\nA side edit.\n"})
+        git(root, "commit", "-qam", subject)
+        git(root, "checkout", "-q", "main")
+
+    root = derive("GATED", "CLAIMED")
+    write(root, {"devteam/RECORD.md": RECORD + "- a note the gate committed.\n"})
+    proc, _doc = gate(root, "-m", "devteam: a note the gate committed", "--", "devteam/RECORD.md")
+    if proc.returncode != 0:
+        raise RuntimeError(f"the gated base did not commit: {proc.stderr.strip()}")
+    root = derive("AROUND_PLAIN", "GATED")
+    write(root, {"devteam/RECORD.md": RECORD + "- a note the gate committed.\n"
+                 "- a note made around it.\n"})
+    git(root, "commit", "-qam", AROUND_SUBJECT)
+    root = derive("AROUND_PICK", "GATED")
+    side(root, "docs: a side edit")
+    git(root, "cherry-pick", "side")
+    root = derive("AROUND_MERGE", "GATED")
+    side(root, "docs: a side edit")
+    git(root, "merge", "-q", "--no-ff", "--no-edit", "side")
+    # Reset away and back: it came by commit, whatever moved the branch since.
+    root = derive("AROUND_RESET", "AROUND_PLAIN")
+    git(root, "reset", "-q", "--hard", "HEAD~1")
+    git(root, "reset", "-q", "--hard", "HEAD@{1}")
+    root = os.path.join(tmp, "bases", "CLONED")
+    git(tmp, "clone", "-q", bases["AROUND_PLAIN"], root)
+    for key, value in (("user.email", "fixture@example.invalid"), ("user.name", "fixture"),
+                       ("commit.gpgsign", "false")):
+        git(root, "config", key, value)
+    bases["CLONED"] = root
+    root = derive("NO_REFLOG", "AROUND_PLAIN")
+    shutil.rmtree(os.path.join(root, ".git", "logs"))
+    root = derive("LONG", "CLAIMED")
+    for n in range(gate_module.AROUND + 1):
+        write(root, {"devteam/RECORD.md": RECORD + f"- note {n}.\n"})
+        git(root, "commit", "-qam", f"devteam: note {n}")
+    root = os.path.join(tmp, "bases", "CLONED_LONG")
+    git(tmp, "clone", "-q", bases["LONG"], root)
+    for key, value in (("user.email", "fixture@example.invalid"), ("user.name", "fixture"),
+                       ("commit.gpgsign", "false")):
+        git(root, "config", key, value)
+    bases["CLONED_LONG"] = root
+
+    plain = [("commit", AROUND_SUBJECT)]
+    return [
+        ("fp-around-a-gate-commit-after-a-gate-commit-names-nothing", "GATED", NOTE, MSG + R, 0,
+         set(), both(committed(["devteam/RECORD.md"]), around_is([]),
+                     not_says(r"made without the gate")), None, GATE),
+        # A project the gate has never committed in: every commit is named.
+        ("around-no-gate-commit-names-every-commit-on-the-line", "CLAIMED", NOTE, MSG + R, 0, set(),
+         both(around_is([("commit", "board: claim T-1"), ("commit (initial)", "setup: the fixture")]),
+              says(r"made without the gate, none of the 2 commit\(s\) on HEAD's first-parent line "
+                   r"is the gate's")), None, GATE),
+        ("around-a-plain-commit-between-two-gate-commits-is-named-as-commit", "AROUND_PLAIN",
+         NOTE, MSG + R, 0, set(),
+         both(committed(["devteam/RECORD.md"]), around_is(plain),
+              says(r"made without the gate, above [0-9a-f]{7}, its newest commit on HEAD's "
+                   r"first-parent line \(named, never refused"),
+              says(r"[0-9a-f]{7} commit: devteam: a note made around the gate")), None, GATE),
+        ("around-a-cherry-pick-is-named-as-one", "AROUND_PICK", NOTE, MSG + R, 0, set(),
+         around_is([("cherry-pick", "docs: a side edit")]), None, GATE),
+        ("around-a-merge-is-named-as-one", "AROUND_MERGE", NOTE, MSG + R, 0, set(),
+         around_is([("merge side", "Merge branch 'side'")]), None, GATE),
+        ("fp-around-a-commit-reset-away-and-back-is-named-as-it-first-came", "AROUND_RESET", NOTE,
+         MSG + R, 0, set(), around_is(plain), None, GATE),
+        ("around-a-clone-says-it-cannot-tell", "CLONED", NOTE, MSG + R, 0, set(),
+         both(around_is([], cannot="`clone`"), says(r"cannot tell: the reflog says `clone`")),
+         None, GATE),
+        ("around-no-reflog-says-it-cannot-tell", "NO_REFLOG", NOTE, MSG + R, 0, set(),
+         around_is([], cannot="no reflog"), None, GATE),
+        # pricelog's clone, in small: a line longer than the walk, which the
+        # header says it read only the newest of.
+        ("around-a-clone-of-a-long-line-says-it-read-the-newest", "CLONED_LONG", NOTE, MSG + R, 0,
+         set(), both(around_is([], cannot="`clone`"),
+                     says(rf"made without the gate, none of the newest {gate_module.AROUND} "
+                          r"commit\(s\) on HEAD's first-parent line is the gate's")), None, GATE),
+        ("fp-around-a-dry-run-names-what-a-commit-would", "AROUND_PLAIN", NOTE,
+         ["--dry-run"] + MSG + R, 0, set(),
+         both(lambda root, proc, doc, before: "" if state(root) == before else "a dry run moved something",
+              around_is(plain)), None, GATE),
+        ("around-a-refused-commit-names-them-too", "AROUND_PLAIN",
+         edit({"devteam/QUESTIONS.md": QUESTIONS.replace("REVERSIBLE", "MAYBE")}),
+         MSG + ["--", "devteam/QUESTIONS.md"], 1, {"adds-finding"}, around_is(plain), None, GATE),
+    ]
+
+
 def main():
     passed = failed = 0
     # Not the gate's own prefix: its sweep must never meet a directory it did
@@ -829,7 +1084,7 @@ def main():
     names = []
     try:
         bases, histories = {}, {}
-        for _name, history, *_rest in CASES:
+        for _name, history, *_rest in CASES + ENV_CASES:
             key = repr(history)
             if key not in histories:
                 histories[key] = f"base{len(histories)}"
@@ -838,14 +1093,17 @@ def main():
         bases["CLAIMED"] = bases[histories[repr(CLAIMED)]]
         todo = [(name, histories[repr(history)], apply, args, want_rc, want, check, None, GATE)
                 for name, history, apply, args, want_rc, want, check in CASES]
+        todo += [(name, histories[repr(history)], apply, args, want_rc, want, check, env, GATE)
+                 for name, history, apply, args, want_rc, want, check, env in ENV_CASES]
         todo += extra_cases(tmp, bases)
+        todo += around_cases(tmp, bases)
         for n, (name, label, apply, args, want_rc, want, check, env_extra, script) in enumerate(todo):
             names.append(name)
             root = os.path.join(tmp, "cases", f"{n:02d}")
             shutil.copytree(bases[label], root, symlinks=True)
             apply(root)
             before = state(root)
-            env = dict(os.environ, **(env_extra or {}), GATE_STUB_REPO=root)
+            env = planted(dict(env_extra or {}, GATE_STUB_REPO=root))
             proc, doc = gate(root, *args, env=env, script=script)
             why = ""
             if proc.returncode != want_rc:
@@ -959,6 +1217,32 @@ def main():
             else:
                 failed += 1
                 print(f"FAIL  {name}\n        exit {proc.returncode}: {proc.stderr.strip()[:200]}")
+
+        # SETUP'S SCAFFOLD, AND THE FIRST GATE COMMIT ON IT (roadmap 0.3.4 §4, the
+        # first commit to try the writer refusal on). The scaffold is the
+        # client's commit, and its Writer line is the template's placeholder,
+        # which reads as vacant: onboarding commits before any lock is taken.
+        for name, session in (("fp-lock-the-first-commit-on-setups-scaffold-lands", "S-FIRST"),
+                              ("fp-lock-the-first-commit-on-setups-scaffold-lands-with-no-session",
+                               None)):
+            names.append(name)
+            root = os.path.join(tmp, "cases", name)
+            make(root, [("init", {"README.md": "x\n"})])
+            done = subprocess.run([sys.executable, SETUP_PY, root], capture_output=True, text=True)
+            git(root, "add", "-A")
+            git(root, "commit", "-q", "-m", "devteam: the scaffold, as the client commits it")
+            with open(os.path.join(root, "devteam", "RECORD.md"), "a", encoding="utf-8") as fh:
+                fh.write("\n- onboarding began.\n")
+            proc, doc = gate(root, "-m", "devteam: onboarding began", "--", "devteam/RECORD.md",
+                             env=planted({SESSION: session}))
+            if done.returncode == 0 and proc.returncode == 0:
+                passed += 1
+            else:
+                failed += 1
+                print(f"FAIL  {name}\n        setup exit {done.returncode}, gate exit "
+                      f"{proc.returncode}: {proc.stderr.strip()[:200]}")
+                for r in (doc or {}).get("refused", [])[:4]:
+                    print(f"        | {r['class']} {r['detail'][:150]}")
 
         # EACH CHECK EXCLUDES ITS OWN WORKING-STATE CLASSES AT A COMMIT, and
         # every name it lists is a class it emits: a stale name would exclude

@@ -626,7 +626,11 @@ without moving any ref, then runs the four project checks with `--at-commit`
 and `--json` on HEAD and on that commit. It makes the commit only if the
 commit adds no finding and no part not evaluated that HEAD lacks, counted by
 the identity an acceptance matches by. A finding already at HEAD stands, and
-it is printed at every run. The gate exits `0` committed · `1` refused · `2`
+it is printed at every run. A commit that changes a path under `devteam/`
+other than `BOARD.md` and a task file is refused unless the board, as the
+commit leaves it, is vacant or names the committing session (P-13). Every run
+names the commits on HEAD's first-parent line that the gate did not make, and
+refuses none of them. The gate exits `0` committed · `1` refused · `2`
 could not run, and nothing is committed on `1` or `2`. `docs/CHECKS.md` lists
 its refusal classes. In a devteam project, the `commit_guard.py` hook refuses
 an agent's commit made any other way: a git command that writes a commit, or

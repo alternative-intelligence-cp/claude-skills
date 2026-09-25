@@ -29,11 +29,37 @@ in between, on the commit itself:
 4. THE COMMIT MADE IS THE COMMIT CHECKED. The branch is moved to the candidate
    itself, by a compare-and-swap against HEAD's old value, so the gate refuses
    if HEAD moved in between, and it cannot land a commit it did not evaluate.
+5. ONLY THE WRITER COMMITS A MANAGER ARTIFACT (P-13; roadmap 0.3.4, L-4.8).
+   A manager artifact is every path under `devteam/` but two: BOARD.md, which
+   is the lock and always writable (P-11), and a task file, which its
+   supervisor writes. A commit that changes one is refused unless BOARD.md's
+   `**Writer.**` line, as the commit leaves it, is vacant or names the
+   committing session -- the one `CLAUDE_CODE_SESSION_ID` names -- read by
+   guard.py's four readings as they read it for an edit. The lock guarded
+   edits and nothing read it for a commit, so a replaced manager could still
+   commit an edit it made before the lock moved. The board as the commit
+   leaves it, not HEAD's: a commit that takes the lock and writes under it is
+   one writer's, as the guard lets that writer edit once the board names it.
 
 The WORKING STATE -- untracked files, uncommitted changes, the harness's
 meters -- is in no commit. It is read from the live checkout and printed. Of
 it, only an untracked file under `devteam/` that the commit does not name
 refuses the commit, as the run's own gate did (pricelog RECORD.md:432; F-131).
+It is read before the commit exists, so every close used to print the task
+file being committed as `dirty-tree` (roadmap 0.3.2 §3.5's joint). A named path
+whose working-tree content is the candidate's is left out of it now: after
+this commit it is not uncommitted (L-4.8).
+
+WHAT HEAD HOLDS THAT THE GATE DID NOT MAKE is named at every run, and never
+refused, because the client's terminal commits without the gate by design
+(roadmap 0.3.1 §3.6; 0.3.4, L-4.8). The gate trusts HEAD: what a commit made
+around it added is counted as standing at the next run. So each commit on
+HEAD's first-parent line above the newest one the gate made is named, with the
+reflog's own word for how it came -- `commit`, `merge`, `reset`, or
+`cherry-pick`, which is how a promotion comes (P-44). The gate's own commits
+are the reflog entries it writes, `commit (gate): <subject>`. Where the reflog
+does not say how a commit was made -- a clone's first entry, a branch's
+creation, or no reflog at all -- it says it cannot tell.
 
 THE ONE ALLOWANCE is F-19's window: a task whose title reads DONE, discharging
 a requirement that still reads `in-progress (T-n)` with T-n in the board's
@@ -74,6 +100,7 @@ import check_trace   # noqa: E402 -- the board and requirement grammars, one hom
 import check_refs    # noqa: E402
 import check_report  # noqa: E402 -- which tasks have a report to verify
 import check_scope   # noqa: E402 -- which tasks a per-task run can name
+import guard         # noqa: E402 -- the Writer line and its four readings, one home (P-34)
 
 PROJECT_WIDE = ("check_trace", "check_refs", "check_scope")
 WORKING_STATE = {"check_trace": check_trace.WORKING_STATE,
@@ -92,6 +119,19 @@ USAGE = ("usage: gate.py commit (-m <message> ... | -F <file>) [--pre-plan] [--d
          "[--json] [--wait <seconds>] [-C <dir>] -- <path> ...")
 IN_PROGRESS = re.compile(r"^in-progress \((T-\d+(?:,\s*T-\d+)*)\)$")
 TASK_FILE = re.compile(r"^tasks/(T-\d+)\.md$")
+BOARD = "devteam/BOARD.md"
+# The committing session (roadmap 0.3.4, L-4.8). The harness sets it in a
+# session's Bash and in the Bash of an agent that session dispatches: MEASURED
+# 2026-09-25, CLI 2.1.282, a subagent printed its dispatcher's id. A worker in
+# a sandbox is its own `claude -p` session with its own id.
+SESSION = "CLAUDE_CODE_SESSION_ID"
+# The word the gate's own reflog entries begin with, which `land` writes.
+GATE_ENTRY = "commit (gate)"
+# The reflog's words that say how a branch came to hold a commit, not how the
+# commit was made: a clone's first entry, a branch's creation, and a checkout,
+# which is how a detached HEAD moves.
+COPIED = ("clone", "branch", "checkout")
+AROUND = 20
 AT = {"head": "at HEAD", "candidate": "at the candidate", "live": "in the live checkout"}
 
 
@@ -616,6 +656,162 @@ def judge(base, cand, live, named, pre_plan, statuses, flying, unread, changed=(
     return refusals, allowed, standing, parts, fixed
 
 
+# --- the writer lock (roadmap 0.3.4, L-4.8) --------------------------------------
+
+def manager_artifacts(paths):
+    """The paths under devteam/ that only the writer commits: every one but
+    BOARD.md, the lock itself (P-11), and a task file, its supervisor's (P-13)."""
+    return [p for p in paths if p.startswith("devteam/") and p != BOARD
+            and not TASK_FILE.match(p[len("devteam/"):])]
+
+
+def named_id(holder):
+    """The id a `**Writer.**` line names, for a message: its backticked value,
+    or the line itself."""
+    m = re.search(r"`([^`]*)`", holder or "")
+    return m.group(1) if m else (holder or "").strip()
+
+
+def writer(top, commit):
+    """BOARD.md's `**Writer.**` line at a commit, as guard.py reads it -- the
+    rest of the line after the field -- or None: no board, or no such line."""
+    p = git(top, "show", f"{commit}:{BOARD}", check=False)
+    if p.returncode != 0:
+        return None
+    return next((m.group(1) for m in map(guard.WRITER.match, p.stdout.split("\n")) if m), None)
+
+
+def unheld(top, commit, wrote):
+    """The refusals for a commit that changes a manager artifact from a session
+    that does not hold the lock, or [] (P-13).
+
+    The lock is BOARD.md's `**Writer.**` line in the candidate, which is
+    HEAD's unless the commit changes the board, read by guard.py's four
+    readings: `vacant` and `mine` commit, `unknown` and `theirs` are refused.
+    `unknown` is a process with no session id. It is refused, never read as
+    anyone's, as the guard refuses it an edit: a gate that went quiet when it
+    could not tell who was committing is the failure the guard's comment on
+    `lock_state` records (DESIGN §20)."""
+    ours = manager_artifacts(wrote)
+    if not ours:
+        return []
+    session = os.environ.get(SESSION, "").strip()
+    holder = writer(top, commit)
+    reading = guard.lock_state(holder, session)
+    if reading in ("vacant", "mine"):
+        return []
+    named = ", ".join(ours[:4]) + (f" and {len(ours) - 4} more" if len(ours) > 4 else "")
+    refusals = []
+    add = lambda kind, where, detail: refusals.append(
+        {"class": kind, "where": where, "detail": detail})
+    if reading == "unknown":
+        add("no-session", ours[0],
+            f"the commit changes {named}, which only the session BOARD.md names as its "
+            f"writer commits, and this process has no {SESSION} to tell it by (P-13). "
+            "Commit from the session that holds the lock")
+        return refusals
+    how = (". You have been REPLACED: `devteam/.run/session/handoff-ready` names this "
+           "session as the outgoing manager, and the lock has moved to your successor. Do "
+           "not take it back; write nothing (`run` §2, `resume` §0)"
+           if guard.handoff_names(top, session) else
+           ". If that session is gone, taking the lock is the client's word and the "
+           "board's first commit (`run` §1.1); BOARD.md and a task file are never refused")
+    add("lock-not-held", ours[0],
+        f"the commit changes {named}, which only the writer commits (P-13), and BOARD.md "
+        f"names another session as its writer ({named_id(holder)}); this session is "
+        f"{session}{how}")
+    return refusals
+
+
+# --- what HEAD holds that the gate did not make (roadmap 0.3.4, L-4.8) --------------
+
+def around(top, ref, old):
+    """The commits on HEAD's first-parent line above the newest one the gate
+    made, each with the reflog's own word for how it came. Printed, never
+    refused.
+
+    A branch's reflog has one entry per move, newest first, each naming the
+    commit the branch moved to; the entry below it names where it moved from.
+    So an entry brought the commits on its first-parent line that the line it
+    moved from lacks -- one for a commit or a cherry-pick, several for a
+    fast-forward, none for a reset backwards. A commit is named with the word
+    of the oldest entry above the gate's that brought it, which is how it
+    first came: a merge reset away and back came by merge. `AROUND` bounds the
+    walk, and a commit the reflog does not reach, or reaches only by a copy
+    (`COPIED`), ends it: from there down the gate cannot tell.
+    """
+    out = {"since": None, "commits": [], "cannot_tell": None, "more": False, "walked": 0}
+    p = git(top, "reflog", "show", "--format=%H%x00%gs", ref or "HEAD", "--", check=False)
+    entries = ([tuple(e.split("\0", 1)) for e in p.stdout.split("\n") if "\0" in e]
+               if p.returncode == 0 else [])
+    ours = {new for new, said in entries if said.startswith(GATE_ENTRY + ": ")}
+    walked = []
+    line = git(top, "rev-list", "--first-parent", f"--max-count={AROUND + 1}", old).stdout
+    for c in line.split():
+        if c in ours:
+            out["since"] = c
+            break
+        walked.append(c)
+    out["walked"], out["more"] = min(len(walked), AROUND), len(walked) > AROUND
+    if not walked:
+        return out
+    if not entries:
+        out["cannot_tell"] = {"from": walked[0], "why": "the branch has no reflog, so how "
+                              "its commits came is recorded nowhere"}
+        return out
+    top_entry = next((i for i, (new, said) in enumerate(entries)
+                      if new == out["since"] and said.startswith(GATE_ENTRY + ": ")),
+                     min(len(entries), 200))
+    how, todo = {}, set(walked)
+    for i in range(top_entry - 1, -1, -1):
+        if not todo:
+            break
+        new, said = entries[i]
+        below = [f"^{entries[i + 1][0]}"] if i + 1 < len(entries) else []
+        brought = git(top, "rev-list", "--first-parent", f"--max-count={AROUND + 1}", new,
+                      *below, check=False).stdout.split()
+        for c in brought:
+            if c in todo:
+                how[c] = said.split(":", 1)[0].strip()
+                todo.discard(c)
+    shown = git(top, "show", "-s", "--format=%H%x00%s", *walked[:AROUND]).stdout
+    subjects = dict(s.split("\0", 1) for s in shown.split("\n") if "\0" in s)
+    for c in walked[:AROUND]:
+        word = how.get(c)
+        if not word or word.split()[0] in COPIED:
+            out["cannot_tell"] = {"from": c, "why": (
+                f"the reflog says `{word}`, which records how the branch came to hold it, not "
+                "how it was made" if word else "the reflog does not reach it")}
+            return out
+        out["commits"].append({"commit": c, "how": word, "subject": subjects.get(c, "")})
+    return out
+
+
+def committing(top, index, named):
+    """Is this path one the commit commits as the working tree holds it? The
+    candidate's temporary index says: `git diff-files` names each named path
+    whose working-tree content differs from it (roadmap 0.3.4, L-4.8)."""
+    differs = set(git(top, "--literal-pathspecs", "diff-files", "--name-only", "-z", "--",
+                      *named, env=clean_env(GIT_INDEX_FILE=index)).stdout.split("\0")) - {""}
+    return lambda path: covered(path, named) and path not in differs
+
+
+def uncommitted(ws, same):
+    """The working state less each `dirty-tree` path that `same` says the commit
+    commits as it stands: after this commit it is not uncommitted."""
+    out = []
+    for w in ws:
+        m = (check_report.DIRTY.match(w.get("detail") or "")
+             if (w["check"], w["class"]) == ("check_report", "dirty-tree") else None)
+        if m:
+            left = [p for p in m.group(2).split(", ") if not same(p)]
+            if not left:
+                continue
+            w = dict(w, detail=m.group(1) + ", ".join(left))
+        out.append(w)
+    return out
+
+
 # --- the commit ------------------------------------------------------------------
 
 def land(top, ref, old, commit, subject, changed):
@@ -628,7 +824,7 @@ def land(top, ref, old, commit, subject, changed):
                 f"began and names {now_ref or 'a detached commit'} now. Nothing was committed; "
                 "run the gate again")
     target = [ref] if ref else ["--no-deref", "HEAD"]
-    p = git(top, "update-ref", "-m", f"commit (gate): {subject}", *target, commit, old,
+    p = git(top, "update-ref", "-m", f"{GATE_ENTRY}: {subject}", *target, commit, old,
             check=False)
     if p.returncode != 0:
         now = git(top, "rev-parse", "--verify", "--quiet", "HEAD", check=False).stdout.strip()
@@ -657,6 +853,21 @@ def render(doc):
         out.append(f"  {r['class']:20} {r['where']}  {r['detail']}")
     for f in doc["allowed"]:
         out.append(f"  allowed: {f['check']} {f['class']} {at_of(f)} — {f['allowed']}")
+    ar = doc.get("around") or {}
+    if ar.get("commits") or ar.get("cannot_tell"):
+        where = (f"above {ar['since'][:7]}, its newest commit on HEAD's first-parent line"
+                 if ar.get("since") else
+                 f"none of the {'newest ' if ar.get('more') else ''}{ar.get('walked', 0)} "
+                 "commit(s) on HEAD's first-parent line is the gate's")
+        out.append(f"  made without the gate, {where} (named, never refused; what they added "
+                   "stands):")
+        for c in ar["commits"]:
+            out.append(f"    {c['commit'][:7]} {c['how']}: {c['subject']}")
+        if ar.get("more") and not ar.get("cannot_tell"):
+            out.append(f"    and more below these {AROUND}")
+        if ar.get("cannot_tell"):
+            out.append(f"    from {ar['cannot_tell']['from'][:7]} down, cannot tell: "
+                       f"{ar['cannot_tell']['why']}")
     st = doc["standing"]
     if st["findings"] or st["not_evaluated"]:
         out.append(f"  standing, at HEAD and not added here: {len(st['findings'])} finding(s), "
@@ -693,7 +904,7 @@ def render(doc):
     return out
 
 
-def commit(paths, message, cwd=None, pre_plan=False, dry_run=False, wait=120.0):
+def commit(paths, message, cwd=None, pre_plan=False, dry_run=False, wait=120.0, expect=None):
     """The gate's one act, as data: build the candidate, judge it, and land it.
 
     `paths` are named as `git commit -- <paths>` names them, relative to
@@ -703,11 +914,14 @@ def commit(paths, message, cwd=None, pre_plan=False, dry_run=False, wait=120.0):
     committed then. `main` is this function behind the command line. A
     command that commits for the manager calls it directly, so it gets what
     the gate refused and what stands as data, and reports it whole (roadmap
-    0.3.4, L-4.1).
+    0.3.4, L-4.1). `expect` is the HEAD the caller read the project at: if
+    HEAD is another commit, it is refused as `head-moved`, so a commit built
+    from what the caller read never lands on a project that has changed.
     """
     doc = {"schema": result.SCHEMA, "gate": "commit", "refused": [], "allowed": [],
            "standing": {"findings": [], "not_evaluated": []}, "fixed": [],
-           "working_state": [], "not_run": []}
+           "working_state": [], "not_run": [],
+           "around": {"since": None, "commits": [], "cannot_tell": None, "more": False}}
     tmp = None
     try:
         top, common = locate(cwd)
@@ -719,6 +933,19 @@ def commit(paths, message, cwd=None, pre_plan=False, dry_run=False, wait=120.0):
                 raise CouldNotRun("HEAD holds no devteam/, so there is no project at HEAD to "
                                   "compare with; the scaffold's first commit is the client's "
                                   "(the `setup` skill)")
+            if expect and old != expect:
+                refusals = []
+                add = lambda kind, where, detail: refusals.append(
+                    {"class": kind, "where": where, "detail": detail})
+                add("head-moved", "HEAD", f"HEAD is {old[:7]}, and the commit was prepared "
+                    f"against {expect[:7]}: another commit landed in between. Nothing was "
+                    "committed; prepare it again")
+                doc.update(refused=refusals, exit=result.FINDINGS, head=old,
+                           result="would refuse" if dry_run else "refused",
+                           line=f"gate: refused — HEAD moved; nothing was committed  "
+                                f"[HEAD {old[:7]} unchanged]")
+                return doc
+            doc["around"] = around(top, ref, old)
             tmp = tempfile.mkdtemp(prefix=PREFIX)
             try:
                 commit, tree, cleaned = build(top, old, paths, message, tmp,
@@ -735,11 +962,21 @@ def commit(paths, message, cwd=None, pre_plan=False, dry_run=False, wait=120.0):
                                 f"committed  [HEAD {old[:7]} unchanged]")
                 return doc
             subject = cleaned.split("\n", 1)[0]
-            changed = sorted(set(paths) | {p for p in git(
+            wrote = sorted(p for p in git(
                 top, "diff-tree", "-r", "--name-only", "--no-renames", "-z", old, commit
-            ).stdout.split("\0") if p})
+            ).stdout.split("\0") if p)
+            changed = sorted(set(paths) | set(wrote))
             doc.update(head=old, ref=ref, candidate=commit, tree=tree, subject=subject,
                        paths=paths)
+            refusals = unheld(top, commit, wrote)
+            if refusals:
+                doc.update(refused=refusals, exit=result.FINDINGS,
+                           result="would refuse" if dry_run else "refused",
+                           line=(f"gate: {'would refuse' if dry_run else 'refused'} — the commit "
+                                 "changes a manager artifact, and only the writer commits one; "
+                                 f"nothing was committed  [HEAD {old[:7]} and the index "
+                                 "unchanged]"))
+                return doc
             # ONE CHECKOUT, AT HEAD AND THEN AT THE CANDIDATE. Every history
             # class reads the history of the checkout's own HEAD (roadmap 0.3.2,
             # L-2.6), so HEAD is judged in HEAD's history and the candidate in
@@ -757,7 +994,9 @@ def commit(paths, message, cwd=None, pre_plan=False, dry_run=False, wait=120.0):
                 flying, unread = check_trace.in_flight(os.path.join(wt, "devteam"))
             finally:
                 git(top, "worktree", "remove", "--force", wt, check=False)
-            base, cand, ws = Tally(base_runs), Tally(cand_runs), working_state(live)
+            base, cand = Tally(base_runs), Tally(cand_runs)
+            ws = uncommitted(working_state(live),
+                             committing(top, os.path.join(tmp, "index"), paths))
             refusals, allowed, standing, parts, fixed = judge(
                 base, cand, ws, paths, pre_plan, statuses, flying, unread, changed, before)
             doc.update(refused=refusals, allowed=allowed, fixed=fixed, working_state=ws,

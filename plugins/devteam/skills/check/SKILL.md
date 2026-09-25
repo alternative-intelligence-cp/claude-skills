@@ -76,6 +76,16 @@ commit, and a branch pointed at a commit no branch holds. A worker inside a
 sandbox commits with plain git, because promotion gates its commits (P-44).
 The client's own terminal runs no hook.
 
+**Only the writer commits a manager artifact** (P-13). The gate refuses a
+commit that changes a path under `devteam/` other than `BOARD.md` and a task
+file, unless `BOARD.md`'s `**Writer.**` line, as the commit leaves it, is
+vacant or names the committing session: the one `CLAUDE_CODE_SESSION_ID`
+names. An agent dispatched in-process commits as the session that dispatched
+it, because the harness gives its Bash that session's id (measured
+2026-09-25, CLI `2.1.282`). So the gate cannot tell a supervisor's commit from
+its manager's. That a supervisor commits only its own task file stays a
+written rule (P-13), not a check.
+
 - Give the message with `-m` or with `-F`, not both. Put every option before
   `--` and the paths after it.
 - Name each path. A path naming the whole repository is refused, because it
@@ -94,12 +104,26 @@ The client's own terminal runs no hook.
 | `adds-not-evaluated` | The commit adds a part no check can read. Write it in the shape FORMATS defines, or accept the part by a decision |
 | `untracked-unnamed` | A file under `devteam/` is untracked and this commit does not name it. Name it, commit it first, or move it out of `devteam/` |
 | `hook-refused` | The project's own commit hook refused. Fix what it names |
-| `head-moved` | HEAD moved while the gate evaluated. Nothing was committed. Run it again |
+| `head-moved` | HEAD moved while the gate evaluated, or, for `manager.py`, HEAD is not the commit the verb read the project at. Nothing was committed. Run it again |
+| `lock-not-held` | The commit changes a manager artifact, and the board names another session as its writer. If you were replaced, the refusal says so: write nothing. Otherwise the lock moves only on the client's word (`run` §1.1). `BOARD.md` and a task file are never refused |
+| `no-session` | The committing process has no `CLAUDE_CODE_SESSION_ID`, so nothing tells it from another session. Commit from the session that holds the lock |
 | exit `2` | Nothing was committed. The message says whether the fault is in the invocation or in the gate — a check that could not run, or output the gate could not read |
 
 **Never commit around a refusal.** A commit made another way is unchecked,
 and the next gate run counts what it added as standing rather than refusing
-it. The classes and their rules are in `docs/CHECKS.md`, under `gate.py`.
+it. It does name it. Every run prints each commit on HEAD's first-parent line
+above the newest one the gate made, with the reflog's word for how it came,
+and refuses none of them. After one commit made with plain git between two
+gate commits, the next run prints:
+
+```
+  made without the gate, above d4c0f11, its newest commit on HEAD's first-parent line (named, never refused; what they added stands):
+    6d00685 commit: devteam: a note made around the gate
+```
+
+A promotion's commits are named there as `cherry-pick`. Where the reflog does
+not say how a commit was made, as in a clone, the line says the gate cannot
+tell. The classes and their rules are in `docs/CHECKS.md`, under `gate.py`.
 
 ## Accepting a finding
 
@@ -149,7 +173,8 @@ rows there cannot say:
   makes between documents and reality.
 - **`dirty-tree`** measures only the task's own declared scope, because a
   supervisor controls nothing else, and a check nobody can satisfy gets
-  ignored.
+  ignored. At the gate it leaves out a file the commit is committing as it
+  stands, which is not uncommitted once the commit lands.
 - **`misattributed-write`** is a commit that belongs to no task and touches a
   live task's scope, which is what `git add -A` does to a worker's in-flight
   file. Commits are attributed by subject prefix, so the manager's own

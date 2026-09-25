@@ -201,7 +201,7 @@ lists (P-4).
 | `stray-root-entry` | `README.md` §"What is in this repository" — *"everything at the repository root is listed here"* | what git would publish at the root ↔ the README's root table | `enforces` |
 | `stale-root-row` | `README.md` §"What is in this repository" — the same sentence, read the other way | the README's root table ↔ what git would publish at the root | `enforces` |
 
-## `gate.py` — 5 refusal classes
+## `gate.py` — 7 refusal classes
 
 `gate.py commit` makes a commit only once the project checks have been run on
 it (P-49; roadmap 0.3.1, L-1.5). It runs them with `--at-commit` in a clean
@@ -226,7 +226,31 @@ the classes that read the working state, which no commit holds, each listed in
 its check's `WORKING_STATE`: `untracked-file` in the three plan checks,
 `foreign-write` in `check_scope`, and `dirty-tree`, `budget-mismatch` and
 `model-mismatch` in `check_report`. The gate reads those classes from the live
-checkout instead.
+checkout instead. Since roadmap 0.3.4 (L-4.8) a named path whose working-tree
+content is the candidate's is left out of `dirty-tree` there: the live
+checkout is read before the commit exists, and after it that path is not
+uncommitted.
+
+**Only the writer commits a manager artifact** (P-13; roadmap 0.3.4, L-4.8). A
+manager artifact is every path under `devteam/` but two: `BOARD.md`, which is
+the lock and always writable (P-11), and a task file, which its supervisor
+writes. A commit that changes one is refused unless `BOARD.md`'s `**Writer.**`
+line, as the commit leaves it, is vacant or names the committing session —
+the one `CLAUDE_CODE_SESSION_ID` names — read by `guard.py`'s four readings.
+The harness sets that variable in a session's Bash and in the Bash of an agent
+the session dispatches, so an in-process supervisor, planner or verifier
+commits as its manager (`MEASURED` 2026-09-25, CLI `2.1.282`). A worker in a
+sandbox is its own session, and commits with plain git there (P-44).
+
+**It names the commits HEAD holds that it did not make**, and never refuses
+one, because the client's terminal commits without it by design (roadmap
+0.3.1 §3.6). What such a commit added is counted as standing. Each commit on
+HEAD's first-parent line above the newest one the gate made is printed with
+the reflog's own word for how it came — `commit`, `merge`, `reset`, or
+`cherry-pick`, which is how a promotion comes. The gate's own commits are its
+reflog entries, `commit (gate): <subject>`. A branch whose reflog does not say
+how a commit was made — a clone's, a new branch's, or none — says the gate
+cannot tell.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
@@ -234,7 +258,9 @@ checkout instead.
 | `adds-not-evaluated` | P-49; P-50 — a check never reports clean when it did not look | each part not evaluated at the candidate, by name ↔ the parts at HEAD | `enforces` |
 | `untracked-unnamed` | P-49; `FORMATS.md` §"What each check reads" (F-131) | each untracked file under `devteam/` the live checkout's checks read ↔ the paths the commit names | `enforces` |
 | `hook-refused` | P-49 — the commit is made as `git commit` makes it | the project's `pre-commit`, `prepare-commit-msg` and `commit-msg` hooks, run on the candidate ↔ exit 0 | `enforces` |
-| `head-moved` | P-49 — the commit made is the commit checked | the branch HEAD named, and its commit, when the gate began ↔ the same at the compare-and-swap | `enforces` |
+| `head-moved` | P-49 — the commit made is the commit checked | the branch HEAD named, and its commit, when the gate began ↔ the same at the compare-and-swap; and HEAD ↔ the commit a caller prepared the commit against, when it names one (`manager.py`) | `enforces` |
+| `no-session` | P-13 — `devteam/` has one writer, and the board's header names the writing session | the committing process's `CLAUDE_CODE_SESSION_ID` ↔ present, where the commit changes a manager artifact and the board, as the commit leaves it, names a writer | `enforces` |
+| `lock-not-held` | P-13; P-11 — the board is the lock | the committing session ↔ `BOARD.md`'s `**Writer.**` line as the commit leaves it, token for token, where the commit changes a path under `devteam/` other than `BOARD.md` and a task file | `enforces` |
 
 ## `commit_guard.py` — 5 refusal families
 
@@ -265,6 +291,25 @@ families, each of these has a name in the code, and the reason begins
 | `unresolved-target` | P-49 | the branch and the commit a ref move names ↔ what the command text resolves them to | `enforces` |
 | `unresolved-repository` | P-49 | the directory a commit-writing or branch-moving command runs in ↔ what the command text resolves, where the call's directory or the session's project is a devteam project | `enforces` |
 | `guard-failed` | P-49 — like the gate, its guard fails closed on its own failure | the hook's reading of the command ↔ a reading that finished, where the call's directory or the session's project is a devteam project | `enforces` |
+
+## `manager.py` — 4 refusal classes
+
+`manager.py <verb>` performs one of the manager's acts, and checks the
+preconditions every verb shares before it writes (roadmap 0.3.4, L-4.1): a
+session id, the lock held at HEAD, and the state of each path it writes. It
+writes whole files and commits them through the gate's own function, pinned
+to the HEAD it read. A refusal changes nothing: every file it wrote and did
+not commit is put back. It exits `0` done (with `--dry-run`, would be done),
+`1` refused, or `2` could not run, which covers the invocation, a project the
+gate cannot work in, and a verb that fails rather than refusing. Each verb's
+own refusals are added here as the verbs are built.
+
+| Class | Rule | The two sides | Verdict |
+|---|---|---|---|
+| `no-session` | P-13 — the board's header names the writing session | the verb's process's `CLAUDE_CODE_SESSION_ID` ↔ present | `enforces` |
+| `lock-not-held` | P-13; P-11 — the board is the lock | the verb's session ↔ `BOARD.md`'s `**Writer.**` line at HEAD, token for token; a vacant line holds nothing | `enforces` |
+| `uncommitted-path` | P-12b — the tree holds uncommitted work nobody else may discard or sweep (F-17); P-13 | each path a verb writes, in the checkout ↔ the same at HEAD, less a change the verb carries by its act | `enforces` |
+| `gate-refused` | P-49 — a commit to `devteam/` is checked before it is made | the verb's commit ↔ the gate's judgement of it, which is reported whole under the refusal | `enforces` |
 
 ## `sandbox.py promote` — 14 classes
 
