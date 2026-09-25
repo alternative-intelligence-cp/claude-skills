@@ -1651,11 +1651,23 @@ def check(devteam):
     # title DONE or ACCEPTED and its row no longer CLAIMED, as an item due by
     # a task falls due (L-3.12). It is this finding alone, and not also
     # `expired-item`: one fault, one report.
+    #
+    # EVERY ENTRY NAMING THE FINDING IS READ, not only the one the join paired
+    # with it (L-3.5's words; the owner's answer at §3.7, L-3.14). A second
+    # entry for one finding covers nothing, and read only through the pairing,
+    # `fixed` written above `open (until C-9)` closed the task over its open
+    # finding with nothing said, and the same two swapped fired. Every item a
+    # resolving entry names shares its answer's scope, so the first is read.
     held_by = {(e.ident, e.line): found.items[i] for i, e in covered.items()}
     p31 = set()
-    for e, what, _ in verdicts:
-        it = held_by.get((e.ident, e.line))
-        if what != "covers" or it.kind == "report" or not it.audited:
+    for e, what, detail in verdicts:
+        if what == "covers":
+            it = held_by[(e.ident, e.line)]
+        elif what == "resolves" and detail:
+            it = found.items[detail[0]]
+        else:
+            continue
+        if it.kind == "report" or not it.audited:
             continue
         got = e.parsed()
         if got and got[0] == "open" and gone(it.audited):

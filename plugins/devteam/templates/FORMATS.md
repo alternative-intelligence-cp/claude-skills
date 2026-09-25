@@ -336,10 +336,11 @@ each entry's `Raised.` against them, one entry to one item:
   that scope, or of that file, holds; and an entry with no `Raised.`. A task
   or a step no file declares is `check_refs`' `cited-undefined`.
 - **An audit's finding still open at its task's close:
-  `open-finding-at-close`** (P-31). An entry covering a finding of an audit of
-  T-n, or of one of its steps, is decided by T-n's close — its title `DONE` or
-  `ACCEPTED` and its row not `CLAIMED` — whatever its `until` says. The task
-  is the answer's scope, read from its `AUDIT` line.
+  `open-finding-at-close`** (P-31). Every entry naming a finding of an audit
+  of T-n, or of one of its steps, is decided by T-n's close — its title `DONE`
+  or `ACCEPTED` and its row not `CLAIMED` — whatever its `until` says. That
+  includes a second entry for one finding, which covers nothing. The task is
+  the answer's scope, read from its `AUDIT` line.
 
 The words are matched with whitespace and dashes normalised, as a prefix of
 the item's text read whole. Where two items in one block's key begin with the

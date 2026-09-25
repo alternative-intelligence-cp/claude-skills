@@ -624,6 +624,23 @@ CASES = [
       "LEDGER.md": ledger(itm(1, "open (until C-9)",
                               raised="audits/T-1-safety-2026-09-04.md SAF-1"))},
      {"open-finding-at-close"}),
+    # TWO ENTRIES FOR ONE FINDING (roadmap 0.3.3 §3.7, L-3.14). The join pairs
+    # one with the finding, and the other covers nothing. Read only through
+    # the pairing, `declined` written above `open` closed the task over its
+    # open finding with nothing said, and the same two swapped fired. Every
+    # entry naming the finding is read, in either order.
+    ("open-finding-at-close-two-entries-for-one-finding-the-decided-one-first",
+     {**ADVANCED, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "LEDGER.md": ledger(itm(1, "declined (D-1)", raised="T-1.S-1 COR-1"),
+                          itm(2, "open (until C-9)", raised="T-1.S-1 COR-1"))},
+     {"open-finding-at-close"}, [], None, set(),
+     ("ITM-2, T-1.S-1 COR-1, is still `open (until C-9)` and T-1 is DONE — P-31",)),
+    ("open-finding-at-close-two-entries-for-one-finding-the-open-one-first",
+     {**ADVANCED, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "LEDGER.md": ledger(itm(1, "open (until C-9)", raised="T-1.S-1 COR-1"),
+                          itm(2, "declined (D-1)", raised="T-1.S-1 COR-1"))},
+     {"open-finding-at-close"}, [], None, set(),
+     ("ITM-1, T-1.S-1 COR-1, is still `open (until C-9)` and T-1 is DONE — P-31",)),
 
     # --- FALSE-POSITIVE TWINS ---------------------------------------------
     # The same finding while the supervisor's close holds the claim: its row
@@ -636,6 +653,13 @@ CASES = [
     ("fp-p31-an-audit-finding-routed-at-its-tasks-close-is-decided",
      {**ADVANCED, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
       "LEDGER.md": ledger(itm(1, "routed T-2", needs("README.md"), raised="T-1.S-1 COR-1"))},
+     set()),
+    # ...and two entries for one finding, both decided, are silent in either
+    # order: reading every entry adds no finding where none is open.
+    ("fp-p31-two-entries-for-one-finding-both-decided",
+     {**ADVANCED, "tasks/T-1.md": T1_DONE + RECORD_HEAD + answered("T-1.S-1", "correctness", "COR-1"),
+      "LEDGER.md": ledger(itm(1, "declined (D-1)", raised="T-1.S-1 COR-1"),
+                          itm(2, "routed T-2", needs("README.md"), raised="T-1.S-1 COR-1"))},
      set()),
     # AN OPEN FINDING ON AN OPEN TASK IS NOT A DEFECT. It is the normal state
     # between the audit and the close, and reporting it would make the check

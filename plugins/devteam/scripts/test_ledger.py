@@ -723,6 +723,15 @@ def main():
                                                  'T-1.S-1 open "an item attempt 2"'))
     check("fp-join-an-entry-naming-a-superseded-attempts-item-resolves",
           verd["ITM-1"] == ("resolves", None) and not left, f"{verd!r} {left!r}")
+    # A second entry for one finding resolves, and names the finding: P-31
+    # reads every entry naming it (roadmap 0.3.3 §3.7, L-3.14).
+    one = {"tasks/T-3.md": "# T-3 — x — RUNNING\n\n## Execution record\n\n"
+                           + answer("T-3.S-1", "hygiene", "## HYG-1 — a\n")}
+    cov, verd, left = joined(one, HEAD + entry(1, "declined (D-1)", "T-3.S-1 HYG-1")
+                             + entry(2, "open (until T-3)", "T-3.S-1 HYG-1"))
+    check("join-a-second-entry-for-one-finding-resolves-naming-it",
+          verd["ITM-1"][0] == "covers" and verd["ITM-2"] == ("resolves", (0,)) and not left,
+          f"{verd!r} {left!r}")
     same = {"tasks/T-1.md": record + block("T-1", questions=(
         "\n  - Does the lock hold? Also after a restart?\n  - Does the lock hold?"))}
     cov, verd, left = joined(same, HEAD + entry(1, "raised Q-1", 'T-1 questions "Does the lock hold?"')

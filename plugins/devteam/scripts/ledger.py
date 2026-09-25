@@ -539,6 +539,14 @@ def join(listed, found):
     `unread` (its `Raised.` does not parse, and `detail` is its line), or
     `none` (it has no `Raised.`).
 
+    A resolving entry's `detail` is the indices of the items it names that
+    another entry covers, or None when it names none: a second entry for one
+    audit finding is still that finding's entry, and P-31 reads every entry
+    naming the finding, not only the one the pairing chose (roadmap 0.3.3
+    §3.7, L-3.14). Measured before this was read: with `fixed` written first
+    and `open (until C-9)` second, a task closed over its open finding with
+    check_trace clean, and swapped, it fired.
+
     One entry covers one item, and one item needs one entry. Within the items
     an entry could name -- a report item beginning with its words, an audit's
     finding of its scope and label -- entries are paired with items as a
@@ -611,7 +619,11 @@ def join(listed, found):
     out = []
     for e, what, detail in verdicts:
         if what == "match":
-            what = "covers" if (e.ident, e.line) in holding else "resolves"
+            key = (e.ident, e.line)
+            if key in holding:
+                what = "covers"
+            else:
+                what, detail = "resolves", tuple(want[key]) or None
         out.append((e, what, detail))
     return covered, out
 
