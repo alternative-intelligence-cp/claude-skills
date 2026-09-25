@@ -474,6 +474,17 @@ S-1 is the only step.
      [replace("REQUIREMENTS.md", "- **Status.** open", "- **Status.** in-progress (T-1)")], set()),
     ("fp-struck-question-keeps-its-decision",
      [replace("QUESTIONS.md", "- **Status.** open", "- **Status.** proceeded-unreviewed D-1")], set()),
+    # A question's window is its own `Window.` field now, and no longer a board
+    # column (roadmap 0.3.3, L-3.6). The question is read as before, and the
+    # value is not judged in 0.3.3: a time, and the prose pricelog's manager
+    # wrote in the field (QUESTIONS.md:620 on the clone), are each clean.
+    ("fp-window-a-time-is-read-as-before",
+     [replace("QUESTIONS.md", "- **Raised.** 2026-09-03 by T-1\n",
+              "- **Raised.** 2026-09-03 by T-1\n- **Window.** 2026-09-03 15:00\n")], set()),
+    ("fp-window-its-value-is-not-judged",
+     [replace("QUESTIONS.md", "- **Raised.** 2026-09-03 by T-1\n",
+              "- **Raised.** 2026-09-03 by T-1\n- **Window.** One hour after it is put; on "
+              "expiry the loop proceeds on the recommendation (P-27).\n")], set()),
     ("fp-template-is-not-project-state",
      [("tracked", "templates/tasks/TASK.md",
        "# T-<n> — blank form — PLANNED\n\n- **Discharges.** R-4\n\nPer D-9.\n"),

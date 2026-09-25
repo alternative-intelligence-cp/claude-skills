@@ -13,8 +13,10 @@ stale claim you happen to notice. Say it is stale and let the loop recover it.
 
 ## Read, then report
 
-`BOARD.md` for the live picture · the last entries of `RECORD.md` · task title
-lines for real states · `git log` for what actually landed.
+`BOARD.md` for the live picture · `QUESTIONS.md` for what waits on the client
+and what proceeded without them, which the board does not hold (P-26b) · the
+last entries of `RECORD.md` · task title lines for real states · `git log` for
+what actually landed.
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
@@ -30,10 +32,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_trace.py" .
    is invisible to `ListAgents` (P-14b), so without this line a task that is
    actively being worked reads here as a task with nobody on it.
 3. **Waiting on the client** — every open question, its class, and how long it
-   has been waiting. Put this above "done" if anything is here; it is the only
-   part the client can act on.
+   has been waiting: each question whose `Status.` reads `open`, with its
+   `Window.` if it has one. Put this above "done" if anything is here; it is
+   the only part the client can act on.
 4. **Decided without the client** — count, and the ones still cheap to
-   reverse (P-27).
+   reverse (P-27): each question whose `Status.` reads
+   `proceeded-unreviewed D-n`. Never count them from the decisions'
+   `Reviewed.` lines, which a later review does not edit.
 5. **Progress, by evidence** — requirements `discharged` **with acceptance
    evidence recorded**, out of the total. Not tasks closed; not a percentage
    of anything. A task closed without its acceptance criterion run has not

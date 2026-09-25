@@ -202,6 +202,12 @@ MANAGER_STOP = {
     "devteam/QUESTIONS.md": QUESTIONS + ("\n### Q-2 — which way do the docs go?\n\n"
                                          "- **Class.** REVERSIBLE\n- **Status.** open\n")}
 STOP_ARGS = ["-m", "board: T-1 blocked on Q-2", "--", "devteam/BOARD.md", "devteam/QUESTIONS.md"]
+# The board's questions table, as the template carried it until 0.3.3.
+QUESTION_ON_BOARD = ("\n## Questions for the client\n\n"
+                     "| # | Class | Raised | Question | Recommendation | Window expires |\n"
+                     "|---|---|---|---|---|---|\n"
+                     "| Q-2 | REVERSIBLE | 2026-09-04 | which way do the docs go? | this way "
+                     "| 2026-09-04 13:00 |\n")
 ENTRIES_T1 = ("# The ledger\n\n### ITM-1 — which way the docs go\n\n"
               "- **Raised.** T-1 questions \"Which way do the docs go?\"\n"
               "- **Disposition.** raised Q-2\n\n### ITM-2 — the retry leaves two lines\n\n"
@@ -569,6 +575,14 @@ CASES = [
     ("fp-l35-the-managers-stop-with-the-entries-lands", STOPPED_WITH_ITEMS,
      edit({**MANAGER_STOP, "devteam/LEDGER.md": ENTRIES_T1}),
      STOP_ARGS + ["devteam/LEDGER.md"], 0, set(), committed(["devteam/LEDGER.md"])),
+    # A QUESTION'S STATE IN ONE HOME (roadmap 0.3.3, L-3.6): the same stop,
+    # its question also put on the board as the template taught before 0.3.3,
+    # is refused for the row. Without the row it lands, above.
+    ("l36-the-managers-stop-writing-its-question-on-the-board-is-refused", STOPPED_WITH_ITEMS,
+     edit({**MANAGER_STOP, "devteam/LEDGER.md": ENTRIES_T1,
+           "devteam/BOARD.md": MANAGER_STOP["devteam/BOARD.md"] + QUESTION_ON_BOARD}),
+     STOP_ARGS + ["devteam/LEDGER.md"], 1, {"adds-finding"},
+     refused_by(adds_finding="a table row on the board names Q-2")),
     ("l35-the-manager-filing-an-audit-without-its-entries-is-refused", CLAIMED,
      edit({"devteam/audits/T-1-security-2026-09-04.md": AUDIT_T1}), AUDIT_ARGS, 1, {"adds-finding"},
      refused_by(adds_finding="SEC-1 of audits/T-1-security-2026-09-04.md has no ledger entry")),

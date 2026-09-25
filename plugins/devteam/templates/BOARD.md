@@ -69,21 +69,14 @@ the recoverable one.
 | `T-1` | <title> | R-1 | none | `src/…` | — |
 <!-- example:end -->
 
-## Questions for the client
-
-| # | Class | Raised | Question | Recommendation | Window expires |
-|---|---|---|---|---|---|
-| — | — | — | nothing pending | — | — |
-
-## Decided without the client
-
-<Every `REVERSIBLE` question the loop proceeded on (P-27). Listed at every
-checkpoint while reversal is still cheap. This table emptying is not the goal —
-the client confirming or reversing each row is.>
-
-| # | Decision | Proceeded | Reviewed at |
-|---|---|---|---|
-| — | — | — | — |
+**Questions are not on this board.** A question's state — waiting on the
+client, answered, proceeded on its recommendation, or withdrawn — and its window
+are written in [`QUESTIONS.md`](QUESTIONS.md) and nowhere else (P-26b, P-34). A
+task stopped on one reads `BLOCKED on Q-n` above, and that is the task's state,
+not the question's. The board once kept each question's status as well, and in
+a real run the two files disagreed at 22 of the 142 commits that touched them.
+So `check_trace` reports a table row here that names a question as
+`question-on-board`.
 
 ---
 

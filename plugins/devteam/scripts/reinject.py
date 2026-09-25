@@ -48,7 +48,8 @@ Before any further action:
   2. run ListAgents and reconcile the in-flight table. A row with no live
      agent is STALE: §3 Recovery. After a resume, EVERY row is stale;
   3. do not redo what the board shows done — the environment pin, the
-     claims already made, the questions already on the table;
+     claims already made — nor re-ask a question devteam/QUESTIONS.md
+     already holds open;
   4. width, the model band and the escalation window come from the board
      header and the charter, never from what you remember deciding.
 

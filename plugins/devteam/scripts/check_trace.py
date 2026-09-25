@@ -660,6 +660,30 @@ def board_rows(lines):
     return out, missed, found
 
 
+# A QUESTION'S STATE IS WRITTEN IN QUESTIONS.md ALONE (roadmap 0.3.3, L-3.6;
+# P-26b, P-34). The board carried two question tables, and pricelog's manager
+# kept each question's status in both files: of 142 commits touching either,
+# 22 held the two disagreeing, for three questions -- Q-10 answered on the
+# board and open in the log for 17 commits (F-63), Q-12 the mirror for 7
+# (F-64). So a row of ANY table on the board is offered when its first cell
+# begins with a question, in the decoration a row names a task in, or struck
+# through as P-24 strikes an answered question. A Tasks row reading `BLOCKED on
+# Q-n` names the question in its State, which is its TASK's state, and is not
+# one; nor is a legend row, whose first cell is a state.
+QUESTION_ROW_ISH = re.compile(r"^\|\s*(?:\[|\*\*|\*|`|~~)*\s*Q-\d+\b")
+QUESTION_ID = re.compile(r"\bQ-\d+\b")
+
+
+def question_rows(lines):
+    """[(line number, [each Q-n its first cell names])] for every table row on
+    the board whose first cell begins with a question. Every `|` line but a
+    rule is a row, a table's header and a run with no rule under it too: a
+    question written a second time is written twice whether or not it renders
+    as a table."""
+    return [(n, QUESTION_ID.findall((result.cells(line) or [""])[0]))
+            for n, line in enumerate(lines, 1) if QUESTION_ROW_ISH.match(line)]
+
+
 # What a board State and a task title may say about one task at one moment.
 # Not an equality -- the two vocabularies are different by design, the board
 # saying what a reader needs and the title saying what the task holds.
@@ -1317,6 +1341,17 @@ def check(devteam):
                 f"title of {' or '.join(allowed)}"
                 + (f", or, while {tid} has a row in the in-flight table, "
                    f"{' or '.join(CLAIM_HELD)}" if key == "CLAIMED" and not held else ""))
+
+    # ONE HOME FOR A QUESTION (roadmap 0.3.3, L-3.6): each board row naming a
+    # question is its own finding, whatever QUESTIONS.md says, because the
+    # disagreement F-63 and F-64 measured is possible only while both exist.
+    for n, ids in question_rows(board):
+        add("question-on-board", f"BOARD.md:{n}",
+            f"a table row on the board names {', '.join(ids)}, and a question's state "
+            "is written in QUESTIONS.md alone (P-26b, P-34): whether it is open, "
+            "answered, proceeded or withdrawn is its `Status.` there, and when it "
+            "proceeds unanswered is its `Window.`. Carry into those fields anything "
+            "the row says that QUESTIONS.md does not, and remove the row")
 
     # COMPARE PHASE, NOT IDENTITY. Naming the task was the whole test, so
     # `in-progress (T-6)` passed while T-6 was DONE -- a requirement claiming to

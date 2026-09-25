@@ -414,9 +414,9 @@ Then by status:
 |---|---|
 | `DONE` | verifier PASS → close, release the scope, **rewrite `devteam/.run/locks/<TASK>.heartbeat` to a terminal line** — `closed <date>, verified PASS` — re-check what that unblocks. FAIL → re-dispatch, the FAIL verbatim in `NOTES:` |
 | `READY-TO-AUDIT` | verifier PASS → dispatch the auditors; file each one's answer, verbatim, as `devteam/audits/<scope>-<dimension>-<date>.md`, **with an entry in `LEDGER.md` for each of its findings, in the same commit** — the commit that adds the file is refused without them; re-dispatch the supervisor with `AUDIT:` naming them (P-31) |
-| `BLOCKED` | a dispatch error you can fix — a missing input, a claim mismatch, a tree state — fix it and re-dispatch. Otherwise the task stops and its question goes to the table |
-| `NEEDS-DECISION` | the task stops; the question and its recommendation go to the table |
-| `RED` | the task stops. **Never a retry** (P-20); the failing check goes to the table |
+| `BLOCKED` | a dispatch error you can fix — a missing input, a claim mismatch, a tree state — fix it and re-dispatch. Otherwise the task stops and its question is filed `open` in `QUESTIONS.md` (P-26b) |
+| `NEEDS-DECISION` | the task stops; the question is filed `open` in `QUESTIONS.md`, with its recommendation and its `Window.` (P-26b) |
+| `RED` | the task stops. **Never a retry** (P-20); the failing check is filed as an `open` question in `QUESTIONS.md` (P-26b) |
 
 **Every item the task raised gets its entry in the commit that moves its row**
 (P-52). The advance that closes the task and the stop that blocks it both move
@@ -571,7 +571,7 @@ that decides whether the loop may proceed without an answer (P-26):
 |---|---|
 | `IRREVERSIBLE` | **blocks, always.** Spends money, deletes data, publishes outward, picks a licence, names a public package, changes a released API. **No timeout ever decides one.** |
 | `CHARTER` | **blocks, always.** Changes what is being built, what done means, or what is out of scope (P-2) |
-| `REVERSIBLE` | goes on the table with its recommendation. When the charter's escalation window expires, **proceed on the recommendation** |
+| `REVERSIBLE` | filed `open` in `QUESTIONS.md` with its recommendation, and a `Window.` naming when the charter's escalation window expires (P-26b). When it expires, **proceed on the recommendation** |
 
 **A blocking question carries its price, and the price is computed BEFORE the
 client is asked.** This is the one thing most likely to make an answer regretted
@@ -740,13 +740,15 @@ answering one about *what holds*.
 
 **When a reversible question times out:** proceed, then record it honestly —
 `question Q-n proceeded unreviewed: <what>` in `RECORD.md`, a `D-n` in
-`DECISIONS.md` whose `Reviewed.` line says `proceeded-unreviewed (Q-n)`, and a
-row in the board's **Decided without the client** table. It is listed at the
-next checkpoint while reversal is still cheap (P-27). *Autonomy is bought by
+`DECISIONS.md` whose `Reviewed.` line says `proceeded-unreviewed (Q-n)`, and
+Q-n's `Status.` set to `proceeded-unreviewed D-n`. It is listed at the next
+checkpoint while reversal is still cheap (P-27), read from that status: the
+board holds no question (P-26b). *Autonomy is bought by
 making the unreviewed set visible, not by pretending it is empty.*
 
-**Send the batch** when every running task is stopped, when the table holds
-three, or when the oldest unanswered item hits the window — whichever first.
+**Send the batch** when every running task is stopped, when three questions in
+`QUESTIONS.md` read `open` (P-29b), or when the oldest unanswered item hits the
+window — whichever first.
 **Send it on the channel the charter's `Client channel` row names** (P-9):
 `AskUserQuestion` for a terminal client when it fits four options, `SendMessage`
 for a session client, a message either way for anything longer. While waiting,
@@ -761,6 +763,15 @@ question because nobody is answering it.
 An answer becomes `question Q-n answered:` in `RECORD.md`, the question is
 struck through with its decision number (P-24), and the task restarts with the
 answer in `NOTES:`.
+
+**The client's later review of a proceeded decision is an answer too**, and it
+is written the same way, in the question and never in the decision. Confirmed,
+Q-n reads `answered D-n`; reversed, write the new decision that supersedes D-n
+(P-23) and Q-n reads `answered` with its number. D-n's `Reviewed.` line stays
+`proceeded-unreviewed (Q-n)` for ever, because it records how D-n was made, so
+never count a proceeded decision as unreviewed from that line: count the
+questions still reading `proceeded-unreviewed` (FORMATS §"A question's
+state").
 
 **Minute a SELECTED option as selected, never as the client's own words.**
 `AskUserQuestion` returns the label of an option *you* wrote, so a record line

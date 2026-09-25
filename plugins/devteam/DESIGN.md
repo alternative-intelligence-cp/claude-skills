@@ -579,7 +579,7 @@ The class alone decides what happens:
               picks a licence    built
                      │              │              │
                      ▼              ▼              ▼
-                  BLOCKS         BLOCKS      goes on the table
+                  BLOCKS         BLOCKS      open in QUESTIONS.md
                   always         always      with its recommendation
                      │              │              │
                      └──────┬───────┘              ▼

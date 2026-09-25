@@ -487,6 +487,26 @@ loop may proceed.**
 | `CHARTER` | changes what is being built, what "done" means, or what is out of scope | **always blocks.** P-2 |
 | `REVERSIBLE` | a library choice, a module layout, a naming convention, a test framework — anything a later commit can undo cheaply | goes on the table with its recommendation; if unanswered when the window expires, the manager **proceeds on the recommendation** |
 
+**P-26b supersedes P-26 in one respect: a question waiting on the client is an
+`open` question in `QUESTIONS.md`, and nowhere else.** P-26's `REVERSIBLE` row
+says the question *"goes on the table with its recommendation"*. That table was
+the board's, and the board holds no question now. A question waits as `open` in
+`devteam/QUESTIONS.md`, with its recommendation, and its `Window.` says when the
+escalation window expires, after which the manager proceeds on the
+recommendation, as P-26 says. A question the loop proceeded on reads
+`proceeded-unreviewed D-n` there until the client reviews D-n. The classes, and
+what each one does, are P-26's.
+
+*Why.* A question's status was written in two files, the board's tables and
+the questions log, and they disagreed in both directions. In a real run they
+disagreed at 22 of the 142 commits that touched either, for three questions:
+one read answered on the board and open in the log for 17 commits, and another
+the other way round for 7 (pricelog, F-63, F-64). A fact written twice stays
+equal only while somebody remembers to write it twice. `check_trace` reports a
+board row naming a question as `question-on-board` (roadmap 0.3.3, L-3.6).
+
+P-26's text stands unedited, and its classes still govern.
+
 **P-27 — A reversible question that proceeds unreviewed is recorded as such,
 and resurfaces.** The record says `proceeded unreviewed`, the decision entry
 says the client never saw it, and **every such decision is listed at the next
@@ -510,6 +530,19 @@ met. Only when no task can proceed does the loop end its turn.
 stopped, when the table holds three, or when the oldest unanswered item reaches
 the configured window — whichever comes first. Interrupting a client once with
 three questions costs far less than three interruptions.
+
+**P-29b supersedes P-29 in one respect: the batch counts the open questions.**
+P-29 sends the batch *"when the table holds three"*, and the board holds no
+question now (P-26b). So the batch is sent when three questions in
+`devteam/QUESTIONS.md` read `open`. P-29's other two conditions, every running
+task stopped and the oldest unanswered item reaching the window, stand as
+written, and whichever comes first still sends it.
+
+*Why.* The trigger named a table that no longer exists, and a rule whose
+trigger names nothing stops firing without anyone deciding it should. Counting
+the `open` statuses counts the same questions, in the one file that holds them.
+
+P-29's text stands unedited, and its reason still governs.
 
 **P-52 — An item raised is ledgered: it has one entry, with a decision or a
 date by which one is due, and a landing that leaves one without is refused.**

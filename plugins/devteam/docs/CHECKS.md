@@ -53,7 +53,7 @@ assertion fires on nothing today. It is a tripwire, not a filter.
 
 ---
 
-## `check_trace.py` — 31 classes
+## `check_trace.py` — 32 classes
 
 Reads `CHARTER.md`, `REQUIREMENTS.md`, `tasks/*.md`, `BOARD.md`, `audits/`, and
 `LEDGER.md` with the `QUESTIONS.md` statuses and `checkpoints/` titles its
@@ -61,8 +61,8 @@ dispositions name, tracked or untracked and not ignored; `DECISIONS.md`'s
 acceptances; and HEAD's history, for a ledger entry's fix, for the board at
 each commit, to anchor a task's current claim, and for each item's line by
 `git blame`, to date it against that claim. Diffs goals ↔ requirements ↔ tasks
-↔ acceptance criteria, each item raised ↔ the ledger entry naming it, and each
-item's disposition ↔ what it names.
+↔ acceptance criteria, each item raised ↔ the ledger entry naming it, each
+item's disposition ↔ what it names, and the board ↔ no question.
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
@@ -78,6 +78,7 @@ item's disposition ↔ what it names.
 | `re-litigated-requirement` | P-46 — rewritten three times means shape review | a requirement's revision count ↔ the threshold 3 | `enforces` (P-46, written here) |
 | `board-drift` | P-11 — the board is the lock; P-34 — facts have one home | the `State` of each row of `BOARD.md`'s Tasks table — the table whose header names `Task` first and has a `State` column — ↔ each task file's own title status. `CLAIMED` allows the title a supervisor writes at a close or a stop while the task has a row in the in-flight table (roadmap 0.3.2, L-2.2) | `enforces` |
 | `bad-board-state` | `FORMATS.md` §"Status vocabularies", board task state | a Tasks-table `State` cell, bold and backticks removed ↔ the closed set `—` · `CLAIMED <label>` · `BLOCKED on T-n` or `Q-n`, several comma-separated · `DONE` · `ACCEPTED (<date>, D-n)`, matched whole (roadmap 0.3.2, L-2.1) | `enforces` |
+| `question-on-board` | P-34 — facts have one home; P-26b — a question waits in `QUESTIONS.md` alone | each row of every table on `BOARD.md` whose first cell begins with a question, bare, linked, bold, in backticks or struck through ↔ `QUESTIONS.md`, the one home of a question's state (roadmap 0.3.3, L-3.6). A row fires whatever `QUESTIONS.md` says, because the two files can disagree only while both hold the fact. A row with no rule under it is read too. A Tasks row's `BLOCKED on Q-n` is its task's state, and a row keyed by a decision names no question | `enforces` |
 | `one-sided-link` | P-4 | a requirement's `Status.` task list ↔ that task's `Discharges.`, read as bare identifiers. A RUNNING task's requirement reads `in-progress` naming it; a closed task's reads `discharged`, `partly-discharged` or `awaiting-judgement` naming it, or `in-progress` naming another task that has not finished (roadmap 0.3.2, L-2.4). A task that only re-establishes a requirement is not one its status may name | `enforces` |
 | `template-drift` | `FORMATS.md` §"An artifact conforms to the template it came from, at the current version" | the charter's constraint rows ↔ the **current** template's rows | `enforces` |
 | `amendment-omits-condition` | P-48 — an amendment re-affirms every done-means and constraint row | the charter's current `DM-n` list and constraint row labels ↔ the `Re-affirmed.` enumeration of the latest entry — the highest `Version n` — read from its heading to the next entry heading or the section's end, each item whole. A verdict is `holds`, `amended (this entry)`, `added (this entry)` or `struck (D-n, why)`. An entry that lists conditions under any other opener is a part not evaluated, naming the entry (roadmap 0.3.2, L-2.9) | `enforces` |

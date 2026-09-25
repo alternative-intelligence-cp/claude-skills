@@ -294,6 +294,21 @@ def question(n, status):
             f"- **Recommendation.** this way.\n- **Status.** {status}\n")
 
 
+# --- a question's state in one home (roadmap 0.3.3, L-3.6) ----------------
+# The two tables the board carried until 0.3.3, headed as pricelog's board
+# headed them (BOARD.md:84-142 on the clone, `MEASURED`).
+ASKED = ("\n## Questions for the client\n\n"
+         "| # | Class | Raised | Question | Recommendation | Window expires |\n"
+         "|---|---|---|---|---|---|\n")
+PROCEEDED = ("\n## Decided without the client\n\n"
+             "| # | Decision | Proceeded | Reviewed at |\n|---|---|---|---|\n")
+
+
+def asked(first, window):
+    """A row of the board's old questions table, its first cell as given."""
+    return f"| {first} | CHARTER | 2026-09-11 17:2x | which way? | this way | {window} |\n"
+
+
 # pricelog's T-18, with the scope its task file declares on the clone
 # (`MEASURED`, roadmap 0.3.3 §3.2): it re-establishes R-1, and may write two
 # files.
@@ -1124,6 +1139,67 @@ CASES = [
      {"bad-board-state"}),
     ("fp-blocked-on-several-named-blockers",
      {"BOARD.md": BOARD.format(s1="BLOCKED on Q-1, Q-2", s2="—")},
+     set()),
+
+    # --- question-on-board: a question's state in one home (roadmap 0.3.3,
+    # L-3.6). F-63's shape: the board answers Q-10 while the log holds it
+    # open. The row fires whatever QUESTIONS.md says, because the two files
+    # can disagree only while both hold the fact.
+    ("question-on-board-f63-the-board-answers-what-the-log-holds-open",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + ASKED + asked("Q-10", "**answered D-15**"),
+      "QUESTIONS.md": question(10, "open")},
+     {"question-on-board"}, [], None, set(), ("names Q-10, and",)),
+    ("question-on-board-f63-the-same-row-with-the-log-agreeing",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + ASKED + asked("Q-10", "**answered D-15**"),
+      "QUESTIONS.md": question(10, "answered D-15")},
+     {"question-on-board"}),
+    # F-64's mirror: open on the board, answered in the log.
+    ("question-on-board-f64-the-board-holds-open-what-the-log-answered",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + ASKED + asked("Q-12", "2026-09-12 15:14"),
+      "QUESTIONS.md": question(12, "answered D-18")},
+     {"question-on-board"}, [], None, set(), ("names Q-12, and",)),
+    # The board's second table: a question the loop proceeded on.
+    ("question-on-board-a-row-of-the-decided-without-the-client-table",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + PROCEEDED
+      + "| Q-15 | **D-24** — a ceiling | 2026-09-13 23:17, window expired unanswered | — |\n"},
+     {"question-on-board"}, [], None, set(), ("names Q-15, and",)),
+    # Each row is its own finding, in any decoration a Tasks row names its
+    # task in, or struck through as P-24 strikes an answered question.
+    ("question-on-board-each-row-in-any-decoration",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + ASKED + "".join(
+         asked(first, "—") for first in ("[Q-1](QUESTIONS.md#q-1)", "**Q-2**", "`Q-3`",
+                                         "~~Q-4~~", "Q-5, Q-6"))},
+     {"question-on-board"}, [], None, set(),
+     ("names Q-1, and", "names Q-2, and", "names Q-3, and", "names Q-4, and",
+      "names Q-5, Q-6, and")),
+    # Rows with no rule under them do not render as a table, and still write
+    # the question a second time.
+    ("question-on-board-rows-with-no-rule-under-them",
+     {"BOARD.md": BOARD.format(s1="—", s2="—") + "\n| Q-7 | open |\n"},
+     {"question-on-board"}, [], None, set(), ("names Q-7, and",)),
+    # A Tasks row blocked on a question holds the TASK's state (L-3.6).
+    ("fp-question-on-board-a-tasks-row-blocked-on-a-question",
+     {"BOARD.md": BOARD.format(s1="BLOCKED on Q-4", s2="—"), "QUESTIONS.md": question(4, "open")},
+     set()),
+    ("fp-question-on-board-an-in-flight-note-naming-a-question",
+     {"BOARD.md": BOARD.format(s1="CLAIMED T1-a-1200", s2="—") + flight("T-1", note="stopped on Q-3"),
+      "tasks/T-1.md": T1_RUNNING, "REQUIREMENTS.md": REQS_R1_RUNNING},
+     set()),
+    ("fp-question-on-board-a-legend-row-whose-first-cell-is-a-state",
+     {"BOARD.md": BOARD.format(s1="—", s2="—")
+      + "\n## Legend\n\n| State | Means |\n|---|---|\n| `BLOCKED on Q-4` | stopped on Q-4 |\n"},
+     set()),
+    # The class's limit, as L-3.6 draws it: a row keyed by a decision names no
+    # question.
+    ("fp-question-on-board-a-row-naming-a-decision",
+     {"BOARD.md": BOARD.format(s1="—", s2="—")
+      + "\n| # | Decision |\n|---|---|\n| D-24 | a ceiling |\n"},
+     set()),
+    # The checkpoint lists what proceeded by question, and is not the board.
+    ("fp-question-on-board-a-checkpoint-listing-what-proceeded",
+     {"checkpoints/C-1-2026-09-21.md": checkpoint(1)
+      + "\n| # | Decision | Recommendation followed | Still cheap to reverse? |\n"
+        "|---|---|---|---|\n| Q-3 | D-5 | this way | yes |\n"},
      set()),
 
     ("clean", {}, set()),

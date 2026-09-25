@@ -72,12 +72,21 @@ For each: **decided, or drifted?** Say which, with the path and line.
 ## 3. What proceeded without the client?
 
 Every `REVERSIBLE` question the loop settled on its own recommendation (P-27)
-— from the board's **Decided without the client** table and the record.
+— each question in `QUESTIONS.md` whose `Status.` reads
+`proceeded-unreviewed D-n`, and the record. The board holds no question
+(P-26b).
 
 List each with what was decided and **whether it is still cheap to reverse**.
 That last column is the one that matters: a reversible decision stops being
 reversible once six tasks are built on it, and this is the last moment it is
 free.
+
+**The client's review of one is written in its question, never in the
+decision** (`run` §8): Q-n reads `answered D-n`, or `answered` with the number
+of a new decision that supersedes D-n (P-23). D-n's `Reviewed.` line keeps
+`proceeded-unreviewed (Q-n)` for ever, so read this list from the questions'
+statuses, never from that line (`templates/FORMATS.md` §"A question's
+state").
 
 **This section is why the autonomy is honest.** If it is empty because nothing
 timed out, say so. If it is long, that is a signal the escalation window is
@@ -249,7 +258,8 @@ what was believed after the fact. If it was wrong, the next one says so.
 **Four rules on how this document is written, before anything about what it
 contains.** GATE 4 requires **five count-and-enumeration pairs in one
 document** — every done-means with its evidence, every requirement discharged
-or struck, every decision the client never reviewed, cost against estimate, and
+or struck, every decision the client never reviewed (read as the delivery list
+below says), cost against estimate, and
 what is knowingly left undone. That is the shape of the worst writing failure
 this project has recorded, five times over, in the document written *last* —
 by whoever has just spent a run cataloguing that failure and is therefore most
@@ -328,7 +338,11 @@ At delivery, the same procedure plus:
 
 - **every** `DM-n` from the charter's "Done means", each with its evidence
 - every requirement `discharged` or explicitly `struck` with a decision
-- the complete list of decisions the client never reviewed
+- the complete list of decisions the client never reviewed: each question in
+  `QUESTIONS.md` still reading `proceeded-unreviewed D-n` (§3), and each
+  decision whose `Reviewed.` reads `unreviewed`, which the manager made alone
+  and which has no question. Never count them from `proceeded-unreviewed`
+  `Reviewed.` lines, which a later review does not edit
 - total cost against the original estimate
 - what is knowingly left undone, and why
 

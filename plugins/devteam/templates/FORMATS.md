@@ -225,7 +225,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | task title | `PLANNED` · `RUNNING (since <date>, <label>)` · `READY-TO-AUDIT` · `BLOCKED (<why>)` · `NEEDS-DECISION (<what>)` · `ACCEPTED (<date>, D-n)` · `DONE (<date>)`. **The label is the claim's**, the one the board's in-flight table carries: `check_scope` reads it from `RUNNING (since <date>, <label>)` exactly, with nothing after it, and judges the task's commits from the first commit whose board carries it on the task's row (roadmap 0.3.2, L-2.5). A reason goes in the execution record. A restart claimed under a new label opens a new window; one that keeps the label keeps its claim's |
 | task `Kind.` | `implementation` (default when absent) · `probe` · `spike` · `chore` |
 | step checkbox | `[ ]` pending · `[x]` done · `[~]` struck, with a reason on the line |
-| question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn` |
+| question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn`. `QUESTIONS.md` is the one home of a question's state, and the board holds none of it: a proceeded question reads `proceeded-unreviewed D-n` until the client reviews D-n, and then `answered` (§"A question's state") |
 | question `Class.` | `REVERSIBLE` · `IRREVERSIBLE` · `CHARTER` |
 | ledger `Disposition.` | `open (until T-n)` · `open (until C-n)` · `routed T-n` · `raised Q-n` · `declined (D-n)` · `fixed (<commit>)`, several commits comma-separated (roadmap 0.3.3, L-3.2). **An open item names the date it is due by**: the task whose close, or the checkpoint whose filing, it must be decided by. `routed T-n`: T-n owns it, and the entry's `Needs.` names the paths it needs changed. `raised Q-n`: the client decides, and Q-n's `Status.` is the one home of the answer. `declined (D-n)`: D-n says why it will not be acted on. `fixed (<commit>)`: the commits named fixed it, and a commit may be backticked. The value is matched whole, so a note goes on a bullet of its own. A value outside the set is `bad-status`, and one that reads `open` with no date is `undispositioned-finding`. **Each value stays true to what it names**, or `check_trace` reports it: a date that has passed, a task's scope that does not cover the item's `Needs.`, and a fix that is not in HEAD's history (§"The ledger") |
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
@@ -352,6 +352,41 @@ copies it rather than types it:
 pending: clean  [2 items, 1 pending]
   tasks/T-19.md:16: - **Raised.** T-19 questions "Does T-19's disclosed limit hold"
 ```
+
+---
+
+## A question's state
+
+A question's state is written in `QUESTIONS.md` alone (P-26b, P-34; roadmap
+0.3.3, L-3.6). The board once kept each question's status in a table of its
+own as well, and the two files disagreed: in `pricelog`, at 22 of the 142
+commits that touched either, for three questions (F-63, F-64). So each fact
+below has one home, and the board holds none of them.
+
+| Fact | Its one home |
+|---|---|
+| the question waits on the client | its `Status.`, `open` |
+| when a `REVERSIBLE` question proceeds unanswered | its `Window.`: the date and time the charter's escalation window expires, `YYYY-MM-DD HH:MM`. `none` for `CHARTER` and `IRREVERSIBLE`, which always block (P-26). No check reads the value |
+| the client answered it | its `Status.`, `answered D-n` (P-24) |
+| the loop proceeded on its recommendation | its `Status.`, `proceeded-unreviewed D-n`, and D-n's `Reviewed.` line, `proceeded-unreviewed (Q-n)` (P-27) |
+| the client has since reviewed that decision | its `Status.`: `answered D-n` when the client confirms D-n, and `answered D-m` when they reverse it by a new decision D-m that supersedes D-n (P-23). `RECORD.md`'s `question Q-n answered:` line dates the review |
+| it was withdrawn | its `Status.`, `withdrawn` |
+
+**A decision's `Reviewed.` line is never edited** (P-23). It records how the
+decision was made, so a confirmed D-n reads `proceeded-unreviewed (Q-n)` for
+ever. Whether the client has reviewed it is its question's `Status.`. So the
+proceeded decisions the client never reviewed — at every checkpoint, at the
+final one and at delivery — are read from the questions whose `Status.` reads
+`proceeded-unreviewed D-n`, never from a decision's `proceeded-unreviewed
+(Q-n)` line. A decision the manager made alone reads `unreviewed` and has no
+question, so the delivery list takes it from that line. `status` and
+`checkpoint` read what is waiting and what proceeded from `QUESTIONS.md`.
+
+A Tasks row reading `BLOCKED on Q-n` is its task's state, and the id in it is
+the task's blocker. `check_trace` reports a table row on the board whose first
+cell names a question — bare, linked, bold, in backticks or struck through — as
+`question-on-board`, whatever `QUESTIONS.md` says, because the two files can
+disagree only while both hold the fact.
 
 ---
 
@@ -545,7 +580,7 @@ it from there.
 
 | Check | Reads | Diffs |
 |---|---|---|
-| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/`; `LEDGER.md`, with the `QUESTIONS.md` statuses and `checkpoints/` titles its dispositions name, and HEAD's history for each fix; and, for a task whose row reads `CLAIMED`, the board at each commit, to anchor its current claim, and each of its items' lines by `git blame` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps; each item raised ↔ the ledger entry naming it, and each entry's `Raised.` ↔ what exists; each ledger entry's disposition ↔ what it names — its date, its task's scope, HEAD's history, and an audited task's close (§"The ledger") |
+| `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and the first cell of every row of its tables, for one naming a question; and `audits/`; `LEDGER.md`, with the `QUESTIONS.md` statuses and `checkpoints/` titles its dispositions name, and HEAD's history for each fix; and, for a task whose row reads `CLAIMED`, the board at each commit, to anchor its current claim, and each of its items' lines by `git blame` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles, and ↔ no question (§"A question's state"); the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps; each item raised ↔ the ledger entry naming it, and each entry's `Raised.` ↔ what exists; each ledger entry's disposition ↔ what it names — its date, its task's scope, HEAD's history, and an audited task's close (§"The ledger") |
 | `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks; each status value ↔ its vocabulary; each ledger entry's disposition ↔ decided, or open with a date, whose checkpoint is not a citation (§"The ledger"). An audit's own labels are not citations (§"The namespace") |
 | `check_report.py` | one `tasks/T-n.md`; the files its `Scope.` names, for stub markers; the charter's `Containment` row; HEAD's history — the board's in it, for the task's current claim, and each block's header line by `git blame` — and `git status`; and the harness's `.run/locks/T-n.sandbox` line, with the `meta/budget.json` and `meta/base.sha` of the sandbox it names | the task's current report ↔ its title; the task's current report and each step's latest REPORT block ↔ the committed tree, and the commits each cites ↔ HEAD's history; a step's block ↔ its own step's meter (§"The REPORT block") |
 | `check_scope.py` | `BOARD.md` and its history, `tasks/*.md`, HEAD's `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written: by each task's commits, and by commits naming no task since a running task's current claim |
