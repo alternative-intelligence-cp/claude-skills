@@ -232,9 +232,10 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 ## The ledger
 
 `LEDGER.md` holds one entry for every item raised (P-52). An item is every
-finding an audit reports, every item under a REPORT block's `questions:`, and
-anything the manager raises itself, from what the client said or at a handoff.
-A `findings-for-protocol:` line is not an item: it is addressed to the
+finding an audit reports (§"An audit's answer"), every item under a REPORT
+block's `questions:` and `open:` (§"The REPORT block"), and anything the
+manager raises itself, from what the client said or at a handoff. A
+`findings-for-protocol:` line is not an item: it is addressed to the
 pipeline, and `RECORD.md` keeps it (roadmap 0.3.3, L-3.1). The manager writes
 the ledger and nobody else (P-13). An item's text stays where it was raised,
 verbatim (P-17), and its entry names where, and holds its disposition.
@@ -380,6 +381,108 @@ record` section and compares what each claims against the tree (roadmap
 - **Each finding names its block** before its message, `T-n:` or `T-n.S-m:`,
   and is anchored at the block's header, so one defect in two blocks is two
   findings.
+- **`open:` is required, after `questions:`**, as `questions:` is, and `none`
+  is an answer (roadmap 0.3.3, L-3.4). It holds what the report leaves open
+  that is neither a question for the client nor a finding for the protocol:
+  a defect found and not fixed, or work the step could not reach, one item
+  per `- ` line. T-18's restart supervisor had no such key, and filed three
+  defects it had found and not fixed under `findings-for-protocol:`, where no
+  owner looks.
+- **Which lines are items.** Each item under `questions:` and under `open:`
+  is the ledger's (§"The ledger"). `findings-for-protocol:` is addressed to the
+  pipeline and stays the record's: the manager copies it into `RECORD.md`, and
+  it is not an item.
+- **An audit's answer is not a report.** A `REPORT` line whose role is
+  `auditor` is named as not evaluated, with the form an answer lands in, and
+  is never judged as a block. The line that opens or closes an answer ends
+  the block above it, so an answer landed after a block is text between
+  blocks, as a supervisor's prose is, and no line of it is that block's field
+  (§"An audit's answer").
+
+---
+
+## An audit's answer
+
+An auditor's final message is its answer, and every finding in it is an item
+(§"The ledger"). The answer opens and closes on two lines the grammar reads,
+so its findings are found wherever it lands (roadmap 0.3.3, L-3.4):
+
+```
+AUDIT T-19.S-3 (correctness)
+
+<what was audited, and the verdict>
+
+## COR-1 — a directory above the log, replaced while a run waits for the lock
+
+<where it is, the evidence, and what would resolve it>
+
+- **Needs.**
+  - `pricelog/store.py`
+  - `tests/test_store.py`
+
+## COR-2 — <one line: what is wrong>
+
+- **Needs.** a decision on what a user's interrupt leaves behind
+
+<what was checked and found clean, the threat model, and what was not reached>
+
+END AUDIT T-19.S-3
+```
+
+- **`AUDIT <scope> (<dimension>)` opens it**, alone on its line. The scope is
+  `T-n.S-m` for a step's audit, `T-n` for a task's, and a lowercase word for
+  a milestone's — `release`, say. The dimension is `safety`, `correctness`,
+  `security` or `hygiene`. **The scope is read from this line**, never from a
+  file's name: an audit of T-n or of one of its steps is T-n's, and a
+  milestone's is no task's. A word never begins as a task id does, so
+  `t-18` or `T18` is named, rather than read as a milestone and tied to no
+  task.
+- **`END AUDIT <scope>` closes it**, alone on its line, naming the same scope.
+  In a task file the task's own text follows an answer, so an answer with no
+  closing line is not read: where it ends cannot be told.
+- **Every finding is a heading, `## <LABEL>-n — <one line>`**, where `###`
+  reads the same. The label is the dimension's: `SAF` for safety, `COR` for
+  correctness, `SEC` for security, `HYG` for hygiene. The findings are
+  numbered from 1 in each audit. A number used twice in one answer is named,
+  and the first stands; where the numbering starts is not checked.
+  The label is the audit's own: a finding's id in the project is its ledger
+  entry's `ITM-n`, whose `Raised.` names the label (roadmap 0.3.3, L-3.3).
+  **No other heading in an answer begins as a finding's does** — `## Finding
+  1 (…)`, `### 1.`, `## F-1 — HIGH` and `## S-3 notes` are each named as a
+  finding that does not parse, and so is a label another dimension uses.
+  `## Verdict` or `## Checked and found clean` is the answer's text.
+- **`- **Needs.**` under every finding** says what resolving it needs: the
+  paths it needs changed, one per indented item, or the decision it needs. It
+  is read whole, and the manager reads it to route the finding. Nothing
+  refuses a finding without one, which is still counted.
+- **No `Disposition.` line.** A finding's disposition is the ledger's, and the
+  manager writes it (P-13).
+
+**Where it lands.**
+- **A step's audit** is landed by its supervisor in the task file's execution
+  record, the whole message verbatim with its `AUDIT` and `END AUDIT` lines,
+  as a worker's block is landed. **Never under a `REPORT` line**, which
+  `check_report` names as not a report. **Never inside a fence**: a fence
+  hides an answer's own citations from `check_refs`, a fence nested inside it
+  ends it early, and a fenced `AUDIT` line is named as not read.
+- **A task's or a milestone's audit** is filed by the manager as
+  `audits/<scope>-<dimension>-<date>.md`, the whole message verbatim. The name
+  repeats the scope for a reader. A file in `audits/` that opens no answer is
+  named as not read: its findings are counted by their headings, and tied to
+  no task. The directory's `README.md` is not an audit.
+
+**Its one reader is `scripts/ledger.py`** (P-34). It reads each answer into
+its scope and its findings, and names by line what it could not read:
+- an `AUDIT` or `END AUDIT` line that does not parse, whose findings are not
+  counted;
+- one inside a fence;
+- an answer with no closing line;
+- a closing line with no answer open;
+- a heading that looks like a finding and does not parse, or that repeats a
+  number.
+
+`check_report` reads the shape of the two lines from it, and ends a block at
+either.
 
 ---
 

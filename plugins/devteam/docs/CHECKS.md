@@ -120,14 +120,18 @@ Reads one `tasks/T-n.md` plus `git`, the harness's `.sandbox` line, and
 `DECISIONS.md`'s acceptances. Judges the task's latest task-level block and each
 step's latest block, and diffs each ↔ the committed tree; an earlier block for the
 same id is a superseded attempt, and is not judged (roadmap 0.3.2, L-2.7; F-37).
-Each finding names its block, and is anchored at its header.
+Each finding names its block, and is anchored at its header. An auditor's
+answer is not a report: a `REPORT auditor …` line is named as not evaluated,
+with the `AUDIT <scope> (<dimension>)` form in the reason, and an answer's
+opening or closing line ends the block above it, so none of its lines is read
+as that block's field (roadmap 0.3.3, L-3.4).
 
 | Class | Rule | The two sides | Verdict |
 |---|---|---|---|
 | `no-file` | P-16 — a report has one shape, in two places | the task id reported ↔ `tasks/` | `enforces` |
 | `no-report` | P-16 | the task file ↔ the required `## Execution record` REPORT block | `enforces` |
 | `wrong-task` | P-16 | the block's task id ↔ the file it is committed in | `enforces` |
-| `missing-field` | `FORMATS.md` §"The REPORT block" | the block's keys ↔ the required key set. A key may carry an annotation, `checks (<why>):`, and is read as its key (roadmap 0.3.2, L-2.7; F-88) | `enforces` |
+| `missing-field` | `FORMATS.md` §"The REPORT block" | the block's keys ↔ the required key set, `open:` among them (roadmap 0.3.3, L-3.4). A key may carry an annotation, `checks (<why>):`, and is read as its key (roadmap 0.3.2, L-2.7; F-88) | `enforces` |
 | `bad-report-status` | `FORMATS.md` §"Status vocabularies", REPORT `status:` | the reported status, read whole ↔ the closed set of five, which may carry one qualifier, `(reconstructed: <by whom, and why>)` (roadmap 0.3.2, L-2.8; F-86) | `enforces` |
 | `status-mismatch` | P-34 — facts have one home | the task's current report's `status:` ↔ the task title's status. A task-level block already in the file when the claim its `RUNNING` title names began is the previous claim's, and is compared with nothing of the current run: not the title, the meter or the tree (roadmap 0.3.2, L-2.7; F-136) | `enforces` |
 | `unknown-commit` | P-5 — discharged by evidence, never assertion | each commit under `commits:` ↔ HEAD's history: a hash names an ancestor of HEAD, not merely an object, and a subject is one a commit in HEAD's history has. At the gate HEAD is the commit being judged, so another branch's commits, a promotion's leftovers under `refs/devteam/sandbox/` and a refused gate candidate resolve nothing (roadmap 0.3.2, L-2.6). The ancestry test is `result.in_history`, which `check_trace` reads for a ledger entry's fix (P-34) | `enforces` |

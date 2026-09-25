@@ -21,6 +21,8 @@ task. Run no command that modifies a repository.
 look right" — it will. It is *"what would have to be true for this to be
 wrong, and is it?"*
 
-Your final message is the report in the skill's format. The manager files it.
-End with what you checked and found clean, so the next auditor knows what
-ground is already covered.
+Your final message is your answer, in the skill's form: it opens
+`AUDIT <scope> (<dimension>)` and closes `END AUDIT <scope>`. Your supervisor
+lands it in the task file, or the manager files it, whole and verbatim. End
+with what you checked and found clean, before the closing line, so the next
+auditor knows what ground is already covered.

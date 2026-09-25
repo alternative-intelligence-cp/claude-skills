@@ -200,10 +200,19 @@ commits:
 checks:
   - <exact command> -> <its summary line, verbatim> [exit <n>]
 questions: none | - <question> | <recommendation> | REVERSIBLE|IRREVERSIBLE|CHARTER
+open: none | - <a defect found and not fixed, or work the step could not reach>
 findings-for-protocol: none | - <one line each>
 budget: tokens=<n> minutes=<n>
 notes: none | <free text>
 ```
+
+**`open:` is where something you leave undone goes**: a defect you found and
+did not fix, because it is outside your step or your scope, or work the step
+could not reach. It is required, and `none` is an answer. Each item is given
+an owner by the manager. `findings-for-protocol:` is for what is wrong with
+the pipeline itself, and goes to the record rather than to an owner: one
+supervisor filed three defects it had found and not fixed there, and its task
+stopped with none of them owned.
 
 **`budget:` and `model:` are cross-checked against the harness, so report what
 you believe and do not manufacture precision.** Under `structural` the process

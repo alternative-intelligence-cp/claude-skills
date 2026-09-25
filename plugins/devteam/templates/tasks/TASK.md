@@ -69,4 +69,6 @@ step.>
 <Appended as work happens: what was done, what was found, what it cost. Each
 REPORT block is appended as it lands, the latest last (P-16). `check_report.py`
 judges the task's latest task-level block and each step's latest block
-(FORMATS §"The REPORT block").>
+(FORMATS §"The REPORT block"). A step's audit is landed here whole and
+verbatim, from its `AUDIT <scope> (<dimension>)` line to its
+`END AUDIT <scope>` line, unfenced (FORMATS §"An audit's answer").>

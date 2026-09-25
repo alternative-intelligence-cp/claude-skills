@@ -26,6 +26,7 @@ commits:
 checks:
   - make test -> 12 passed, 0 failed [exit 0]
 questions: none
+open: none
 findings-for-protocol: none
 budget: tokens=4210 minutes=9
 notes: none
@@ -647,6 +648,61 @@ def main():
         ("fp-a-superseded-attempt-citing-a-commit-never-promoted-is-not-judged",
          _task(STEP.replace("HEAD T-1: the config loader", "T-1.S-1: attempt 1, never promoted")
                + "\n" + STEP), set(), set(), ["[1 blocks judged, 1 superseded]"]),
+
+        # --- WHERE ITEMS COME FROM (roadmap 0.3.3, L-3.4) ------------------
+        # T-10.S-3's landing (tasks/T-10.md:423): an auditor's answer under a
+        # REPORT line over three lines. It is named as not a report, and the
+        # reason shows the form an answer lands in.
+        ("t10-an-auditors-report-line-is-named-with-the-audit-form",
+         _task("REPORT auditor T-1.S-3 (adversarial pass, verbatim, P-17 — the auditor has no "
+               "write\naccess and could not land this itself; reproduced here by the supervisor "
+               "exactly as\nreceived)\n\n## Finding 1 — a claim that is not sole\n\n" + REPORT),
+         set(), {"the REPORT blocks"},
+         ["tasks/T-1.md:15 is an auditor's REPORT line, and an audit's answer is not a report",
+          "`AUDIT T-1.S-3 (<dimension>)`", "`END AUDIT T-1.S-3`",
+          "safety, correctness, security or hygiene"]),
+        # One that parses as a header is no block: it is named, not judged.
+        ("an-auditors-report-line-that-parses-is-named-not-judged",
+         _task("REPORT auditor T-1.S-3\n\nNo new violation survived.\n\n" + REPORT),
+         set(), {"the REPORT blocks"},
+         ["`AUDIT T-1.S-3 (<dimension>)`", "[1 blocks judged, 0 superseded]"]),
+        # ...and a later block for its id does not supersede it, because it
+        # was never a report.
+        ("an-auditors-report-line-is-named-though-a-later-block-names-its-id",
+         _task("REPORT auditor T-1.S-4 (adversarial pass, over\ntwo lines)\n\n" + s4 + "\n" + REPORT),
+         set(), {"the REPORT blocks"}, ["`AUDIT T-1.S-4 (<dimension>)`"]),
+        # A worker's header whose annotation wraps is still F-34's shape.
+        ("a-workers-header-whose-annotation-wraps-past-its-line-is-named",
+         _task("REPORT implementer T-1.S-3 (attempt 2, correcting\nattempt 1)\n\n" + REPORT),
+         set(), {"the REPORT blocks"}, ["do not parse as `REPORT <role> T-n[.S-m]"]),
+        # `open:` is required, as `questions:` is; `none` is an answer.
+        ("open-a-block-with-no-open-key-is-missing-field",
+         _task(REPORT.replace("open: none\n", "")), {"missing-field"}, set(),
+         ["T-1: the block has no `open:`"]),
+        ("fp-open-none-is-an-answer", _task(REPORT), set(), set(), []),
+        ("fp-open-with-two-items-is-clean",
+         _task(REPORT.replace("open: none\n", "open:\n  - a defect found and not fixed: the "
+                              "retry's second line\n  - work the step could not reach: the "
+                              "ext4 half\n")), set(), set(), []),
+        # An answer landed after a block is text between blocks: its lines are
+        # never that block's fields. Here the block's parse stopped early, and
+        # only the block's own two unread lines are named.
+        ("an-answer-after-a-block-is-never-read-as-its-fields",
+         _task(REPORT.replace("budget: tokens=4210 minutes=9\n",
+                              "Budget, below.\nbudget: tokens=4210 minutes=9\n")
+               + "\nAUDIT T-1.S-2 (correctness)\n\nnotes: the auditor's own word\n"
+                 "questions: none of its own\n\nEND AUDIT T-1.S-2\n"),
+         {"missing-field"}, {"T-1's REPORT block"},
+         ["2 field line(s) from there on were not read"]),
+        # ...and a block followed directly by an answer reads clean.
+        ("fp-a-block-followed-directly-by-an-answer-reads-clean",
+         _task(REPORT + "AUDIT T-1.S-2 (correctness)\nstatus: every clause held\nscope: "
+                        "T-1.S-2's claim\nnotes: none\n\n## COR-1 — a stale sentence\n\n"
+                        "END AUDIT T-1.S-2\n"), set(), set(), []),
+        # A block landed after an answer's closing line is read as before.
+        ("fp-a-block-after-an-answers-closing-line-is-read-as-before",
+         _task("AUDIT T-1.S-2 (correctness)\n\n## COR-1 — a stale sentence\n\nEND AUDIT "
+               "T-1.S-2\n\n" + REPORT), set(), set(), ["[1 blocks judged, 0 superseded]"]),
     ]
     for name, body, expected, want_gaps, must in parse_cases:
         root = tempfile.mkdtemp(prefix="devteam-report-parse-")

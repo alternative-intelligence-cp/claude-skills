@@ -78,7 +78,7 @@ SCHEMA_MARK = re.compile(r"^<!-- schema:(?:begin|end) -->\n", re.M)
 NOT_INSTALLED = {"FORMATS.md", "tasks", "checkpoints"}
 
 PLACEHOLDER_DIR_README = {
-    "audits": "# Audits\n\nOne file per audit, named `<scope>-<dimension>-<date>.md`, filed by the\nmanager because the auditor has no tool that writes. An audit reports and\nnever fixes; a worker triages the findings afterwards under the ordinary\ndiscipline.\n",
+    "audits": "# Audits\n\nOne file per task's or milestone's audit, named\n`<scope>-<dimension>-<date>.md` — `T-7-security-2026-09-30.md` — and filed\nby the manager, because the auditor has no tool that writes. The file is\nthe auditor's whole answer, verbatim: it opens `AUDIT <scope> (<dimension>)`\nand closes `END AUDIT <scope>`, and each finding is a heading,\n`## SEC-1 — <one line>`. The scope is read from the `AUDIT` line, never\nfrom the name. A step's audit is landed in its task file instead. Each\nfinding's disposition is its entry in `LEDGER.md`. An audit reports and\nnever fixes; a worker fixes what is routed to its task, under the ordinary\ndiscipline.\n",
     "tasks": "# Tasks\n\nOne file per task, named `T-1.md`, `T-2.md`. The planner writes them\nfrom the plugin's `templates/tasks/TASK.md`. A task file is the unit of\nclaim, the contract its supervisor works to, and where its execution\nrecord and REPORT block land.\n",
     "checkpoints": "# Checkpoints\n\nOne file per checkpoint, named `C-1-<date>.md`, written from the plugin's\n`templates/checkpoints/CHECKPOINT.md`. A checkpoint is a verdict with\nevidence and is never edited after it is filed.\n",
 }

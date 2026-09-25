@@ -143,7 +143,7 @@ BOARD_T3 = board(IN_FLIGHT_T1, rows=(
 def report(status, commits, subject="T-1"):
     return (f"\nREPORT supervisor {subject}\nstatus: {status}\nmodel: opus-5-5\nenv: fixture\n"
             f"requirements: R-1\nscope: src/\ncommits:\n{commits}\nchecks:\n"
-            f"  - `make test` → ok\nquestions: none\nfindings-for-protocol: none\n"
+            f"  - `make test` → ok\nquestions: none\nopen: none\nfindings-for-protocol: none\n"
             f"budget: tokens=1000 minutes=1\nnotes: none\n")
 
 
@@ -231,7 +231,7 @@ REOPENED_STEPS = REOPENED_T1.replace("\n## Execution record\n", "\n## Steps\n\n-
 TESTS_FIRST = ("\nREPORT tester T-1.S-1\nstatus: DONE\nmodel: opus-5-5\nenv: fixture\n"
                "requirements: R-1\nscope: src/\ncommits:\n  - HEAD T-1.S-1: the stub first\n"
                "checks:\n  - `make test` → 1 failed, as a tests-first step leaves it\n"
-               "questions: none\nfindings-for-protocol: none\nbudget: tokens=1000 minutes=1\n"
+               "questions: none\nopen: none\nfindings-for-protocol: none\nbudget: tokens=1000 minutes=1\n"
                "notes: none\n")
 STUB = "raise NotImplementedError\n"
 STUBBED = CLAIMED + [("T-1.S-1: the stub first", {"src/app.py": STUB})]

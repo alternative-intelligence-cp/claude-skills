@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Adversarially audit a devteam project along one dimension — correctness, security or hygiene — diffing what the documents claim against what the code does, and report findings with evidence without fixing any of them. Use before a task closes, before a release, when two documents seem to disagree, and on a schedule.
+description: Adversarially audit a devteam project along one dimension — safety, correctness, security or hygiene — diffing what the documents claim against what the code does, and report findings with evidence without fixing any of them. Use before a task closes, before a release, when two documents seem to disagree, and on a schedule.
 argument-hint: "[dimension] [scope]"
 allowed-tools: Bash(git *) Bash(python3 *) Bash(grep *) Bash(rg *) Read Grep Glob WebFetch WebSearch
 ---
@@ -187,27 +187,61 @@ since no such exception is shipped, but no case anywhere covered that shape.
 Density of prior work marks the region where the remaining gaps are the
 non-obvious ones.
 
-**Number your findings `COR-n`, `SEC-n` or `HYG-n`** for your dimension. Never
-a bare single or double letter — `S-5` is a *step* citation in this project's
-grammar, `D-3` a decision, `R-1` a requirement. A finding numbered into one of
-those namespaces cannot be cited from a task file or a checkpoint without
-reporting `cited-undefined` against something that does not exist, which is
-how a real finding ends up referred to in prose and then lost.
-
-**Every finding carries a `Disposition.` line, and the auditor writes it
-`open`.** The manager fills it in — `routed T-n`, `raised Q-n`, or
-`declined (D-n)` — and a finding still reading `open` when the audited task
-closes is one nobody decided about.
-
-**A finding is DECLARED BY ITS HEADING**, which is the form `check_refs`
-resolves and the form the audits that carry `Disposition.` already use:
+**Your answer opens and closes on two lines, each alone on its line:**
 
 ```
-## COR-6 — <one line: what is wrong>
+AUDIT <scope> (<dimension>)
 
-- **Needs.** `csv2json/reader.py`, `tests/test_headers.py`
-- **Disposition.** open
+<what you audited, and your verdict>
+
+## COR-1 — <one line: what is wrong>
+
+<the location, the evidence, and what would resolve it>
+
+- **Needs.**
+  - `csv2json/reader.py`
+  - `tests/test_headers.py`
+
+## COR-2 — <one line: what is wrong>
+
+- **Needs.** a decision on <what>
+
+<what you checked and found clean, your threat model, your budget, and what
+you did not get to>
+
+END AUDIT <scope>
 ```
+
+The scope is the one your prompt names — `T-n.S-m` for a step, `T-n` for a
+task, a lowercase word such as `release` for a milestone — and the dimension
+is yours. **Nothing goes before the `AUDIT` line or after the `END AUDIT`
+line.** Your message is landed whole and verbatim, and those two lines are how
+anyone finds your findings again: an answer not opened and closed this way is
+read by nobody (FORMATS §"An audit's answer"). pricelog's T-19 auditor opened
+`AUDIT T-19.S-3 (correctness): **one break found.** …`, its verdict on the
+same line, and two of the open items under it reached no owner (F-139).
+
+**Every finding is a heading with your dimension's label, numbered from 1:**
+`SAF-n` for safety, `COR-n` for correctness, `SEC-n` for security, `HYG-n` for
+hygiene. The label is your answer's own. The manager gives each finding its
+id in the project, an `ITM-n` in the ledger, and names your label there, so no
+number is reserved when you are dispatched, and two audits running at once
+never collide. **Begin no other heading as a finding's begins**: `## Finding
+1`, `### 1.`, `## F-1 — HIGH` or `## S-3 notes` is read as a finding written
+wrong, and is not counted. A heading such as `## Verdict` or `## Checked and
+found clean` is fine. Never number a finding with a bare single or double
+letter: `S-5` is a *step* citation in this project's grammar, `D-3` a
+decision, `R-1` a requirement. A finding numbered into one of those namespaces
+cannot be cited from a task file or a checkpoint without reporting
+`cited-undefined` against something that does not exist, which is how a real
+finding ends up referred to in prose and then lost.
+
+**Write no `Disposition.` line.** A finding's disposition has one home, the
+project's `LEDGER.md`, and the manager writes it: `routed T-n`, `raised Q-n`,
+`declined (D-n)`, `fixed (<commit>)`, or `open` with the task or checkpoint
+by which it is due. An auditor's `Disposition. open` was a second home for
+that fact, and two homes for one fact disagree: pricelog's questions read
+open in one file and answered in the other (F-63, F-64).
 
 **This corrects a form nobody ever used.** Until 0.2.6 this skill prescribed
 `- **COR-6.** <one line>` as a list item. Measured across a real project's four
@@ -218,9 +252,15 @@ document prescribing it is not a grammar, and building the checker against it
 would have made every audit finding ever written undeclared.
 
 **An audit written in the old bold form is migrated by changing `**COR-n — …**`
-to `## COR-n — …`**; nothing else about the file changes.
+to `## COR-n — …`**, which makes its findings countable. Only the `AUDIT` and
+`END AUDIT` lines tie them to the task that was audited: a file in `audits/`
+that opens no answer is named as not read, and its findings are tied to no
+task.
 
-**`Needs.` is what makes `routed T-n` mean something**, and without it the word
+**Write `Needs.` under every finding**: the paths it needs changed, one per
+indented item, or the decision it needs when no change to a file would
+resolve it. The manager routes the finding from it. **`Needs.` is what makes
+`routed T-n` mean something**, and without it the word
 degrades to "mentioned". Measured, immediately: a finding was reported as
 *"routed as a lead into T-10's brief"* when it had been **named as background
 for a task whose scope never reached the files the finding needs changed.**
@@ -257,10 +297,13 @@ location so it can be found. An audit report is a tracked file too, and the
 leak check will flag it: a report that republishes the disclosure has made the
 problem larger while describing it.
 
-**End with what you checked and found clean.** An audit that reports only
-problems does not say how much ground it covered, and the next auditor cannot
-tell what is already known good. State your threat model, your budget, and
-what you did not get to.
+**End with what you checked and found clean**, inside the answer, before its
+`END AUDIT` line. An audit that reports only problems does not say how much
+ground it covered, and the next auditor cannot tell what is already known
+good. State your threat model, your budget, and what you did not get to.
 
-Your final message is the report. The manager files it under
-`devteam/audits/<scope>-<dimension>-<date>.md`; you write nothing.
+Your final message is the answer, and you write nothing. A step's audit is
+landed by its supervisor in the task file; a task's or a milestone's is filed
+by the manager as `devteam/audits/<scope>-<dimension>-<date>.md`. Either way it
+is landed whole and verbatim (P-17), so the record holds exactly what you
+sent.

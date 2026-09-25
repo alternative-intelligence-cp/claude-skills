@@ -366,15 +366,24 @@ commits:
 checks:
   - <exact command> -> <its summary line, verbatim> [exit <n>]
 questions: none | - <question> | <recommendation> | REVERSIBLE|IRREVERSIBLE|CHARTER
+open: none | - <item>
 findings-for-protocol: none | - <one line each>
 budget: tokens=<n> minutes=<n>
 notes: none | <free text>
 ```
 
+`open:` holds what the report leaves open that is neither a question for the
+client nor a finding for the protocol — a defect found and not fixed, or work
+the step could not reach. Its items and `questions:`'s are the ledger's; the
+manager gives each an entry in `LEDGER.md`.
+
 How `check_report` reads it — an annotation after the header's id or before a
 key's colon, a status the supervisor reconstructed, an approximate figure, and
 which of a task file's blocks it judges — is
-[`templates/FORMATS.md`](templates/FORMATS.md) §"The REPORT block".
+[`templates/FORMATS.md`](templates/FORMATS.md) §"The REPORT block". An
+auditor's answer is not a REPORT block: it opens
+`AUDIT <scope> (<dimension>)` and closes `END AUDIT <scope>` (FORMATS §"An
+audit's answer").
 
 A supervisor's block adds `verdict:` per step, and then, below everything:
 

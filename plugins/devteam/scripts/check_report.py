@@ -37,10 +37,19 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import claim   # noqa: E402 -- a task's current claim, computed in one place (L-2.5)
+import ledger  # noqa: E402 -- an audit's answer, whose lines end a block (roadmap 0.3.3, L-3.4)
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
 
+# `open:` IS REQUIRED, after `questions:` (roadmap 0.3.3, L-3.4). It holds what
+# a report leaves open that is neither a question for the client nor a finding
+# for the protocol: a defect found and not fixed, or work the step could not
+# reach. T-18's restart supervisor had nowhere to put three such defects, and
+# filed them under `findings-for-protocol:`, where the pipeline's findings go
+# and no owner looks (tasks/T-18.md:1534-1540). Required, so that a reporter
+# in a hurry cannot leave it out by omission; `none` is an answer, as it is
+# for `questions:`. Its items, and `questions:`'s, are the ledger's.
 REQUIRED = ("status", "model", "env", "requirements", "scope", "commits",
-            "checks", "questions", "findings-for-protocol", "budget", "notes")
+            "checks", "questions", "open", "findings-for-protocol", "budget", "notes")
 STATUSES = ("DONE", "BLOCKED", "NEEDS-DECISION", "RED", "READY-TO-AUDIT")
 # Statuses that assert the work is finished, and so must be backed by a clean
 # tree, a commit, and at least one check that was actually run.
@@ -140,6 +149,16 @@ HEADER_ISH = re.compile(r"^REPORT\s+\S+\s+(T-\d+)")
 # whose annotation wraps onto the next line. `T-18.S-4-pre` names no step id,
 # so no later block can be the same step's.
 HEADER_ID = re.compile(r"^REPORT\s+\S+\s+(T-\d+)(?:\.(S-\d+))?(?=[\s(]|$)")
+# AN AUDITOR'S ANSWER IS NOT A REPORT (roadmap 0.3.3, L-3.4). An auditor has
+# no tool that writes, so its supervisor lands its answer, and pricelog's
+# T-10.S-3 supervisor landed one under a header of its own making,
+# `REPORT auditor T-10.S-3 (adversarial pass, verbatim, P-17 — …`, its
+# parenthesis closing two lines below it. An answer opens
+# `AUDIT <scope> (<dimension>)` and closes `END AUDIT
+# <scope>`, and a REPORT line whose role is `auditor`, parsed or not, is named
+# as not a report, with that form in the reason. It is never judged as a
+# block, and never counts as a later block for its id.
+AUDITOR = re.compile(r"^REPORT\s+(?i:auditor)\s+T-\d+")
 # A REPORT field as a writer would write one, annotation and all: F-88's
 # `checks (all run by the supervisor…):` ended the parse, and every field
 # after it read as missing. Only the grammar's own keys: prose after a block
@@ -189,6 +208,14 @@ def task_scope(devteam, task_id, unparsed=None):
 Block = collections.namedtuple("Block", "start role task step note fields at stop")
 
 
+def ends_block(line):
+    """Does this line end the block above it? The next header, a heading, or
+    an audit's answer opening or closing (roadmap 0.3.3, L-3.4): an answer
+    landed right after a block is text between blocks, as a supervisor's
+    prose is, and none of its lines is that block's field."""
+    return bool(HEADER.match(line) or line.startswith("#") or ledger.is_answer_line(line))
+
+
 def parse_block(lines, i):
     """The block whose header is `lines[i]`."""
     m = HEADER.match(lines[i])
@@ -196,7 +223,7 @@ def parse_block(lines, i):
     j = i + 1
     while j < len(lines):
         line = lines[j]
-        if HEADER.match(line) or line.startswith("#"):
+        if ends_block(line):
             break
         k = KEY.match(line)
         closed = None
@@ -458,31 +485,46 @@ def check(project, want_id):
         add("no-report", "the task file has no `## Execution record` section")
 
     task_rel = f"tasks/{task_id}.md"
-    blocks = [parse_block(lines, i) for i, l in enumerate(lines) if HEADER.match(l)]
+    blocks = [parse_block(lines, i) for i, l in enumerate(lines)
+              if HEADER.match(l) and not AUDITOR.match(l)]
     read, superseded = judged(blocks, task_id, step_id)
     # A REPORT line naming this task that HEADER cannot read is a block this
     # run judges nothing of -- F-34's shape, where attempt 2's header did not
     # parse and the check read attempt 1 in its place -- unless a block the
     # grammar does read comes after it for the same id. Then it is a
-    # superseded attempt, like any earlier block for that id.
-    unread = []
+    # superseded attempt, like any earlier block for that id. An auditor's
+    # REPORT line is named whatever follows it: it is not a report at all.
+    unread, auditors = [], []
     for j, l in enumerate(lines):
         h = HEADER_ISH.match(l)
-        if not h or h.group(1) != task_id or HEADER.match(l):
+        if not h or h.group(1) != task_id:
             continue
         loose = HEADER_ID.match(l)
         ident = (loose.group(1), loose.group(2)) if loose else None
         if step_id and ident and ident[1] != step_id:
             continue                          # another id, and this run reads one step
+        if AUDITOR.match(l):
+            auditors.append((j + 1, ".".join(filter(None, ident)) if ident else "<scope>"))
+            continue
+        if HEADER.match(l):
+            continue
         if ident and any(b.start > j and (b.task, b.step) == ident for b in blocks):
             continue
         unread.append(j + 1)
+    reasons = []
     if unread:
-        gaps.append(("the REPORT blocks", result.unparsed(
+        reasons.append(result.unparsed(
             [(task_rel, n) for n in unread], len(unread),
             f"REPORT lines naming {task_id} with no later block for their id",
             "`REPORT <role> T-n[.S-m] [(<annotation>)]` on one line",
-            "a report may have been passed over (F-34)"), False))
+            "a report may have been passed over (F-34)"))
+    for n, scope in auditors:
+        reasons.append(f"{task_rel}:{n} is an auditor's REPORT line, and an audit's answer is "
+                       f"not a report: it lands between `AUDIT {scope} (<dimension>)` and "
+                       f"`END AUDIT {scope}`, each alone on its line, the dimension "
+                       f"{ledger.DIMENSIONS} (FORMATS §\"An audit's answer\")")
+    if reasons:
+        gaps.append(("the REPORT blocks", "; ".join(reasons), False))
     if not read and blocks:
         # Asking for a task and finding only another task's block, or a step
         # other than the one asked for, is a wrong report. The last block is
@@ -545,7 +587,7 @@ def check(project, want_id):
         if b.stop is not None:
             rest = []
             for j in range(b.stop, len(lines)):
-                if HEADER.match(lines[j]) or HEADER_ISH.match(lines[j]) or lines[j].startswith("#"):
+                if ends_block(lines[j]) or HEADER_ISH.match(lines[j]):
                     break
                 k = KEY_ISH.match(lines[j])
                 if k and k.group(1) not in b.fields:

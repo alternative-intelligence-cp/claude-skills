@@ -178,6 +178,18 @@ evidence where its concurrence would have been nothing.
    the rest of this step is unchanged — that project has no sandbox and the
    guard is the whole of its coverage (P-10b).
 
+   **An auditor's answer is landed by you, whole and verbatim, and it is not a
+   report.** The auditor has no tool that writes (A-1), so you append its final
+   message to the task file's execution record exactly as received, from its
+   `AUDIT <scope> (<dimension>)` line to its `END AUDIT <scope>` line (P-17),
+   and commit it through the gate. **Never under a `REPORT` line, and never
+   inside a fence**: `check_report` names a `REPORT auditor …` line as not a
+   report, and no answer inside a fence is read (FORMATS §"An audit's
+   answer"). pricelog's T-10 supervisor wrote its own `REPORT auditor` header
+   over an answer, and T-19's fenced one; neither answer's findings could be
+   counted. Each finding is an item, which the manager ledgers; you land it,
+   and you do not decide it.
+
    **Under `structural`, the sequence is this and the first line is the one
    that bites:**
 
@@ -377,6 +389,7 @@ commits:
 checks:
   - <exact command> -> <its summary line, verbatim> [exit <n>]
 questions: none | - <question> | <recommendation> | REVERSIBLE|IRREVERSIBLE|CHARTER
+open: none | - <a defect found and not fixed, or work the task could not reach>
 findings-for-protocol: none | - <one line each>
 budget: tokens=<n> minutes=<n>
 notes: none | <free text>
