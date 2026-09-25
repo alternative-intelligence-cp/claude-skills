@@ -17,7 +17,14 @@ where the plan was wrong. That picture exists only if this file is kept.
 `question Q-n answered: <answer>` · `question Q-n proceeded unreviewed: <what>` ·
 `checkpoint C-n <verdict>` · `rebalance: <what moved and why>` ·
 `audit T-n <dimension> filed` · `finding: <one line, and where it went>` ·
-`writer takeover: <old id>` · `charter amended: v<n>, <what>`
+`writer takeover: <old id>` · `writer handoff: <old id> → <new id>` ·
+`charter amended: v<n>, <what>`
+
+**A `writer handoff` carries what the client said to the outgoing manager**,
+fenced under it: the output of the plugin's `scripts/client_words.py` for
+that session's whole tenure, which the `resume` skill's §0 runs. The fence
+keeps the client's words from being read as citations or verdicts (roadmap
+0.3.3, L-3.13).
 
 **A verdict is counted, so write it exactly.** The checkpoint's tally, the
 plugin's `scripts/tally.py`, reads each top-level item whose backticks hold

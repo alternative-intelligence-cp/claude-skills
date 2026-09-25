@@ -71,7 +71,9 @@ successor, and the order below matters:
 1. **`ListAgents`, and expect the identity not to join.** Listed → your
    predecessor is alive and you are in the normal case. Not listed → it has
    exited; reconstruct from §1, and say in one line in `RECORD.md` that the
-   handoff was announced but the predecessor was gone before you arrived. **A
+   handoff was announced but the predecessor was gone before you arrived.
+   Read what the client said to it all the same, as step 2 says, and minute
+   it under that line: its transcript outlives it, and nobody is left to ask. **A
    stale socket fails loudly, not silently** — a send to an exited session
    returns `ENOENT ... the peer process may have restarted`, so you will not
    mistake a dead peer for a quiet one.
@@ -91,6 +93,32 @@ successor, and the order below matters:
    design — so what you read will move; the lock is the point at which it
    stops moving.
 
+   **What the client said to your predecessor is read from its transcript,
+   not asked for.** In the 0.2.9 run what the client said to an outgoing
+   manager reached no file at any of fifteen rotations, and the record names
+   three messages a successor had to ask for. Each was said during the
+   outgoing manager's tenure, which went on writing and never minuted it
+   (roadmap 0.3.3, L-3.7). The harness writes every prompt into the session's
+   transcript, so read them there, over the predecessor's whole tenure, from
+   the first commit that put its id on the board (L-3.13):
+
+   ```bash
+   git log --reverse --format=%h -S'<old id>' -- devteam/BOARD.md     # its first line
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/client_words.py" <old id> --since <that commit>
+   ```
+
+   It prints one line per prompt, with its time and how it arrived: `typed`,
+   or marked as a suggestion the client accepted, an interruption, or a
+   message typed while the model was busy. It skips what the harness itself
+   injected, and masks anything `check_refs` would name a leak, so what it
+   prints can be committed as printed. Minute its output verbatim under your
+   `writer handoff` entry (step 4), inside a fence, so that nothing the client
+   typed is read as a citation or a verdict; or write `none` when it printed
+   none. Exit 3 names each line it could not place, with the rest still
+   printed: read those lines yourself before you minute. Exit 2 means it found
+   no transcript for the id, and what the client said is then something you
+   had to ask.
+
 3. **Ask.** You drive. Only what the files could not tell you. Log every one
    as `record defect: the incoming session had to ask <what>` under the day's
    `RECORD.md` entry, one line each. **That list is the measurement**, and it
@@ -101,7 +129,8 @@ successor, and the order below matters:
    `devteam/.run/session/manager`, put the same id on `BOARD.md`'s
    `**Writer.**` line, and commit it through the gate (`run`'s opening says
    how): `board: writer <new id> (rotation from <old id>, C-n)`. Then
-   `writer handoff: <old> → <new>` in `RECORD.md`.
+   `writer handoff: <old> → <new>` in `RECORD.md`, with step 2's minute of
+   the client's words fenced under it.
    **The id must be a real one** — a writer line holding an empty pair of
    backticks reads as neither yours nor anyone's and inverts the guard in both
    directions.

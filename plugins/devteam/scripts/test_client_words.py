@@ -1,0 +1,607 @@
+#!/usr/bin/env python3
+"""Negative control for client_words.py, the client's words from a transcript (P-35).
+
+Every transcript here is synthetic, written under a temporary directory named
+by `--root`, or under a temporary HOME for the one case that reads the default
+root. The control never reads a real transcript and never writes under
+`~/.claude` (roadmap 0.3.3, L-3.7): the client's words reach the record only
+through `resume`'s entry.
+
+The entries are written as the harness writes them, key for key, from a
+survey of every transcript on the owner's machine (roadmap 0.3.3, L-3.13).
+Each kind the survey found is planted, and each case states what is printed,
+with which mark, and what is not. The cases that decide the command are the
+ones where shape and label disagree: a task notification written like a prompt
+and not flagged `isMeta`; the harness's own interruption marker, written as a
+list holding a text block; a message typed mid-turn, which is an attachment and
+in no other entry; and a background session's opening prompt, labelled
+`typed` whoever wrote it. The `fp-` and `clean-` cases are the forms that must
+pass untouched: a command that named every prompt it printed would be one
+nobody ran.
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+SUBJECT = (os.environ.get("DEVTEAM_SUBJECT_CLIENT_WORDS")
+           or os.path.join(HERE, "client_words.py"))
+
+SID = "5f0c2a9e-1b7d-4c3e-9a61-2d8f4e7b0c13"
+SLUG = "-home-client-Workspace-REPOS-project"
+BASE = {"parentUuid": None, "isSidechain": False, "userType": "external", "entrypoint": "cli",
+        "cwd": "/home/client/Workspace/REPOS/project", "sessionId": SID, "version": "2.1.282",
+        "gitBranch": "main"}
+
+
+def at(minute, second=0, ms=0):
+    """A harness timestamp on 2026-09-11, UTC, as the transcript writes it."""
+    return f"2026-09-11T15:{minute:02d}:{second:02d}.{ms:03d}Z"
+
+
+_uuid = [0]
+
+
+def entry(kind, ts, **fields):
+    _uuid[0] += 1
+    return {**BASE, "type": kind, "uuid": f"u-{_uuid[0]:04d}", "timestamp": ts, **fields}
+
+
+def user(content, ts, **fields):
+    return entry("user", ts, message={"role": "user", "content": content},
+                 promptId=f"p-{_uuid[0]:04d}", **fields)
+
+
+def typed(text, ts, source="typed", **fields):
+    return user(text, ts, origin={"kind": "human"}, promptSource=source,
+                permissionMode="default", **fields)
+
+
+def blocks(*texts):
+    return [{"type": "text", "text": t} for t in texts]
+
+
+def midturn(text, ts, origin="human", mode="prompt", **extra):
+    a = {"type": "queued_command", "prompt": text, "commandMode": mode, "timestamp": ts, **extra}
+    if origin:
+        a["origin"] = {"kind": origin} if origin != "peer" else {
+            "kind": "peer", "from": "uds:/run/user/1000/cc-socks/1.sock", "name": "a-peer",
+            "body": text, "msg_id": "m-1"}
+    return entry("attachment", ts, attachment=a)
+
+
+# Every kind the harness writes that holds no word of the client's.
+def notification(ts):
+    return user("<task-notification>\n<task-id>b1</task-id>\n<status>completed</status>\n"
+                "</task-notification>", ts, origin={"kind": "task-notification"},
+                promptSource="system")
+
+
+def peer(ts, text="<cross-session-message from=\"uds:/run/user/1000/cc-socks/1.sock\">"
+                   "carry on</cross-session-message>"):
+    return user(text, ts, isMeta=True, origin={"kind": "peer", "from": "uds:x", "name": "a-peer",
+                                               "body": "carry on", "msg_id": "m-2"},
+                promptSource="system")
+
+
+def summary(ts):
+    return user("This session is being continued from a previous conversation. The client "
+                "said: great. lets continue.", ts, isCompactSummary=True,
+                isVisibleInTranscriptOnly=True)
+
+
+def tool_result(ts):
+    return user([{"type": "tool_result", "tool_use_id": "toolu_1", "content": "ok"}], ts,
+                toolUseResult={"stdout": "ok"}, sourceToolAssistantUUID="a-1")
+
+
+def injected(ts):
+    return user(blocks("Base directory for this skill: /x\n\n# The skill's text"), ts,
+                isMeta=True, sourceToolUseID="toolu_2")
+
+
+def reminder(ts):
+    return user("<system-reminder>\nA reminder the harness wrote.\n</system-reminder>", ts,
+                isMeta=True)
+
+
+def command(ts):
+    return user("<command-name>/rename</command-name>\n<command-message>rename"
+                "</command-message>\n<command-args>s47</command-args>", ts)
+
+
+def command_message(ts):
+    return user("<command-message>devteam:resume</command-message>\n<command-name>"
+                "/devteam:resume</command-name>", ts, origin={"kind": "human"})
+
+
+def command_output(ts, stream="stdout"):
+    return user(f"<local-command-{stream}>Session renamed to: s47</local-command-{stream}>", ts)
+
+
+def caveat(ts):
+    return user("<local-command-caveat>Caveat: the messages below were generated by the "
+                "user while running local commands.</local-command-caveat>", ts, isMeta=True)
+
+
+def interrupted(ts, tool=False):
+    return user(blocks("[Request interrupted by user" + (" for tool use]" if tool else "]")), ts)
+
+
+def assistant(ts, text="I will read the board."):
+    return entry("assistant", ts, requestId="req_1",
+                 message={"role": "assistant", "model": "claude-opus-5-5",
+                          "content": [{"type": "text", "text": text}],
+                          "usage": {"input_tokens": 1, "output_tokens": 1}})
+
+
+def harness_records(ts, words):
+    """The harness's own records, several of which hold the client's words as
+    it saw them: none of them is a prompt, and none is read."""
+    return [
+        {"type": "last-prompt", "lastPrompt": words, "leafUuid": "u-x", "sessionId": SID},
+        {"type": "queue-operation", "operation": "enqueue", "content": words,
+         "sessionId": SID, "timestamp": ts},
+        {"type": "queue-operation", "operation": "remove", "content": words,
+         "reason": "absorbed_mid_turn", "sessionId": SID, "timestamp": ts},
+        entry("system", ts, subtype="away_summary", content="The client was away."),
+        entry("attachment", ts, attachment={"type": "total_tokens_reminder"}),
+        {"type": "custom-title", "customTitle": "s47", "sessionId": SID},
+        {"type": "permission-mode", "permissionMode": "default", "sessionId": SID},
+    ]
+
+
+def lines(*entries):
+    return [json.dumps(e) for e in entries]
+
+
+def write(root, slug, sid, body):
+    d = os.path.join(root, slug)
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, f"{sid}.jsonl"), "wb") as fh:
+        fh.write(body if isinstance(body, bytes) else ("\n".join(body) + "\n").encode("utf-8"))
+
+
+# HOME is a directory with nothing under it unless a case names another, so a
+# run that reaches the default root -- a usage case, or a mutant that got past
+# its usage check -- reads an empty one, never the real ~/.claude/projects.
+NO_HOME = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-nohome-"))
+
+
+def run(args, root=None, env=None, cwd=None):
+    argv = [sys.executable, SUBJECT, *args] + (["--root", root] if root else [])
+    return subprocess.run(argv, capture_output=True, text=True, cwd=cwd,
+                          env={**os.environ, "TZ": "UTC", "HOME": NO_HOME, **(env or {})})
+
+
+HEADLINE = re.compile(r"^(?P<target>.+?): (?P<status>clean|not evaluated \(\d+ part\(s\)\))"
+                      r"  \[(?P<counts>[^\]]*)\]$")
+NOTE = re.compile(r'^  (?P<when>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \S+) (?P<mark>.+?): (?P<text>".*")$')
+
+
+def unquoted(text):
+    """A printed prompt's words, or the raw text when it is not JSON-quoted --
+    which then equals no expected prompt, so the case fails rather than the
+    control."""
+    try:
+        return json.loads(text)
+    except ValueError:
+        return text
+
+
+def read(out):
+    """(headline match or None, {count label: n}, [(when, mark, text)], {part: reason})."""
+    rows = out.split("\n")
+    head = HEADLINE.match(rows[0]) if rows else None
+    counts = {}
+    if head:
+        for piece in head.group("counts").split(", "):
+            n, _, label = piece.partition(" ")
+            counts[label] = int(n)
+    notes = [(m.group("when"), m.group("mark"), unquoted(m.group("text")))
+             for m in map(NOTE.match, rows[1:]) if m]
+    parts = dict(re.findall(r"^  not evaluated: (.+?) — (.*)$", out, re.M))
+    return head, counts, notes, parts
+
+
+def main():
+    passed = failed = fp = 0
+
+    def check(name, ok, got):
+        nonlocal passed, failed, fp
+        fp += name.startswith(("fp-", "clean-"))
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+            print(f"FAIL  {name}")
+            for line in str(got).rstrip("\n").split("\n")[:14]:
+                print(f"        | {line}")
+
+    def case(name, body, exit_, printed, counts=None, parts=(), said=(), args=(), env=None,
+             slug=SLUG, sid=SID):
+        """Write `body` as one session's transcript, run the command over it,
+        and compare the exit, every prompt printed with its mark and text, the
+        counts, and the parts named."""
+        root = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-"))
+        try:
+            write(root, slug, sid, body)
+            out = run([sid, *args], root=root, env=env)
+            head, got_counts, notes, got_parts = read(out.stdout)
+            ok = (out.returncode == exit_ and head is not None
+                  and [(m, t) for _w, m, t in notes] == printed
+                  and (counts is None or all(got_counts.get(k) == v for k, v in counts.items()))
+                  and set(got_parts) == {f"{sid}.jsonl's {p}" for p in parts}
+                  and all(s in out.stdout for s in said))
+            check(name, ok, out.stdout + out.stderr)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # --- what is printed: the client's words, marked with how they arrived ---
+    case("clean-a-typed-prompt-as-a-string-is-printed",
+         lines(typed("great. lets continue.", at(27, 6, 133))), 0,
+         [("typed", "great. lets continue.")], counts={"printed": 1, "skipped": 0, "lines": 1},
+         said=[f"session {SID}: clean", '2026-09-11 15:27:06 UTC typed: "great. lets continue."'])
+    case("clean-a-typed-prompt-as-a-list-holding-a-text-block-is-printed",
+         lines(typed(blocks("sounds good"), at(11, 19))), 0, [("typed", "sounds good")])
+    case("fp-a-typed-prompt-of-several-text-blocks-is-printed-joined",
+         lines(typed(blocks("first", "second"), at(11, 19))), 0, [("typed", "first\nsecond")])
+    case("fp-a-typed-prompt-quoting-a-command-tag-is-printed",
+         lines(typed("why did <command-name>/rename</command-name> show up?", at(12))), 0,
+         [("typed", "why did <command-name>/rename</command-name> show up?")])
+    case("fp-a-prompt-in-any-script-is-printed-as-written",
+         lines(typed("naïve — café, 子供", at(12))), 0, [("typed", "naïve — café, 子供")],
+         said=['typed: "naïve — café, 子供"'])
+    case("fp-a-typed-prompt-holding-pasted-content-is-typed",
+         lines(typed('<pasted_content id="384b">\nSession\n\nTotal cost: $1.12\n'
+                     '</pasted_content>\nhere is the usage', at(12))), 0,
+         [("typed", '<pasted_content id="384b">\nSession\n\nTotal cost: $1.12\n'
+                    '</pasted_content>\nhere is the usage')])
+    # Nothing in the text is trimmed or altered, and it stays one line.
+    words = 'sweet. I did it and kicked it off.\n\n"now" we see \\ what happens '
+    case("fp-a-prompt-of-several-lines-prints-on-one-line-verbatim",
+         lines(typed(words, at(37, 7, 165))), 0, [("typed", words)],
+         said=[r'typed: "sweet. I did it and kicked it off.\n\n\"now\" we see \\ what happens "'])
+    case("a-queued-prompt-is-printed-typed-queued",
+         lines(typed("IS ITS LAYERS is what i meant to type", at(3, 8), source="queued")), 0,
+         [("typed, queued", "IS ITS LAYERS is what i meant to type")])
+    # The survey's headline: a message typed while the model was busy, absorbed
+    # into its turn, is an attachment -- in no user entry at all.
+    case("a-mid-turn-message-is-printed-typed-mid-turn",
+         lines(assistant(at(42)), midturn("not nikola, i meant nitpick.", at(42, 54, 284)),
+               assistant(at(43))), 0,
+         [("typed, mid-turn", "not nikola, i meant nitpick.")],
+         said=['2026-09-11 15:42:54 UTC typed, mid-turn: "not nikola, i meant nitpick."'])
+    case("an-accepted-suggestion-is-printed-marked",
+         lines(typed("take it through C-2 and hand off to s12", at(53, 51),
+                     source="suggestion_accepted")), 0,
+         [("accepted suggestion", "take it through C-2 and hand off to s12")])
+    case("an-interruption-is-printed-marked",
+         lines(interrupted(at(8, 38)), interrupted(at(9), tool=True)), 0,
+         [("interrupted", "[Request interrupted by user]"),
+          ("interrupted", "[Request interrupted by user for tool use]")])
+    case("an-sdk-prompt-is-printed-marked",
+         lines(user("List the names of every available skill", at(55, 5), promptSource="sdk")), 0,
+         [("sdk", "List the names of every available skill")])
+    case("a-background-sessions-opening-prompt-is-marked-and-a-later-one-is-typed",
+         lines(typed("You are probe-a2, a test session.", at(53, 40), sessionKind="bg"),
+               assistant(at(54)),
+               typed("and one more thing", at(58), sessionKind="bg")), 0,
+         [("opened a background session", "You are probe-a2, a test session."),
+          ("typed", "and one more thing")])
+    # The first PROMPT, not the first entry: a reminder the harness injects
+    # before it does not make the opening prompt a later one.
+    case("fp-an-opening-prompt-after-an-injected-reminder-is-still-marked",
+         lines(reminder(at(53, 39)), typed("You are probe-a2, a test session.", at(53, 40),
+                                           sessionKind="bg")), 0,
+         [("opened a background session", "You are probe-a2, a test session.")])
+    case("fp-an-interactive-sessions-first-prompt-is-typed",
+         lines(typed("start the loop", at(1)), typed("carry on", at(2))), 0,
+         [("typed", "start the loop"), ("typed", "carry on")])
+
+    # --- what a tracked file may not hold: masked, and counted ---------------
+    # The minute goes into RECORD.md, where check_refs names a home path, a
+    # session's temporary path or a key as a leak, fenced or not (roadmap
+    # 0.3.3, L-3.13). A home path is written from ~, which loses nothing to a
+    # reader on the same machine; anything else becomes its name.
+    case("a-home-path-is-written-from-home",
+         lines(typed("it is in /home/client/Workspace/REPOS/project/devteam now", at(1)),
+               typed("and /Users/client/notes/x.md too", at(2))), 0,
+         [("typed", "it is in ~/Workspace/REPOS/project/devteam now"),
+          ("typed", "and ~/notes/x.md too")], counts={"printed": 2, "masked": 2})
+    case("a-key-and-a-temporary-path-are-masked-by-name",
+         lines(typed("key sk-" + "a1B2c3D4e5F6g7H8i9J0k1L2 and ghp_" + "Z" * 20
+                     + " then /tmp/claude-1000/x-5e8a74d7-e779-427a-a633-e3f336d692f2/y", at(1))), 0,
+         [("typed", "key <an API key> and <a GitHub token> then "
+                    "<a session-scoped temporary path>-e3f336d692f2/y")], counts={"masked": 3})
+    case("a-path-encoded-home-directory-is-masked-by-name",
+         lines(typed("see -home-client-Workspace-REPOS-project/5f0c.jsonl", at(1))), 0,
+         [("typed", "see <a path-encoded home directory>/5f0c.jsonl")], counts={"masked": 1})
+    # Quoting turns a newline into two characters, and a path can run across
+    # them: what lands in the record is the quoted line, so it is masked too.
+    case("a-path-run-across-a-quoted-newline-is-masked-in-the-line",
+         lines(typed("in /tmp/claude-1000/x\n5e8a74d7-e779-427a-a633-e3f336d692f2 now", at(1))), 0,
+         [("typed", "in <a session-scoped temporary path>-e3f336d692f2 now")], counts={"masked": 1})
+    # Masking one piece can uncover the next: a temporary path's mask leaves
+    # the path after it with nothing before it, which is then a leak. Here
+    # each of three uncovers the next, so the words are masked until none is
+    # left, not once.
+    case("a-leak-a-mask-uncovers-is-masked-too",
+         lines(typed("/tmp/a-5e8a74d7-e779-427a-a633/tmp/b-5e8a74d7-e779-427a-a633/home/client/y",
+                     at(1))), 0,
+         [("typed", "<a session-scoped temporary path><a session-scoped temporary path>~/y")],
+         counts={"masked": 3})
+    # Quoting escapes a double quote, after which the credential no longer
+    # reads as one, so the words are masked before they are quoted.
+    case("a-credential-in-double-quotes-is-masked-in-the-words",
+         lines(typed('api_key: "abcdefgh"', at(1))), 0,
+         [("typed", '<a credential>"')], counts={"masked": 1})
+    case("fp-a-path-already-written-from-home-is-not-masked",
+         lines(typed("it is in ~/Workspace/REPOS/project and /home alone", at(1))), 0,
+         [("typed", "it is in ~/Workspace/REPOS/project and /home alone")], counts={"masked": 0})
+    case("fp-the-headline-names-the-session-not-its-directory",
+         lines(typed("x", at(1))), 0, [("typed", "x")], said=[f"session {SID}: clean"],
+         slug="-home-client-Workspace-REPOS-project--internal-scratch")
+    root = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-"))
+    try:
+        # Every leak shape check_refs knows, in one transcript: nothing printed
+        # may be one, read by check_refs' own patterns.
+        sys.path.insert(0, os.path.dirname(os.path.realpath(SUBJECT)))
+        import check_refs
+        write(root, SLUG, SID, lines(
+            typed("/home/client/a/ -home-client-Workspace-x /tmp/q-5e8a74d7-e779-427a-a633-e3f336d692f2", at(1)),
+            typed("ghp_" + "A" * 20 + " sk-" + "B" * 24 + " AKIA" + "C" * 16, at(2)),
+            typed("-----BEGIN RSA PRIVATE KEY-----\npassword = 'hunter22'\napi_key: \"abcdefgh\"", at(3)),
+            typed("/tmp/x\n5e8a74d7-e779-427a-a633-e3f336d692f2 and \t/home/client/b/", at(4)),
+            user("/compact /home/client/c/", at(5))))
+        out = run([SID], root=root)
+        leaked = [(line, why) for line in out.stdout.split("\n") for pat, why in check_refs.LEAKS
+                  if pat.search(line)]
+        check("nothing-printed-is-a-leak-check_refs-would-name",
+              out.returncode == 3 and not leaked and read(out.stdout)[1].get("printed") == 4,
+              "\n".join(f"{why}: {line}" for line, why in leaked) + "\n" + out.stdout + out.stderr)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    # --- what is skipped: the harness's own, each by its label ---------------
+    case("fp-a-compaction-summary-is-skipped", lines(summary(at(1))), 0, [],
+         counts={"printed": 0, "skipped": 1})
+    case("fp-a-peer-message-is-skipped", lines(peer(at(1))), 0, [], counts={"skipped": 1})
+    case("fp-a-peer-message-not-flagged-meta-is-skipped-by-its-origin",
+         lines(peer(at(1)) | {"isMeta": False}), 0, [], counts={"skipped": 1})
+    case("fp-a-tool-result-is-skipped", lines(tool_result(at(1))), 0, [], counts={"skipped": 1})
+    case("fp-a-slash-command-and-its-local-output-are-skipped",
+         lines(caveat(at(1)), command(at(1, 1)), command_output(at(1, 2)),
+               command_message(at(1, 3)), command_output(at(1, 4), "stderr")), 0, [],
+         counts={"skipped": 5})
+    # Injected, and not flagged isMeta: a rule reading isMeta alone prints
+    # every one of these as the client's words -- 69 of them in the three
+    # sessions L-3.7 names.
+    case("fp-a-task-notification-not-flagged-meta-is-skipped",
+         lines(notification(at(1)), user("2 background agents were stopped by the user", at(2),
+                                         origin={"kind": "task-notification"},
+                                         promptSource="system")), 0, [], counts={"skipped": 2})
+    case("fp-injected-skill-text-and-a-reminder-are-skipped",
+         lines(injected(at(1)), reminder(at(2))), 0, [], counts={"skipped": 2})
+    case("fp-a-mid-turn-peer-message-and-task-notification-are-skipped",
+         lines(midturn("<cross-session-message>carry on</cross-session-message>", at(1),
+                       origin="peer", isMeta=True),
+               midturn("<task-notification>done</task-notification>", at(2), origin=None,
+                       mode="task-notification")), 0, [], counts={"skipped": 2})
+    case("fp-a-subagents-side-chain-is-skipped",
+         lines(user("Dispatch: run T-3's step S-2", at(1), isSidechain=True)), 0, [],
+         counts={"skipped": 1})
+    case("fp-the-harness-own-records-are-not-read",
+         lines(assistant(at(1), "great. lets continue."), *harness_records(at(2), "great. lets continue.")),
+         0, [], counts={"printed": 0, "skipped": 0, "lines": 8})
+    # pricelog's C-3 rotation session, cut to its kinds and in their order:
+    # the client's typed and queued prompts among the harness's notifications,
+    # peer messages, injected skill text and a compaction summary.
+    c3 = lines(typed("I am fine with what you propose.", at(20)),
+               notification(at(21)), peer(at(22)), injected(at(23)), tool_result(at(24)),
+               summary(at(25)), notification(at(26)),
+               typed("great. lets continue.", at(27, 6, 133)),
+               typed("IS ITS LAYERS is what i meant to type", at(28), source="queued"),
+               notification(at(29)))
+    case("the-c3-rotation-shape-prints-the-clients-words-and-nothing-else", c3, 0,
+         [("typed", "I am fine with what you propose."), ("typed", "great. lets continue."),
+          ("typed, queued", "IS ITS LAYERS is what i meant to type")],
+         counts={"printed": 3, "skipped": 7, "lines": 10})
+
+    # --- what cannot be placed: named by its line, the rest still printed ----
+    case("an-entry-of-no-known-kind-is-named-and-the-rest-still-printed",
+         lines(typed("before", at(1)), user("/compact", at(2)), typed("after", at(3))), 3,
+         [("typed", "before"), ("typed", "after")], parts=["entries"],
+         said=["1 of 3 entries that could hold words", "line 2, a user entry with origin None "
+               f"and promptSource None ({SID}.jsonl:2)"])
+    # The interruption marker is matched whole: a line of the harness's that
+    # merely resembles it is a kind this has not placed.
+    case("a-bracketed-harness-line-not-placed-is-named",
+         lines(user(blocks("[Request interrupted by user and rolled back]"), at(1))), 3, [],
+         parts=["entries"])
+    case("a-human-prompt-from-a-source-not-placed-is-named",
+         lines(typed("dictated", at(1), source="voice")), 3, [], parts=["entries"],
+         said=["origin 'human' and promptSource 'voice'"])
+    case("an-origin-not-placed-is-named",
+         lines(user("from a relay", at(1), origin={"kind": "relay"}, promptSource="system")), 3,
+         [], parts=["entries"], said=["origin 'relay'"])
+    case("a-prompt-holding-an-image-is-named",
+         lines(typed([{"type": "text", "text": "look at this"},
+                      {"type": "image", "source": {"type": "base64", "data": ""}}], at(1))), 3,
+         [], parts=["entries"], said=["it holds a block of type image, which is not text"])
+    case("a-mid-turn-command-not-placed-is-named",
+         lines(midturn("ls", at(1), mode="bash")), 3, [], parts=["entries"],
+         said=["commandMode 'bash'"])
+    case("a-prompt-with-no-time-is-named",
+         lines({k: v for k, v in typed("when?", at(1)).items() if k != "timestamp"}), 3, [],
+         parts=["entries"], said=["a typed prompt with no time it can read"])
+    body = lines(typed("before", at(1))) + ['{"type": "user", "message": '] + lines(typed("after", at(3)))
+    case("a-line-that-is-not-json-is-named-exit-3", body, 3,
+         [("typed", "before"), ("typed", "after")], parts=["lines"],
+         said=[f"1 of 3 lines do not parse as a JSON object, so whatever they hold was not read "
+               f"({SID}.jsonl:2)"])
+    case("a-json-line-that-is-not-an-object-is-named", lines(typed("x", at(1))) + ['["user"]'], 3,
+         [("typed", "x")], parts=["lines"])
+    raw = ("\n".join(lines(typed("x", at(1)))) + "\n").encode() + b'{"type": "user", "b": "\xff"}\n'
+    case("a-line-that-is-not-utf8-is-named", raw, 3, [("typed", "x")], parts=["lines"])
+    case("fp-blank-lines-are-not-lines",
+         [""] + lines(typed("x", at(1))) + ["", "   "] + lines(typed("y", at(2))), 0,
+         [("typed", "x"), ("typed", "y")], counts={"lines": 2})
+
+    # --- --since ---------------------------------------------------------------
+    window = lines(typed("before", at(26, 59, 999)), notification(at(26, 59)),
+                   typed("at the instant", at(27)), typed("in the second", at(27, 0, 500)),
+                   typed("after", at(27, 6)))
+    kept = [("typed", "at the instant"), ("typed", "in the second"), ("typed", "after")]
+    case("since-a-time-keeps-what-came-at-or-after", window, 0, kept,
+         counts={"printed": 3, "earlier": 2, "skipped": 0, "lines": 5},
+         args=["--since", "2026-09-11T15:27:00Z"],
+         said=[f"session {SID} since 2026-09-11 15:27:00 UTC: clean"])
+    case("since-a-time-with-no-offset-is-local", window, 0, kept, counts={"earlier": 2},
+         args=["--since", "2026-09-11 11:27:00"], env={"TZ": "America/New_York"},
+         said=["since 2026-09-11 11:27:00 EDT", '2026-09-11 11:27:06 EDT typed: "after"'])
+    case("since-a-time-with-an-offset-is-that-instant", window, 0, [("typed", "after")],
+         args=["--since", "2026-09-11T11:27:06-04:00"])
+    case("since-an-entry-of-no-known-kind-earlier-is-not-named",
+         lines(user("/compact", at(1)), typed("after", at(30))), 0, [("typed", "after")],
+         counts={"earlier": 1}, args=["--since", "2026-09-11T15:20:00Z"])
+    case("since-a-background-opening-prompt-earlier-still-marks-it-and-not-the-next",
+         lines(typed("You are probe-a2", at(1), sessionKind="bg"),
+               typed("the client's", at(30), sessionKind="bg")), 0,
+         [("typed", "the client's")], args=["--since", "2026-09-11T15:20:00Z"])
+    case("fp-an-empty-window-prints-nothing-and-is-clean",
+         lines(typed("before", at(1))), 0, [], counts={"printed": 0, "earlier": 1},
+         args=["--since", "2026-09-11T16:00:00Z"])
+
+    # A commit, read as its committer time, in the current directory's repository.
+    repo = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-repo-"))
+    root = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-"))
+    try:
+        git = lambda *a, **env: subprocess.run(
+            ["git", "-C", repo, "-c", "user.name=control", "-c", "user.email=control@example.invalid",
+             *a], capture_output=True, text=True, env={**os.environ, **env})
+        git("init", "-q")
+        with open(os.path.join(repo, "BOARD.md"), "w", encoding="utf-8") as fh:
+            fh.write("the manager's last write\n")
+        git("add", "BOARD.md")
+        git("commit", "-qm", "board: the last write", GIT_COMMITTER_DATE="2026-09-11T11:27:00-04:00",
+            GIT_AUTHOR_DATE="2026-09-11T09:00:00-04:00")
+        sha = git("rev-parse", "HEAD").stdout.strip()
+        write(root, SLUG, SID, window)
+        out = run([SID, "--since", sha[:7]], root=root, cwd=repo)
+        head, counts, notes, parts = read(out.stdout)
+        check("since-a-commit-is-its-committer-time-and-keeps-its-own-second",
+              out.returncode == 0 and [(m, t) for _w, m, t in notes] == kept
+              and counts.get("earlier") == 2
+              and f"session {SID} since {sha[:7]} (2026-09-11 15:27:00 UTC): clean" in out.stdout,
+              out.stdout + out.stderr)
+        out = run([SID, "--since", "no-such-commit"], root=root, cwd=repo)
+        check("since-neither-a-time-nor-a-commit-is-exit-2",
+              out.returncode == 2 and "neither a time" in out.stderr, out.stdout + out.stderr)
+        out = run([SID, "--since", "2026-09-31T25:00"], root=root, cwd=repo)
+        check("since-a-time-that-is-no-date-is-exit-2",
+              out.returncode == 2 and "is not a time" in out.stderr, out.stdout + out.stderr)
+        elsewhere = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-norepo-"))
+        try:
+            out = run([SID, "--since", sha], root=root, cwd=elsewhere,
+                      env={"GIT_CEILING_DIRECTORIES": os.path.dirname(elsewhere)})
+            check("since-a-commit-outside-a-repository-is-exit-2",
+                  out.returncode == 2 and "not a git repository" in out.stderr,
+                  out.stdout + out.stderr)
+        finally:
+            shutil.rmtree(elsewhere, ignore_errors=True)
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+        shutil.rmtree(root, ignore_errors=True)
+
+    # --- finding the transcript: by its id, under any directory ---------------
+    # The harness names a directory after the session's path with `/` and `.`
+    # both turned into `-`, which the meter's lookup got wrong (the cycle
+    # README's §4.8): a session under .internal/scratch lives in `…--internal-
+    # scratch`. A directory holding a dot is found the same way.
+    for name, slug in (("found-by-its-id-under-a-dotted-paths-directory",
+                        "-home-client-Workspace-REPOS-project--internal-scratch"),
+                       ("found-by-its-id-under-a-directory-holding-a-dot",
+                        "-home-client-Workspace-REPOS-project-.internal")):
+        case(name, lines(typed("x", at(1))), 0, [("typed", "x")], slug=slug)
+    root = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-"))
+    try:
+        write(root, SLUG, "another-session", lines(typed("not this one", at(1))))
+        os.makedirs(os.path.join(root, SLUG, SID, "subagents"))
+        write(os.path.join(root, SLUG, SID), "subagents", SID, lines(typed("a subagent's", at(1))))
+        out = run([SID], root=root)
+        check("a-session-with-no-transcript-is-exit-2",
+              out.returncode == 2 and f"no transcript for session {SID}" in out.stderr
+              and not out.stdout, out.stdout + out.stderr)
+        write(root, SLUG, SID, lines(typed("one", at(1))))
+        write(root, "-home-client-elsewhere", SID, lines(typed("two", at(1))))
+        out = run([SID], root=root)
+        check("two-transcripts-for-one-id-is-exit-2-naming-both",
+              out.returncode == 2 and "has 2 transcripts" in out.stderr
+              and f"{SLUG}/{SID}.jsonl" in out.stderr
+              and f"-home-client-elsewhere/{SID}.jsonl" in out.stderr, out.stdout + out.stderr)
+        out = run(["../" + SLUG + "/" + SID], root=root)
+        check("a-session-id-that-is-a-path-is-exit-2",
+              out.returncode == 2 and "is not a session id" in out.stderr, out.stdout + out.stderr)
+        out = run([SID], root=os.path.join(root, "no-such-directory"))
+        check("a-root-that-is-not-a-directory-is-exit-2",
+              out.returncode == 2 and "is not a directory of transcripts" in out.stderr,
+              out.stdout + out.stderr)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    # The default root is under HOME, which is a temporary one here.
+    home = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-home-"))
+    try:
+        write(os.path.join(home, ".claude", "projects"), SLUG, SID, lines(typed("x", at(1))))
+        out = run([SID], env={"HOME": home})
+        check("the-default-root-is-the-homes-claude-projects",
+              out.returncode == 0 and '15:01:00 UTC typed: "x"' in out.stdout,
+              out.stdout + out.stderr)
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+    for name, args in (("no-argument-is-exit-2", []), ("since-without-a-value-is-exit-2", [SID, "--since"]),
+                       ("root-without-a-value-is-exit-2", [SID, "--root"]),
+                       ("two-sessions-is-exit-2", [SID, SID])):
+        out = run(args)
+        check(name, out.returncode == 2 and "usage:" in out.stderr, out.stdout + out.stderr)
+
+    # --- --json: the same object ---------------------------------------------
+    root = os.path.realpath(tempfile.mkdtemp(prefix="devteam-words-"))
+    try:
+        write(root, SLUG, SID, lines(typed("sounds good", at(11, 19)), notification(at(12)),
+                                     user("/compact", at(13))))
+        out = run([SID, "--json"], root=root)
+        try:
+            doc = json.loads(out.stdout)
+            r = doc["results"][0]
+            ok = (out.returncode == 3 and doc["exit"] == 3 and r["check"] == "client_words"
+                  and r["counts"] == {"printed": 1, "masked": 0, "skipped": 1, "lines": 3}
+                  and r["notes"] == [{"label": "2026-09-11 15:11:19 UTC typed",
+                                      "text": '"sounds good"'}]
+                  and [g["part"] for g in r["not_evaluated"]] == [f"{SID}.jsonl's entries"])
+        except (ValueError, KeyError, IndexError):
+            ok = False
+        check("json-carries-the-counts-each-prompt-and-the-part", ok, out.stdout + out.stderr)
+        out = run([SID, "--json"], root=os.path.join(root, "none"))
+        try:
+            doc = json.loads(out.stdout)
+            ok = out.returncode == 2 and doc["exit"] == 2 and "is not a directory" in doc["error"]
+        except (ValueError, KeyError):
+            ok = False
+        check("json-says-could-not-run-too", ok, out.stdout + out.stderr)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    shutil.rmtree(NO_HOME, ignore_errors=True)
+    total = passed + failed
+    print(f"\nclient_words control: {passed} passed, {failed} failed, {total} cases "
+          f"({fp} of them false-positive controls, {100 * fp // total}%)")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
