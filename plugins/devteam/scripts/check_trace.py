@@ -24,6 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
+import ledger  # noqa: E402 -- the ledger's grammar, and the first-word `open` test
 
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1617,7 +1618,7 @@ def check(devteam):
                 # Read whole, as check_refs reads the same field (roadmap
                 # 0.3.2, L-2.3): a line break inside it changes nothing.
                 d = AUDIT_DISPOSITION.match(line)
-                if d and current and not OPEN_DISP.match(result.joined(audit, n - 1, d.group(1))):
+                if d and current and not ledger.is_open(result.joined(audit, n - 1, d.group(1))):
                     disposed = True
             if current and not disposed:
                 add("open-finding-at-close", f"{rel_a}:{n_at}",
@@ -1659,9 +1660,9 @@ UNCOVERED = re.compile(r"^(R-\d+) is not discharged by any task$")
 AUDIT_FILE = re.compile(r"^T-(\d+)-[a-z]+-\d{4}-\d{2}-\d{2}\.md$")
 AUDIT_HEADING = re.compile(r"^#{2,3}\s+(COR|SEC|HYG|REV|CNV)-(\d+)\s*[\u2014\u2013-]")
 AUDIT_DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
-# `open` is the value's first word, as check_refs reads the same field: read
-# whole, `open` with a note after it is still open (roadmap 0.3.2, L-2.3).
-OPEN_DISP = re.compile(r"^\**open\b(?!-)", re.I)
+# Whether it is open is ledger.is_open, the value's first word read whole, as
+# check_refs reads the same field (roadmap 0.3.2, L-2.3). It was a copy of
+# check_refs' regex, and has one home now (roadmap 0.3.3, L-3.2).
 
 
 def resolve(target):

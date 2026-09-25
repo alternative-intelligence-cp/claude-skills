@@ -48,6 +48,7 @@ what proves the three still agree.
 | question | an `###` heading in `QUESTIONS.md` | `### Q-1 — which config format?` |
 | checkpoint | the `#` title of `checkpoints/C-1-<date>.md` | `# C-1 — 2026-09-03 — ON-COURSE` |
 | finding | a bullet in `RECORD.md` | `- **F-9** — a client is not an operator` |
+| item | an `###` heading in `LEDGER.md`, and nowhere else | `### ITM-1 — the retry leaves two lines` |
 
 **A citation is the bare identifier in prose or in a field value** — `R-3`,
 `D-1`, `T-2`. `check_refs.py` diffs declarations against citations in both
@@ -122,13 +123,14 @@ L-2.10).
 | `C-` | a checkpoint | `checkpoints/` |
 | `F-` | a finding against the pipeline or the project | `RECORD.md`, as `- **F-n** — <one line>` |
 | `P-` | a protocol rule | the plugin's `PROTOCOL.md` — **external**, cited here, never declared here |
+| `ITM-` | an item raised, with its disposition | `LEDGER.md`, as `### ITM-n — <one line>`, and nowhere else (§"The ledger") |
 | `COR-` | a correctness audit finding | `audits/*.md`, as `## COR-n — <title>` |
 | `SEC-` | a security audit finding | `audits/*.md`, as `## SEC-n — <title>` |
 | `HYG-` | a hygiene audit finding | `audits/*.md`, as `## HYG-n — <title>` |
 | `REV-` | a review finding | `audits/*.md`, as `## REV-n — <title>` |
 | `CNV-` | a project-family convention | outside any project; cited from the decision that adopts or declines it |
 
-**The five three-letter prefixes above are CHECKED, and no others are.**
+**The six three-letter prefixes above are CHECKED, and no others are.**
 `check_refs` resolves them in both directions exactly as it does `D-n`, and
 `check_plugin`'s `namespace-drift` diffs this table against the scanner's own
 sets so the two cannot part company. **Every other three-letter prefix is still
@@ -158,10 +160,11 @@ and `SEC-2` cited from `DECISIONS.md`. Every one had been invisible for the
 whole of cycle 0.1.
 
 **What watches the namespace now, and what still does not.** `cited-undefined`
-and `duplicate-id` apply to these five as they do to `D-n`. `defined-uncited`
+and `duplicate-id` apply to these six as they do to `D-n`. `defined-uncited`
 deliberately does **not**: a finding nobody cites is the ordinary state of one
 still `Disposition. open`. In its place is `undispositioned-finding` — a
-finding whose `Disposition.` is `open` or missing.
+finding whose `Disposition.` is `open` or missing, and a ledger entry whose
+`Disposition.` is missing or reads `open` with no date (§"The ledger").
 
 **And the citation is not an escape from the disposition, which is the part
 that took a measurement to get right.** The obvious rule is *"cited, **or**
@@ -213,6 +216,7 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | step checkbox | `[ ]` pending · `[x]` done · `[~]` struck, with a reason on the line |
 | question `Status.` | `open` · `answered D-n` · `proceeded-unreviewed D-n` · `withdrawn` |
 | question `Class.` | `REVERSIBLE` · `IRREVERSIBLE` · `CHARTER` |
+| ledger `Disposition.` | `open (until T-n)` · `open (until C-n)` · `routed T-n` · `raised Q-n` · `declined (D-n)` · `fixed (<commit>)`, several commits comma-separated (roadmap 0.3.3, L-3.2). **An open item names the date it is due by**: the task whose close, or the checkpoint whose filing, it must be decided by. `routed T-n`: T-n owns it, and the entry's `Needs.` names the paths it needs changed. `raised Q-n`: the client decides, and Q-n's `Status.` is the one home of the answer. `declined (D-n)`: D-n says why it will not be acted on. `fixed (<commit>)`: the commits named fixed it, and a commit may be backticked. The value is matched whole, so a note goes on a bullet of its own. A value outside the set is `bad-status`, and one that reads `open` with no date is `undispositioned-finding` (§"The ledger") |
 | checkpoint verdict | `ON-COURSE` · `DRIFTED` · `BLOCKED` |
 | record verdict | `verify <label> PASS` · `verify <label> FAIL`: a top-level item in `RECORD.md` whose backticks hold the entry and nothing else, with bold or italic around the item read as decoration. The label names the task — a claim's `T<n>-<slug>-<HHMM>` or a task's `T-n` is the task's verdict, and a step's `T-n.S-m` is that step's. `scripts/tally.py` counts them per task for the checkpoint, and names by line, as not evaluated, each item whose entry is `verify` and that it cannot read. A `finding:` or `report` entry that mentions a verdict is not one (roadmap 0.3.2, L-2.12) |
 | REPORT `status:` | `DONE` · `BLOCKED` · `NEEDS-DECISION` · `RED` · `READY-TO-AUDIT`, any of them followed by one qualifier, `(reconstructed: <by whom, and why>)` (§"The REPORT block") |
@@ -222,6 +226,55 @@ Closed sets. A value outside its set is `bad-status`, never a guess.
 | charter `Containment` | `structural` · `guard-only`. Written by `/devteam:setup` from `sandbox_probe.py`'s exit code and re-checked at every `/devteam:run` startup. **Not a preference and never copied from an example** — it is a fact about the machine |
 | promotion findings | `promote-base-disagreement` · `promote-conflict` · `promote-extraction-failed` · `promote-fetch-failed` · `promote-foreign-subject` · `promote-history-rewrite` · `promote-host-index-dirty` · `promote-no-commits` · `promote-no-scope` · `promote-no-task-file` · `promote-out-of-scope` · `promote-task-file-unparsed` · `promote-task-file-untracked` · `promote-uncommitted`. Check output, closed set, emitted by `sandbox.py promote` and by its `--dry-run`. 0.2.6 is where each is named against the rule it enforces |
 | `check_report` harness findings | `budget-mismatch` · `model-mismatch`, for a step's block against the meter the `.sandbox` line names for that step. Excluded by name on a `guard-only` project, which has no harness meter, and for a task-level block, which is a supervisor's — **an absent measurement is not a finding**, and on a `structural` project it is named as not evaluated |
+
+---
+
+## The ledger
+
+`LEDGER.md` holds one entry for every item raised (P-52). An item is every
+finding an audit reports, every item under a REPORT block's `questions:`, and
+anything the manager raises itself, from what the client said or at a handoff.
+A `findings-for-protocol:` line is not an item: it is addressed to the
+pipeline, and `RECORD.md` keeps it (roadmap 0.3.3, L-3.1). The manager writes
+the ledger and nobody else (P-13). An item's text stays where it was raised,
+verbatim (P-17), and its entry names where, and holds its disposition.
+
+An entry is a heading and up to three fields:
+
+```
+### ITM-2 — the truncation branch's delivered bytes are unpinned
+
+- **Raised.** T-18.S-4 COR-6
+- **Needs.**
+  - `tests/test_failures.py`
+- **Disposition.** open (until C-9)
+```
+
+- **The heading** declares `ITM-n`, in `LEDGER.md` and nowhere else
+  (§"Identifier declarations"). The number is the ledger's own, taken in
+  order. The audit's label for the finding, `COR-6` here, is the audit's: the
+  entry names it in `Raised.` and never renumbers it (roadmap 0.3.3, L-3.3).
+- **`Raised.`** names where the item's text is, in one of four forms:
+  - a REPORT block's item: the block's id, its key, and the item's opening
+    words — `T-19 questions "Does T-19's disclosed limit"`;
+  - a finding of an audit landed in a task file: the audit's scope, and the
+    finding's label — `T-18.S-4 COR-3`;
+  - a finding of an audit filed in `audits/`: the file's path, and the label —
+    `audits/T-7-security-2026-09-30.md SEC-2`;
+  - the manager's own: `client <YYYY-MM-DD>` or `manager <YYYY-MM-DD>`.
+- **`Needs.`**, when it is written, is a path list (§"Identifier
+  declarations"): the paths the item needs changed. A `routed` entry needs it.
+- **`Disposition.`** is one value of the ledger's vocabulary (§"Status
+  vocabularies"), read whole across its continuation lines.
+
+Anything else the manager has to say goes on a bullet of its own after the
+fields. `check_refs` reads each entry's heading and its `Disposition.`. An
+entry with no `Disposition.`, or one that reads `open` and names no date, is
+`undispositioned-finding`: undecided, and nobody is due to decide it. A value
+outside the vocabulary is `bad-status`, as T-18's *carried to the checkpoint …
+to be given an owner there* would be. `scripts/ledger.py <project>` prints
+every entry's disposition and the counts by value, and names by line each
+entry whose disposition it could not count, as not evaluated.
 
 ---
 
@@ -312,7 +365,7 @@ record` section and compares what each claims against the tree (roadmap
 | Check | Reads | Diffs |
 |---|---|---|
 | `check_trace.py` | `CHARTER.md`, `REQUIREMENTS.md` and its committed history, `tasks/*.md`, `BOARD.md`'s Tasks table — and its in-flight table while a task is `CLAIMED` — and `audits/` | goals ↔ requirements ↔ tasks ↔ acceptance criteria; the board ↔ the task titles; the latest amendment ↔ the charter's conditions, and its number ↔ the header; a `PLANNED` task's estimate ↔ its steps |
-| `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks |
+| `check_refs.py` | every `.md` git would show under `devteam/` | citations ↔ declarations; links ↔ files; leaks; each status value ↔ its vocabulary; each audit finding's disposition ↔ not `open`, and each ledger entry's ↔ decided, or open with a date (§"The ledger") |
 | `check_report.py` | one `tasks/T-n.md`; the files its `Scope.` names, for stub markers; the charter's `Containment` row; HEAD's history — the board's in it, for the task's current claim, and each block's header line by `git blame` — and `git status`; and the harness's `.run/locks/T-n.sandbox` line, with the `meta/budget.json` and `meta/base.sha` of the sandbox it names | the task's current report ↔ its title; the task's current report and each step's latest REPORT block ↔ the committed tree, and the commits each cites ↔ HEAD's history; a step's block ↔ its own step's meter (§"The REPORT block") |
 | `check_scope.py` | `BOARD.md` and its history, `tasks/*.md`, HEAD's `git log` and `git status` | declared scopes ↔ each other, and ↔ what was written: by each task's commits, and by commits naming no task since a running task's current claim |
 

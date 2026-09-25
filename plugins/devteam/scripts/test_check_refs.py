@@ -147,7 +147,36 @@ AUDIT_ROUTED = """# T-1 security audit
 Prose about the finding.
 """
 
-# (case name, [mutations], expected finding kinds)
+# --- the ledger (roadmap 0.3.3, L-3.1 to L-3.3) --------------------------
+# One entry per value of the ledger's vocabulary, each citing what the fixture
+# declares, and an open item dated by the fixture's task.
+LEDGER_HEAD = "# The ledger\n\nProse about the ledger.\n\n---\n\n"
+
+
+def ledger_entry(n, disposition, raised="manager 2026-09-04", extra=""):
+    body = f"### ITM-{n} — item {n}\n\n- **Raised.** {raised}\n{extra}"
+    if disposition is not None:
+        body += f"- **Disposition.** {disposition}\n"
+    return body + "\n"
+
+
+LEDGER_OK = LEDGER_HEAD + "".join((
+    ledger_entry(1, "raised Q-1", 'T-1 questions "which formatter"'),
+    ledger_entry(2, "routed T-1", extra="- **Needs.**\n  - `src/`\n"),
+    ledger_entry(3, "declined (D-1)"),
+    ledger_entry(4, "open (until T-1)"),
+    ledger_entry(5, "open (until C-1)"),
+    ledger_entry(6, "fixed (a4f3774, `55c0eb7`)"),
+))
+CHECKPOINT = "# C-1 — 2026-09-04 — ON-COURSE\n\nThe verdict.\n"
+
+
+def ledger(*entries):
+    return ("tracked", "LEDGER.md", LEDGER_HEAD + "".join(entries))
+
+
+# (case name, [mutations], expected finding kinds[, parts not evaluated[, words
+# the output must hold]])
 CASES = [
     # --- one fault per class, and exactly that class back -----------------
     ("clean", [], set()),
@@ -486,6 +515,79 @@ S-1 is the only step.
        "One file per task, named `T-1.md`. See `C-1-<date>.md` for checkpoints.\n"),
       ("tracked", "research/README.md", "Digests live here; see D-9 for the policy.\n")],
      set()),
+    # --- the ledger (roadmap 0.3.3, L-3.1 to L-3.3) -----------------------
+    # Every value of the vocabulary reads clean, an open item named with its
+    # date among them.
+    ("clean-a-ledger-entry-per-value",
+     [("tracked", "LEDGER.md", LEDGER_OK), ("tracked", "checkpoints/C-1-2026-09-04.md", CHECKPOINT)],
+     set()),
+    # A ledger as setup installs it: its example stripped, no entry.
+    ("fp-an-empty-ledger", [ledger()], set()),
+    ("fp-a-ledger-disposition-continuing-onto-a-second-line-is-read-whole",
+     [ledger(ledger_entry(1, "fixed (a4f3774,\n  55c0eb7)"))], set()),
+    # F-99 AND F-139'S STATE: an item with no owner and no date. An entry with
+    # no disposition, one reading `open`, and one reading `open` with T-18's
+    # reason after it are each undispositioned.
+    ("undispositioned-finding-a-ledger-entry-with-no-disposition",
+     [ledger(ledger_entry(1, None))], {"undispositioned-finding"}),
+    ("undispositioned-finding-f99-a-ledger-entry-reading-open",
+     [ledger(ledger_entry(1, "open"))], {"undispositioned-finding"}, set(),
+     "an open item is `open (until T-n)` or `open (until C-n)`"),
+    ("undispositioned-finding-f139-open-carried-to-the-checkpoint",
+     [ledger(ledger_entry(1, "open — carried to the checkpoint, to be given an owner there"))],
+     {"undispositioned-finding"}),
+    # OUTSIDE THE VOCABULARY. T-18's COR-1, as its manager wrote it, and T-18's
+    # three deferrals: bad-status, whose message shows the vocabulary.
+    ("bad-status-t18-cor1-put-to-the-client-in-the-ledger",
+     [ledger(ledger_entry(1, "put to the client as Q-1"))], {"bad-status"}, set(),
+     "`raised Q-n`"),
+    ("bad-status-t18s-carried-to-the-checkpoint-in-the-ledger",
+     [ledger(ledger_entry(1, "carried to the checkpoint D-1 requires before T-1's next "
+                             "dispatch, to be given an owner there"))], {"bad-status"}),
+    # ...and the same wording in an audit file still reads as decided: the
+    # first-word test stays the audit file's reading until 0.3.3's step 3.4,
+    # so that no commit in between reads less than the one before it.
+    ("fp-t18s-carried-wording-in-an-audit-file-still-reads-decided",
+     [("tracked", "audits/T-1-security-2026-09-04.md",
+       AUDIT_ROUTED.replace("routed T-1", "carried to the checkpoint D-1 requires before "
+                                          "T-1's next dispatch, to be given an owner there"))],
+     set()),
+    # A placeholder teaches the grammar, as in every other closed field.
+    ("fp-a-ledger-disposition-placeholder-is-teaching",
+     [ledger(ledger_entry(1, "<one of the five values>"))], set()),
+    # THE ID: declared by the ledger's heading, and nowhere else.
+    ("duplicate-id-an-item-declared-twice",
+     [ledger(ledger_entry(1, "raised Q-1"), ledger_entry(1, "declined (D-1)"))],
+     {"duplicate-id"}),
+    ("cited-undefined-an-item-no-ledger-declares",
+     [append("RECORD.md", "\n- ITM-3 went to the client.\n")], {"cited-undefined"}, set(),
+     "Declare it in LEDGER.md as `### ITM-3 — <one line>`"),
+    ("cited-undefined-an-item-heading-in-a-task-file-declares-nothing",
+     [append("tasks/T-1.md", "\n### ITM-3 — declared in the wrong file\n")],
+     {"cited-undefined"}),
+    ("fp-an-item-the-ledger-declares-resolves",
+     [ledger(ledger_entry(1, "raised Q-1")), append("RECORD.md", "\n- ITM-1 went to the client.\n")],
+     set()),
+    # `defined-uncited` is not the ledger's: an item nobody cites is the
+    # ordinary state of one being decided.
+    ("fp-an-item-nobody-cites-is-not-defined-uncited",
+     [ledger(ledger_entry(1, "declined (D-1)"))], set()),
+    # A disposition named and not written as the field reads as absent, and
+    # the line is named; a second one leaves the first standing, and is named.
+    ("partial-read-a-ledger-disposition-named-with-a-colon",
+     [ledger(ledger_entry(1, None, extra="- **Disposition**: raised Q-1\n"))],
+     {"undispositioned-finding"}, {"LEDGER.md's dispositions"}),
+    ("partial-read-a-second-disposition-in-a-ledger-entry",
+     [ledger(ledger_entry(1, "raised Q-1", extra="- **Disposition.** declined (D-1)\n"))],
+     set(), {"LEDGER.md's dispositions"}, "a second `Disposition.` in ITM-1"),
+    # CNV- IS UNCHANGED (roadmap 0.3.3, L-3.3). A convention is declared
+    # outside any project, and a citation of one declared nowhere was
+    # `cited-undefined` before this subcycle and still is -- recorded under
+    # 0.3.3's Findings for the owner, and pinned here so that whoever changes
+    # it changes this case knowingly.
+    ("cnv-unchanged-a-convention-declared-nowhere-is-still-cited-undefined",
+     [append("DECISIONS.md", "- CNV-1 is adopted here.\n")], {"cited-undefined"}),
+
     # --- untracked files (roadmap 0.3.1, L-1.4) ----------------------------
     # THIS CASE USED TO BE `fp-untracked-file-is-not-scanned`, and asserted
     # F-131's defect: a file under devteam/ that is in no commit was invisible
@@ -739,6 +841,7 @@ def main():
     for case in CASES:
         name, mutations, expected = case[:3]
         want_gaps = case[3] if len(case) > 3 else set()
+        said = case[4] if len(case) > 4 else ""
         root = tempfile.mkdtemp(prefix="devteam-refs-")
         try:
             dt = build(root, mutations)
@@ -747,14 +850,16 @@ def main():
             got = set(re.findall(FINDING_LINE, proc.stdout, re.M))
             got_gaps = set(re.findall(r"^  not evaluated: (.+?) — ", proc.stdout, re.M))
             expected_exit = 1 if expected else (3 if want_gaps else 0)
-            ok = got == expected and got_gaps == want_gaps and proc.returncode == expected_exit
+            ok = (got == expected and got_gaps == want_gaps and proc.returncode == expected_exit
+                  and said in proc.stdout)
             if ok:
                 passed += 1
             else:
                 failed += 1
                 print(f"FAIL  {name}")
                 print(f"        expected {sorted(expected) or 'clean'} "
-                      f"not evaluated {sorted(want_gaps) or 'none'} exit {expected_exit}")
+                      f"not evaluated {sorted(want_gaps) or 'none'} exit {expected_exit}"
+                      + (f", saying {said!r}" if said else ""))
                 print(f"        got      {sorted(got) or 'clean'} "
                       f"not evaluated {sorted(got_gaps) or 'none'} exit {proc.returncode}")
                 for line in (proc.stdout + proc.stderr).strip().split("\n"):

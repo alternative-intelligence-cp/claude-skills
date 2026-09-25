@@ -25,7 +25,7 @@ an existing `devteam/` — that directory is the project's design record, and
 a setup that can clobber it eventually will. If it refuses, stop and tell the
 client what is already there; **do not move it aside for them.**
 
-It installs eight artifacts, creates empty `tasks/` and `checkpoints/`,
+It installs nine artifacts, creates empty `tasks/` and `checkpoints/`,
 creates the untracked `.run/`, adds `devteam/.run/` to `.gitignore`, and
 detects what the project already uses — stack, build, test and lint commands,
 candidate protected paths, the remote — pre-filling the charter's constraints

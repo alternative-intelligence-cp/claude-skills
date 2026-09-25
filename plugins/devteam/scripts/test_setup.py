@@ -59,10 +59,11 @@ def ignore_lines(p):
 
 def main():
     root = tempfile.mkdtemp(prefix="devteam-setup-control-")
-    passed = failed = 0
+    passed = failed = fp = 0
 
     def case(name, ok, detail=""):
-        nonlocal passed, failed
+        nonlocal passed, failed, fp
+        fp += name.startswith("fp-")
         if ok:
             passed += 1
         else:
@@ -171,6 +172,25 @@ def main():
         case("charter-strips-the-goal-examples",
              "**G-1**" not in charter,
              "this repository's example goals shipped into a client's charter")
+        # -- the ledger is scaffolded, with its example stripped ------------
+        # Every item raised has its entry there (P-52; roadmap 0.3.3, L-3.1),
+        # so a project without the file has nowhere to write one. Its example
+        # entry is an illustration, and installed it would be an item nobody
+        # raised, with no date.
+        rc, out = scaffold(project(root, "ledger"))
+        ledger_path = os.path.join(root, "ledger", "devteam", "LEDGER.md")
+        ledger = open(ledger_path, encoding="utf-8").read() if os.path.isfile(ledger_path) else ""
+        case("the-ledger-is-scaffolded",
+             rc == 0 and "# The ledger" in ledger and "9 artifacts" in out,
+             f"exit {rc}; LEDGER.md {'present' if ledger else 'absent'}; {out.strip()[:200]}")
+        case("the-ledger-ships-no-example-entry",
+             "ITM-1" not in ledger and "example:begin" not in ledger,
+             "the ledger template's example entry shipped into a client's ledger")
+        # ...and stripping the example keeps the guidance around it: who writes
+        # the file, and the rule it answers to.
+        case("fp-the-ledger-keeps-its-guidance",
+             "P-52" in ledger and "The manager writes this file" in ledger,
+             "the scaffolded ledger lost the guidance around its example")
 
         # -- FALSE-POSITIVE CONTROLS ---------------------------------------
         # A stack that was NOT detected gets no stack lines. Without this the
@@ -230,8 +250,9 @@ def main():
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
+    # Counted by name. This printed a constant, 6, which matched the cases
+    # until one was added (roadmap 0.3.3, §3.1).
     total = passed + failed
-    fp = 6
     print(f"\nsetup control: {passed} passed, {failed} failed, {total} cases "
           f"({fp} of them false-positive controls, {100 * fp // total}%)")
     return 1 if failed else 0

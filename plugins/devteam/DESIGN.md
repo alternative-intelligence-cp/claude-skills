@@ -160,6 +160,8 @@ devteam/
 ├── BOARD.md              live state AND the lock. The manager owns it. P-11
 ├── RECORD.md             append-only event log. The durable output. P-42
 ├── PERMISSIONS.md        every permission, with why the loop needs it. P-38
+├── LEDGER.md             ITM-n: every item raised · where its text is ·
+│                         its disposition, or the date it is due by. P-52
 ├── tasks/
 │   └── T-1.md            goal · requirements discharged · declared write
 │                         scope · steps · gate · verification command ·

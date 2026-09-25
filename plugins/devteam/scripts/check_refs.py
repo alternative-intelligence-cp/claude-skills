@@ -28,6 +28,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import result  # noqa: E402 -- the four-result contract (roadmap 0.3.1, L-1.1)
+import ledger  # noqa: E402 -- the ledger's grammar (roadmap 0.3.3, L-3.1)
 
 # --- the grammar (templates/FORMATS.md) ----------------------------------
 
@@ -58,7 +59,11 @@ DECLARATIONS = (
 # either direction. 0.2.6 reserves these five and watches them. Nothing
 # three-letter beyond this set is resolved; everything else is still ignored.
 AUDIT = {"COR", "SEC", "HYG", "REV", "CNV"}
-KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F"} | AUDIT
+# `ITM-n` is an item's one id, declared by its heading in LEDGER.md and nowhere
+# else (roadmap 0.3.3, L-3.3), from ledger.HEADING. Like an audit finding it is
+# not in MUST_BE_CITED: an item nobody cites is the ordinary state of one being
+# decided, and its disposition is what is judged.
+KNOWN = {"G", "DM", "R", "T", "S", "D", "Q", "C", "F", "ITM"} | AUDIT
 TASK_FILE = re.compile(r"(^|/)tasks/[^/]+\.md$")
 # `T-4.S-2` -- the only form that names which task's step it means.
 QUALIFIED_STEP = re.compile(r"\bT-(\d+)(?:'s)?[.\s]\s*(?=S-)S-(\d+)\b")
@@ -115,7 +120,7 @@ LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 # it just is not project state, and reporting its illustrations as dangling
 # citations is the false positive that gets a check disabled (P-35).
 ARTIFACTS = re.compile(
-    r"^(CHARTER|REQUIREMENTS|DECISIONS|QUESTIONS|BOARD|RECORD|PERMISSIONS)\.md$"
+    r"^(CHARTER|REQUIREMENTS|DECISIONS|QUESTIONS|BOARD|RECORD|PERMISSIONS|LEDGER)\.md$"
     r"|^tasks/T-\d+\.md$"
     r"|^checkpoints/C-\d+[^/]*\.md$"
     r"|^research/(?!README\.md$)[^/]+\.md$"
@@ -234,6 +239,7 @@ HOMES = {
     "T":  ("tasks/{id}.md",   "# {id} — <title>"),
     "C":  ("checkpoints/",    "# {id} — <title>"),
     "S":  ("its task file",   "- [ ] **{id}** <one line>"),
+    "ITM": ("LEDGER.md",      "### {id} — <one line>"),
 }
 
 
@@ -282,12 +288,9 @@ class CouldNotRun(Exception):
 WORKING_STATE = ("untracked-file",)
 
 DISPOSITION = re.compile(r"^\s*-\s+\*\*Disposition\.\*\*\s*(.+?)\s*$")
-# OPEN IS THE FIRST WORD, NOT THE WHOLE VALUE (roadmap 0.3.2, L-2.3). The value
-# is read whole now, and an exact match would have read `open` with a note on
-# the next line as dispositioned -- the note made it not-`open`. A value that
-# says it is open is open, whatever follows it. `check_trace` keeps the same
-# rule for the same field.
-OPEN_DISPOSITION = re.compile(r"^\**open\b(?!-)", re.I)
+# Whether an audit file's disposition is open is ledger.is_open: the value's
+# first word, read whole (roadmap 0.3.2, L-2.3). It was a regex copied here
+# and into check_trace, and it has one home now (roadmap 0.3.3, L-3.2).
 
 # --- what each file OFFERS (roadmap 0.3.1, L-1.3) --------------------------
 # The grammar above says what parses. These say what was WRITTEN in each
@@ -303,7 +306,7 @@ DECLARED_IN = {
     "F": re.compile(r"^RECORD\.md$"), "R": re.compile(r"^REQUIREMENTS\.md$"),
     "D": re.compile(r"^DECISIONS\.md$"), "Q": re.compile(r"^QUESTIONS\.md$"),
     "T": re.compile(r"^tasks/"), "S": re.compile(r"^tasks/"),
-    "C": re.compile(r"^checkpoints/"),
+    "C": re.compile(r"^checkpoints/"), "ITM": re.compile(r"^LEDGER\.md$"),
     **{p: re.compile(r"^audits/") for p in AUDIT},
 }
 DECLARATION_ISH = (
@@ -340,7 +343,7 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
     # ident -> (file:line, disposition-text-or-None) for audit findings only.
     audit_findings = {}
     # What the files offered, for the parts not evaluated (L-1.3).
-    offered = {"declarations": [], "audit": {}, "vocab": {}, "dispositions": {}}
+    offered = {"declarations": [], "audit": {}, "vocab": {}, "dispositions": {}, "ledger": []}
 
     for path in files:
         rel = os.path.relpath(path, base)
@@ -483,6 +486,13 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
                 if m:
                     decl = f"{m.group(1)}-{m.group(2)}"
                     break
+            # An item's id is declared in the ledger and nowhere else, so
+            # `### ITM-3 —` in a task file declares nothing and reads as the
+            # citation it is (roadmap 0.3.3, L-3.3).
+            if decl is None and relp == ledger.PATH:
+                m = ledger.HEADING.match(line)
+                if m:
+                    decl = f"{m.group(1)}-{m.group(2)}"
 
             if decl:
                 # An audit finding opens a block: the `Disposition.` line that
@@ -560,6 +570,37 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
                     continue
                 cited.setdefault(f"{pre}-{num}", []).append(f"{rel}:{n}")
 
+        # THE LEDGER'S DISPOSITIONS, read through the ledger's own reader
+        # (roadmap 0.3.3, L-3.2; P-34). An entry is decided, or it names the
+        # date it is due by: an entry with no `Disposition.`, or one that reads
+        # `open` and names no `until`, is undispositioned. pricelog's T-18
+        # wrote three deferrals as "carried to the checkpoint ... to be given
+        # an owner there", which the first-word test read as decided; in the
+        # ledger that wording is outside the vocabulary, and is `bad-status`,
+        # as every other closed field's value outside its set is.
+        if is_artifact and rel.replace(os.sep, "/") == ledger.PATH:
+            listed, unread = ledger.entries(lines)
+            offered["ledger"] += [(n, what) for n, field, what in unread
+                                  if field == "Disposition"]
+            for e in listed:
+                got = e.fields.get("Disposition")
+                if got is None:
+                    findings.append(("undispositioned-finding", rel, e.line,
+                                     f"{e.ident} carries no **Disposition.** line — an item "
+                                     f"is decided, or names the date it is due by: "
+                                     f"{ledger.GRAMMAR}"))
+                elif e.parsed() is None and not TEACHING.search(got[1]):
+                    if ledger.is_open(got[1]):
+                        findings.append(("undispositioned-finding", rel, e.line,
+                                         f"{e.ident} reads {got[1]!r}: open, with no date the "
+                                         f"vocabulary reads — an open item is `open (until "
+                                         f"T-n)` or `open (until C-n)`, the task or the "
+                                         f"checkpoint by which it is decided"))
+                    else:
+                        findings.append(("bad-status", rel, got[0],
+                                         f"ledger-disposition: {got[1]!r} is not in the "
+                                         f"vocabulary — {ledger.GRAMMAR}"))
+
 
     for (owner, ident), sites in sorted(step_cited.items()):
         if f"{owner}:{ident}" not in declared:
@@ -618,7 +659,7 @@ def scan(files, base, untracked=frozenset(), quoted=frozenset()):
     # a citation-based rule scored zero. Letting a citation excuse a missing
     # disposition rebuilds the hole the field exists to close.
     for ident, (where, disp) in sorted(audit_findings.items()):
-        if disp is not None and not OPEN_DISPOSITION.match(disp):
+        if disp is not None and not ledger.is_open(disp):
             continue
         f, n = where.rsplit(":", 1)
         why = ("carries no **Disposition.** line at all" if disp is None
@@ -667,6 +708,17 @@ def gaps_from(offered, declared):
                      "parse as `- **Disposition.** <value>`, so undispositioned-finding "
                      f"read a finding's disposition as absent "
                      f"({result.anchors([(rel, n) for n in rows])})"))
+    # The ledger's own reader says why each line was not read: a field named
+    # and not written as one reads as absent, and a second one in an entry
+    # leaves the first standing.
+    rows = offered["ledger"]
+    if rows:
+        gaps.append((f"{ledger.PATH}'s dispositions", f"{len(rows)} `Disposition.` line(s) "
+                     "the ledger's grammar does not read — "
+                     + "; ".join(f"line {n}: {what}" for n, what in rows)
+                     + " — so undispositioned-finding judged each of those entries by the "
+                     "line it did read, or as having none "
+                     f"({result.anchors([(ledger.PATH, n) for n, _ in rows])})"))
     return gaps
 
 

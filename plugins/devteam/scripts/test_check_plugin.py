@@ -292,6 +292,20 @@ CASES = [
                  REFS.replace('KNOWN = {"R", "T"}',
                               'KNOWN = {"R", "T"}\nAUDIT = {"COR"}')),
      {"namespace-drift"}),
+    # THE LEDGER'S ID IS THE FIRST THREE-LETTER PREFIX IN `KNOWN` ITSELF
+    # (roadmap 0.3.3, L-3.3). The audit prefixes were read from `AUDIT`; a
+    # reading of `KNOWN` cut to two letters would drop `ITM` and compare
+    # nothing about it.
+    ("namespace-drift-a-three-letter-prefix-in-known-not-reserved",
+     lambda p: w(p, "scripts/check_refs.py",
+                 REFS.replace('KNOWN = {"R", "T"}', 'KNOWN = {"R", "T", "ITM"}')),
+     {"namespace-drift"}),
+    ("fp-a-three-letter-prefix-in-known-and-reserved",
+     lambda p: (w(p, "scripts/check_refs.py",
+                  REFS.replace('KNOWN = {"R", "T"}', 'KNOWN = {"R", "T", "ITM"}')),
+                w(p, "templates/FORMATS.md",
+                  FORMATS + "| `ITM-` | an item raised | LEDGER.md |\n")),
+     set()),
     ("fp-unreserved-three-letter-prefixes-still-need-no-reserving",
      lambda p: w(p, "templates/FORMATS.md",
                  FORMATS + "\nEncoded UTF-8 per RFC-2119; see ABC-1 and XYZ-9.\n"),
@@ -680,6 +694,14 @@ def main():
         # stale-acceptance alone once the record cites its decision.
         ("template-ships-a-finding-check-trace-reports",
          prose_protected_paths, {"template-ships-a-finding"}, set()),
+        # THE LEDGER TEMPLATE IS SCAFFOLDED, AND READ (roadmap 0.3.3, §3.1): an
+        # entry shipped outside its example markers is a finding in every
+        # fresh project -- here, an item with no date, undispositioned.
+        ("template-ships-a-finding-the-ledger-template",
+         append_to("templates/LEDGER.md",
+                   "\n### ITM-1 — a planted item\n\n- **Raised.** manager 2026-09-25\n"
+                   "- **Disposition.** open\n"),
+         {"template-ships-a-finding"}, set()),
         ("template-ships-a-finding-check-scope-reports",
          both(append_to("templates/DECISIONS.md",
                         "\n### D-1 — a planted acceptance\n\n"

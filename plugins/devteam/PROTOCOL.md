@@ -511,6 +511,33 @@ stopped, when the table holds three, or when the oldest unanswered item reaches
 the configured window — whichever comes first. Interrupting a client once with
 three questions costs far less than three interruptions.
 
+**P-52 — An item raised is ledgered: it has one entry, with a decision or a
+date by which one is due, and a landing that leaves one without is refused.**
+An item is anything raised for somebody to decide: a finding an audit reports,
+anything a report leaves undecided — a question for the client, or a defect it
+found and did not fix — and anything the manager raises itself, from what the
+client said or at a handoff. A report's findings for the protocol are not
+items; they are the pipeline's, and the record keeps them. Each item has one
+entry in `devteam/LEDGER.md`, which the manager writes (P-13). The entry gives
+the item an id and names where its text is, and the text stays there,
+verbatim (P-17). Its disposition is one value of a closed vocabulary, and an
+undecided item names the task or the checkpoint by which it must be decided.
+A commit that leaves a due item without its entry is refused at the gate
+(P-49). The grammar is `templates/FORMATS.md` §"The ledger".
+
+*Why.* The run raised items that reached no owner, to the end. An auditor's
+open item needing the client's decision was read past by its supervisor and by
+the manager, and was lost at a stop (F-139). A gate audit's finding sat four
+days with nobody's name on it (F-99). Three of one audit's findings were
+written *carried to the checkpoint … to be given an owner there*, and the
+checks read all three as decided, because their vocabulary had no date and
+they judged only whether the first word was `open`. A question's status lived
+in two files that disagreed (F-63, F-64). What the client said between two
+managers' writes reached no file at any of fifteen rotations (F-21). Somebody
+had seen every one of those items. What was missing was one place where an
+undecided item stayed visible, and a date after which leaving it undecided was
+a finding.
+
 ---
 
 ## 6. Checkpoints and audit

@@ -506,6 +506,16 @@ CASES = [
      {"open-finding-at-close"}),
 
     # --- FALSE-POSITIVE TWINS ---------------------------------------------
+    # `open` is a word, not a prefix: a disposition beginning `opened` is
+    # decided. The test is ledger.is_open, one home for both checks (roadmap
+    # 0.3.3, L-3.2), and this is check_trace's own twin of it.
+    ("fp-open-finding-at-close-a-disposition-beginning-opened-is-decided",
+     {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
+      "REQUIREMENTS.md": REQS_R1_DONE,
+      "audits/T-1-correctness-2026-09-04.md":
+          AUDIT_OPEN.replace("- **Disposition.** open", "- **Disposition.** opened as Q-1"),
+      "BOARD.md": BOARD.format(s1="DONE", s2="—")},
+     set()),
     # A finding that WAS routed is the ordinary case and must stay silent.
     ("fp-routed-finding-at-close-is-clean",
      {"tasks/T-1.md": T1.replace("— PLANNED", "— DONE (2026-09-07)"),
