@@ -49,6 +49,7 @@ lexical order.
 | the numbered rules, each with the failure that produced it | [`PROTOCOL.md`](../../PROTOCOL.md) |
 | the grammar the checks parse | [`templates/FORMATS.md`](../../templates/FORMATS.md) |
 | the sandbox idea corrected and measured on this machine, as a build order — "the spec" wherever a subcycle says so | [`../devteam-sandbox-spec-2026-09-05.md`](../devteam-sandbox-spec-2026-09-05.md) |
+| a candidate companion plugin: usage and context figures agents can read — what was measured on 2026-09-27, and why `devteam` may want it; not a plan | [`../usage-and-context-publisher-2026-09-27.md`](../usage-and-context-publisher-2026-09-27.md) |
 
 **Private, on the owner's machine** (paths as the subcycle files cite them):
 
